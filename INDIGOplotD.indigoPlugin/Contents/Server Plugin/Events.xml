@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<Events>
+        <Event id="PlotsRefreshed">	<Name>PlotsRefreshed</Name></Event>
+</Events>

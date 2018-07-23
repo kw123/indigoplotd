@@ -1,0 +1,1198 @@
+<?xml version="1.0"?>
+<Devices>
+
+
+
+
+<Device type="custom" id="plots">
+        <Name>plots</Name>
+
+
+<ConfigUI>
+
+<!-- this is to store plot data per device-->
+<Field id="PLOTindigo" type="textfield" defaultValue="" readonly="yes" hidden="yes"> </Field>
+
+
+
+
+<Field id="infoLabel" type="label">
+    <Label>Plot Device Properties: Temp,Humidty,Energy,Rain,AC-OnOff,..</Label>
+    </Field>
+
+<Field id="infoLabel2" type="label">
+    <Label>									- Developed by Karl Wachs</Label>
+    </Field>
+
+
+<Field id="s0" type="separator"/>
+
+<Field id="ExpertsP"             type="checkbox"  defaultValue="false">
+    <Label>Expert tools:</Label>
+    <Description>select binning, Math tools, etc</Description>
+    <CallbackMethod>ExpertOnOffPlotCALLBACK</CallbackMethod>
+    </Field>
+
+<Field id="dev1"   type="label" >
+    <Label>                                1.     Remember to FIRST define the devices you </Label>
+    </Field>
+
+<Field id="dev2"  type="label" >
+    <Label>                                                     want to plot in -Plugin/Configure-</Label>
+    </Field>
+
+<Field id="DefinePlots"         type="checkbox"  defaultValue="false">
+    <Label>2.     setup Plot:</Label>
+    <Description>Second Step</Description>
+    <CallbackMethod>PlotsOnOffCALLBACK</CallbackMethod>
+    </Field>
+
+<Field id="DefineLines"         type="checkbox"  defaultValue="false">
+    <Label>3.   setup Lines:</Label>
+    <Description>Third Step</Description>
+    <CallbackMethod>LinesOnOffCALLBACK</CallbackMethod>
+    </Field>
+
+
+
+<Field id="ExpertsAndPlots"        type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="ExpertsAndLines"        type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="selectLinesOK"          type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="DefineLinesANotSelect"  type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="DefineLinesASelected"   type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="DefineLinesBNotSelect"  type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="DefineLinesBSelected"   type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="showFunc"               type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="fontsGNUONOFF"          type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="fontsMATONOFF"          type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="TimeseriesAndPlots"     type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="showBins"               type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="showBinsS"              type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="showXscale"             type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="showY2scale"            type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="showRGBBackground"      type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<Field id="showRGBText"            type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+<!--
+<Field id="showRGBLine"            type="checkbox" defaultValue="true"  hidden="yes"> </Field>
+-->
+<Field id="polarLineText"          type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="polarPlotText"          type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="amPm"                   type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="leftRight"              type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="showExtraText"          type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="showNotScatter"         type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="showNotScatterS"        type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="showNotScatterC"        type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="showSmooth"             type="checkbox" defaultValue="false" hidden="yes"> </Field>
+<Field id="showLineShift"          type="checkbox" defaultValue="false" hidden="yes"> </Field>
+
+<!-- plots  -->
+<Field                                                           id="text2--3"    type="textfield" defaultValue="%%v:id or name%%"    readonly="yes">
+    <Label>Dynamic variables can be used in any text field:</Label>
+    </Field>
+
+<Field                                                           id="text2-1"    type="textfield" defaultValue="  and then confirm !"     readonly="yes">
+    <Label>2. Configure  Plot Parameters...........</Label>
+    </Field>
+
+<!--  what kind of plot:  value vs time x or value v Phi in polar coordinates -->
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="XYvPolar"   type="menu" defaultValue="xy" tooltip="Select the TYPE of plot:   y vs x   or   y vs degree polar ">
+<Label> X/Y or Polar plot........................:</Label>
+        <List>
+            <Option value="xy" >Y versus X (eg timeline plot)</Option>
+            <Option value="polar" >Y versus angle = Polar Plot</Option>
+        </List>
+        <CallbackMethod>plotXYvPolarCALLBACK</CallbackMethod>
+        </Field>
+
+
+<!--  source of data:  completely (x,y1,y2,y3,y4..) from file/variable or directly from device recorded over time -->
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="PlotType"   type="menu" defaultValue="dataFromTimeSeries" tooltip="Select the TYPE of data source for the lines you select in step 3">
+    <Label> Data Source for LINES in Plot....:</Label>
+    <List>
+        <Option value="dataFromVariable"   >Data in Variable entered below</Option>
+        <Option value="dataFromFile"       >Data in File entered below</Option>
+        <Option value="dataFromTimeSeries" >Time-series from Devices or Variables extracted every minute as setup in step 1 in configuration </Option>
+    </List>
+    <CallbackMethod>plotDataTypeCALLBACK</CallbackMethod>
+    </Field>
+<Field visibleBindingId="TimeseriesAndPlots" visibleBindingValue="false" id="PlotFileOrVariName"		  type="textfield" defaultValue="" tooltip="This is the filename(in ~indigo/INDIGOplotD/) or Variable for the data source selected above" >
+    <Label>File-name or Variable-Name:</Label>
+    </Field>
+
+
+
+
+<!--  plot parameters  size and text size ratio of size 1 and size 2 -->
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="resxy0"			type="textfield" defaultValue="800,350"  tooltip="in number of pixel" >
+    <Label>Resolution for...............set 1 x,y:</Label>
+    </Field>
+
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="resxy1"			type="textfield" defaultValue="1024,768"  tooltip="in number of pixel">
+    <Label>...set 2 x,y:</Label>
+    </Field>
+
+<Field visibleBindingId="ExpertsAndPlots" visibleBindingValue="true" id="Textscale21"		type="textfield" defaultValue="1.0"  tooltip="scale factor of font size between res2 vs res1 plot" >
+    <Label>...FontSizeRatio Res2/Res1: </Label>
+    </Field>
+
+
+
+
+
+<!--  text color -->
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="TextColor" type="menu" defaultValue="#000000" tooltip="Select color of text and frame in plot" >
+    <Label>Text .................................. Color:</Label> <List>
+        <Option value='#FFA500' >orange</Option>
+        <Option value='#FF0000' >light-red</Option>
+        <Option value='#A00000' >dark-red</Option>
+        <Option value='#FFFF00' >light-yellow</Option>
+        <Option value='#A0A000' >dark-yellow</Option>
+        <Option value='#00FF00' >light-green</Option>
+        <Option value='#00A000' >dark-green</Option>
+        <Option value='#00FFFF' >light-green-blue</Option>
+        <Option value='#00A0A0' >dark-green-blue</Option>
+        <Option value='#0000FF' >light-blue</Option>
+        <Option value='#0000A0' >dark-blue</Option>
+        <Option value='#8B00B2' >light-indigo</Option>
+        <Option value='#4B0082' >dark-indigo</Option>
+        <Option value='#000000' >black</Option>
+        <Option value='#383838' >dark-grey</Option>
+        <Option value='#E0E0E0' >light-grey</Option>
+        <Option value='#FFFFFF' >white</Option>
+        <Option value='0'>enter RGB value below</Option>
+    </List>
+    <CallbackMethod>plotTextColorRGBCALLBACK</CallbackMethod>
+    </Field>
+
+<Field visibleBindingId="showRGBText" visibleBindingValue="true" id="TextColorRGB" type="textfield" defaultValue="100,100,100"  tooltip="in format: RRR,GGG,BBB  eg Red=255,0,0   Green=0,255,0   Blue=0,0,255" >
+    <Label>..RGB-Val.:0-255,0-255,0-255</Label>
+    </Field>
+
+<!--  text size in points -->
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="TextSize" type="menu" defaultValue="8" tooltip="Select the font size in points" >
+    <Label>... Font Size pts(Res1):</Label>
+    <List>
+        <Option value='0'  >default</Option>
+        <Option value='4'  >4</Option>
+        <Option value='5'  >5</Option>
+        <Option value='6'  >6</Option>
+        <Option value='7'  >7</Option>
+        <Option value='8'  >8</Option>
+        <Option value='9'  >9</Option>
+        <Option value='10' >10</Option>
+        <Option value='11' >11</Option>
+        <Option value='12' >12</Option>
+        <Option value='13' >13</Option>
+        <Option value='14' >14</Option>
+        <Option value='15' >15</Option>
+        <Option value='16' >16</Option>
+        <Option value='17' >17</Option>
+        <Option value='18' >18</Option>
+        <Option value='19' >19</Option>
+        <Option value='20' >20</Option>
+        <Option value='21' >21</Option>
+        <Option value='22' >22</Option>
+        <Option value='24' >24</Option>
+        <Option value='26' >26</Option>
+        <Option value='28' >28</Option>
+        <Option value='30' >30</Option>
+    </List>
+    </Field>
+
+<!-- text type for gnuplot-->
+<Field visibleBindingId="fontsGNUONOFF" visibleBindingValue="true" id="TextFont"  type="menu" defaultValue="0" tooltip="select font for GNUplots, chose unicode fonts for sepcial characters" >
+    <Label>... Font:</Label>
+    <List class="self" filter="" method="filterFont" dynamicReload="true"/>
+    </Field>
+
+<!-- for text type matplot-->
+<Field visibleBindingId="fontsMATONOFF" visibleBindingValue="true" id="TextMATFont"  type="menu" defaultValue="sans-serif" tooltip="select type of font for MATPLOT" >
+    <Label>... Font:</Label>
+    <List>
+        <Option value='sans-serif'  >sans-serif</Option>
+        <Option value='serif'		>serif</Option>
+        <Option value='cursive'		>cursive</Option>
+        <Option value='fantasy'		>fantasy</Option>
+        <Option value='monospace'	>monospace</Option>
+    </List>
+    </Field>
+
+
+
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="TitleText"		type="textfield" defaultValue="" tooltip="This is the text that goes on top of the plot" >
+    <Label>Title text:.....................................</Label>
+    </Field>
+
+
+
+
+<!--  binning of collected data: # of days to be collected for the 3 bin sizes -->
+<Field   visibleBindingId="showBins" visibleBindingValue="true" id="MinuteBinNoOfDays"   type="menu" defaultValue="2"  tooltip="how many DAYS should the MINUTE plot show" >
+<Label># of days..........for MINUTE plot:</Label>
+    <List>
+        <Option value="0">do not plot</Option>
+        <Option value="1"  > 1 day</Option>
+        <Option value="2"  > 2 days</Option>
+        <Option value="3"  > 3 days</Option>
+        <Option value="4"  > 4 days</Option>
+        <Option value="5"  > 5 days</Option>
+        <Option value="6"  > 6 days</Option>
+        <Option value="7"  > 7 days  =  1 week</Option>
+        <Option value="8"  > 8 days</Option>
+        <Option value="9"  > 9 days</Option>
+        <Option value="10" >10 days</Option>
+        <Option value="11" >11 days</Option>
+        <Option value="12" >12 days</Option>
+        <Option value="13" >13 days</Option>
+        <Option value="14" >14 days  =  2 weeks</Option>
+        <Option value="15" >15 days</Option>
+        <Option value="16" >16 days</Option>
+        <Option value="17" >17 days</Option>
+        <Option value="18" >18 days</Option>
+        <Option value="19" >19 days</Option>
+        <Option value="20" >20 days</Option>
+        <Option value="21" >21 days =  3 weeks</Option>
+        <Option value="22" >22 days</Option>
+        <Option value="23" >23 days</Option>
+        <Option value="24" >24 days</Option>
+        <Option value="25" >25 days</Option>
+        <Option value="26" >26 days</Option>
+        <Option value="27" >27 days</Option>
+        <Option value="28" >28 days  =  4 weeks</Option>
+        <Option value="29" >29 days</Option>
+        <Option value="30" >30 days</Option>
+    </List>
+    </Field>
+
+<Field   visibleBindingId="showBinsS" visibleBindingValue="true" id="MinuteBinShift"   type="menu" defaultValue="0"  tooltip="how many DAYS should the time window that is plotted shift left.. 0= most right day is today;  =3 would be 3 days older  or show constant time window eg one week Moinay-Sunday" >
+<Label>........shift LEFT:</Label>
+    <List>
+        <Option value="0" > 0 = do not shift default</Option>
+        <Option value="-1" >continuous shift: right Y axis = next full hour </Option>
+        <Option value="-10"> show  current WEEK    MONDAY ... SUNDAY</Option>
+        <Option value="-11"> show  last 2  WEEKs   MONDAY ... SUNDAY.. MONDAY .. SUNDAY</Option>
+        <Option value="-20"> show  current MONTH  1. .. 31</Option>
+        <Option value="1" >shift  1 day</Option>
+        <Option value="2" >shift  2 days</Option>
+        <Option value="3" >shift  3 days</Option>
+        <Option value="4" >shift  4 days</Option>
+        <Option value="5" >shift  5 days</Option>
+        <Option value="6" >shift  6 days</Option>
+        <Option value="7" >shift  7 days =  1 week</Option>
+        <Option value="8" >shift  8 days</Option>
+        <Option value="9" >shift  9 days</Option>
+        <Option value="10">shift 10 days</Option>
+        <Option value="11">shift 11 days</Option>
+        <Option value="12">shift 12 days</Option>
+        <Option value="13">shift 13 days</Option>
+        <Option value="14">shift 14 days  =  2 weeks</Option>
+        <Option value="20">shift 20 days</Option>
+        <Option value="21">shift 21 days  =  3 weeks</Option>
+    </List>
+    </Field>
+
+<Field visibleBindingId="showBinsS" visibleBindingValue= "true"  id="MinuteXScaleFormat"		type="textfield" defaultValue="" tooltip="Enter format string for X-axis, (experts only) " >
+    <Label>...Format xscale:</Label>
+    </Field>
+<Field visibleBindingId="showBinsS" visibleBindingValue= "true"  id="MinuteXScaleFormatLabel"	 type="label"  alignText ="right" fontcolor="grey">
+    <Label>use manual datetime string (empty= default)
+      GNUPLOT: %m%d+2*3600 = day:hour every 2 hours
+      MATPLOT:  fewer ticks= 0.5, more ticks= 1.5,2,3  
+      off = leave it to GNUPLOT or MATPLOT</Label>
+    </Field>
+
+<Field   visibleBindingId="showBins" visibleBindingValue="true" id="HourBinNoOfDays"   type="menu" defaultValue="14"  tooltip="how many DAYS should the HOUR plot show" >
+    <Label>..for HOUR  plot:</Label>
+    <List>
+        <Option value="0" >do not plot</Option>
+        <Option value="5" > 5 days</Option>
+        <Option value="6" > 6 days</Option>
+        <Option value="7" > 7 days  =  1  week</Option>
+        <Option value="8" > 8 days</Option>
+        <Option value="9" > 9 days</Option>
+        <Option value="10">10 days</Option>
+        <Option value="11">11 days</Option>
+        <Option value="12">12 days</Option>
+        <Option value="13">13 days</Option>
+        <Option value="14">14 days  =  2 weeks</Option>
+        <Option value="15">15 days</Option>
+        <Option value="16">16 days</Option>
+        <Option value="17">17 days</Option>
+        <Option value="18">18 days</Option>
+        <Option value="19">19 days</Option>
+        <Option value="20">20 days</Option>
+        <Option value="21">21 days  =  3 weeks</Option>
+        <Option value="22">22 days</Option>
+        <Option value="23">23 days</Option>
+        <Option value="24">24 days</Option>
+        <Option value="25">25 days</Option>
+        <Option value="28">28 days  =  4 weeks</Option>
+        <Option value="30">30 days</Option>
+        <Option value="31">31 days</Option>
+        <Option value="35">35 days  =  5 weeks</Option>
+        <Option value="40">40 days</Option>
+        <Option value="42">42 days  =  6 weeks</Option>
+        <Option value="49">49 days  =  7 weeks</Option>
+        <Option value="56">56 days  =  8 weeks</Option>
+        <Option value="61">61 days</Option>
+        <Option value="62">62 days</Option>
+        <Option value="63">63 days  =  9 weeks</Option>
+        <Option value="70">70 days  = 10 weeks</Option>
+        <Option value="77">77 days  = 11 weeks</Option>
+        <Option value="84">84 days  = 12 weeks</Option>
+        <Option value="90">90 days</Option>
+        <Option value="91">91 days  = 13 weeks</Option>
+        <Option value="92">92 days  =  1 Quarter</Option>
+        <Option value="98">98 days  = 14 weeks</Option>
+        <Option value="100">100 days</Option>
+    </List>
+    </Field>
+
+<Field   visibleBindingId="showBinsS" visibleBindingValue="true" id="HourBinShift"   type="menu" defaultValue="0"  tooltip="how many DAYS should the time window that is plotted shift left.. 0= most right day is today;  =3 would be 3 days older   or show constant time window eg one week Moinay-Sunday" >
+<Label>....shift LEFT:</Label>
+    <List>
+        <Option value="0" > 0 = do not shift default</Option>
+        <Option value="-10"> show  current WEEK   Monday ... Sunday</Option>
+        <Option value="-11"> show  last 2  WEEKs  Monday ... Sunday.. MONDAY .. SUNDAY</Option>
+        <Option value="-20"> show  current MONTH  1. .. 31</Option>
+        <Option value="-30"> show  current QUARTER  eg JANUARY .. MARCH</Option>
+        <Option value="1" >shift  1 day</Option>
+        <Option value="2" >shift  2 days</Option>
+        <Option value="3" >shift  3 days</Option>
+        <Option value="4" >shift  4 days</Option>
+        <Option value="5" >shift  5 days</Option>
+        <Option value="6" >shift  6 days</Option>
+        <Option value="7" >shift  7 days  = 1  week</Option>
+        <Option value="8" >shift  8 days</Option>
+        <Option value="9" >shift  9 days</Option>
+        <Option value="10">shift 10 days</Option>
+        <Option value="11">shift 11 days</Option>
+        <Option value="12">shift 12 days</Option>
+        <Option value="13">shift 13 days</Option>
+        <Option value="14">shift 14 days  =  2 weeks</Option>
+        <Option value="20">shift 20 days</Option>
+        <Option value="21">shift 21 days  =  3 weeks</Option>
+        <Option value="28">shift 28 days  =  4 weeks</Option>
+        <Option value="30">shift 30 days  =  1 Month</Option>
+        <Option value="31">shift 31 days  =  1 Month</Option>
+        <Option value="35">shift 35 days  =  5 weeks</Option>
+        <Option value="40">shift 40 days</Option>
+        <Option value="42">shift 42 days  =  6 weeks</Option>
+        <Option value="49">shift 49 days  =  7 weeks</Option>
+        <Option value="56">shift 56 days  =  8 weeks</Option>
+        <Option value="63">shift 63 days  =  9 weeks</Option>
+        <Option value="70">shift 70 days  = 10 weeks</Option>
+        <Option value="77">shift 77 days  = 11 weeks</Option>
+        <Option value="84">shift 84 days  = 12 weeks</Option>
+        <Option value="90">shift 90 days</Option>
+    </List>
+    </Field>
+
+
+<Field visibleBindingId="showBinsS" visibleBindingValue= "true"  id="HourXScaleFormat"		type="textfield" defaultValue="" tooltip="Enter format string for X-axis, (experts only) " >
+    <Label>...Format xscale :</Label>
+    </Field>
+<Field visibleBindingId="showBinsS" visibleBindingValue= "true"  id="HourXScaleFormatLabel"	 type="label"  alignText ="right" fontcolor="grey">
+    <Label>use manual datetime string (empty= default)
+      GNUPLOT: %m%d+2*3600 = day:hour every 2 hours
+      MATPLOT:  fewer ticks= 0.5, more ticks= 1.5,2,3  
+      off = leave it to GNUPLOT or MATPLOT</Label>
+    </Field>
+
+
+<Field   visibleBindingId="showBins" visibleBindingValue="true" id="DayBinNoOfDays"   type="menu" defaultValue="390" tooltip="how many DAYS should the DAY plot show" >
+<Label>...for DAY plot:</Label>
+    <List>
+        <Option value="0" >do not plot</Option>
+        <Option value="31"  > 31 days</Option>
+        <Option value="60"  > 60 days</Option>
+        <Option value="90"  > 90 days</Option>
+        <Option value="92"  > 92 days</Option>
+        <Option value="120" >120 days</Option>
+        <Option value="150" >150 days</Option>
+        <Option value="160" >160 days</Option>
+        <Option value="190" >190 days</Option>
+        <Option value="210" >210 days</Option>
+        <Option value="240" >240 days</Option>
+        <Option value="270" >270 days</Option>
+        <Option value="300" >300 days</Option>
+        <Option value="330" >330 days days</Option>
+        <Option value="360" >360</Option>
+        <Option value="365" >365 days  = 1 year</Option>
+        <Option value="390" >390 days</Option>
+        <Option value="730" >730 days  =  2 years</Option>
+        <Option value="1000" >1000 days</Option>
+    </List>
+    </Field>
+
+<Field   visibleBindingId="showBinsS" visibleBindingValue="true" id="DayBinShift"   type="menu" defaultValue="0"  tooltip="how many DAYS should the time window that is plotted shift left.. 0= most right day is today;  =3 would be 3 days older  or show constant time window eg one week Moinay-Sunday" >
+<Label>....shift LEFT:</Label>
+    <List>
+        <Option value="0" >0 = do not shift default</Option>
+        <Option value="-20"> show  current MONTH  1. .. 31</Option>
+        <Option value="-30"> show  current QUARTER  eg JANUARY .. MARCH</Option>
+        <Option value="-40"> show  current YEAR   JANUARY .. DECEMBER</Option>
+        <Option value="7"  >shift   7 days</Option>
+        <Option value="14" >shift  14 days</Option>
+        <Option value="21" >shift  21 days</Option>
+        <Option value="28" >shift  28 days</Option>
+        <Option value="30" >shift  30 days</Option>
+        <Option value="31" >shift  31 days</Option>
+        <Option value="60" >shift  60 days</Option>
+        <Option value="90" >shift  90 days</Option>
+        <Option value="120">shift 120 days</Option>
+    </List>
+    </Field>
+
+<Field visibleBindingId="showBinsS" visibleBindingValue= "true"  id="DayXScaleFormat"		type="textfield" defaultValue="" tooltip="Enter format string for X-axis, (experts only) " >
+    <Label>...Format,ticks x-scale:</Label>
+    </Field>
+<Field visibleBindingId="showBinsS" visibleBindingValue= "true"  id="DayXScaleFormatLabel"	 type="label"  alignText ="right" fontcolor="grey">
+    <Label>use manual datetime string (empty= default)
+      GNUPLOT: %m%d+2*3600 = day:hour every 2 hours
+      MATPLOT:  fewer ticks= 0.5, more ticks= 1.5,2,3  
+      off = leave it to GNUPLOT or MATPLOT</Label>
+    </Field>
+
+
+<!--  background color either std format or rgb values -->
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="Background" type="menu" defaultValue="#FFFFFF"  tooltip="Select fixed background color or eanble RBG value entry" >
+    <Label>Background.......................Color:</Label>
+    <List>
+        <Option value='#FFA500' >orange</Option>
+        <Option value='#FF0000' >light-red</Option>
+        <Option value='#A00000' >dark-red</Option>
+        <Option value='#FFFF00' >light-yellow</Option>
+        <Option value='#A0A000' >dark-yellow</Option>
+        <Option value='#00FF00' >light-green</Option>
+        <Option value='#00A000' >dark-green</Option>
+        <Option value='#00FFFF' >light-green-blue</Option>
+        <Option value='#00A0A0' >dark-green-blue</Option>
+        <Option value='#0000FF' >light-blue</Option>
+        <Option value='#0000A0' >dark-blue</Option>
+        <Option value='#8B00B2' >light-indigo</Option>
+        <Option value='#4B0082' >dark-indigo</Option>
+        <Option value='#000000' >black</Option>
+        <Option value='#383838' >dark-grey</Option>
+        <Option value='#E0E0E0' >light-grey</Option>
+        <Option value='#FFFFFF' >white</Option>
+        <Option value='0'>enter RGB value below</Option>
+    </List>
+    <CallbackMethod>plotBackgroundColorCALLBACK</CallbackMethod>
+    </Field>
+
+<Field visibleBindingId="showRGBBackground" visibleBindingValue="true" id="BackgroundColorRGB" type="textfield" defaultValue="100,100,100"  tooltip="eg Red=255,0,0   Green=0,255,0   Blue=0,0,255" >
+    <Label>..RGB-Val.:0-255,0-255,0-255</Label>
+    </Field>
+
+
+<!--  transparency of (a) background and (b) of histograms, solid blocks in the lines sections-->
+<Field visibleBindingId="ExpertsAndPlots" visibleBindingValue="true" id="TransparentBackground" type="menu" defaultValue="False"  tooltip="if TRANSPARENT background color is ignored, it is white" >
+    <Label>..transparent background </Label>
+    <List>
+        <Option value='1.0' >Not Transparent</Option>
+        <Option value='0.0' >Transparent </Option>
+    </List>
+    </Field>
+
+<Field visibleBindingId="ExpertsAndPlots" visibleBindingValue="true" id="TransparentBlocks" type="menu" defaultValue="1"  tooltip="define transparency of color of histograms/ blocks/ curves ..." >
+    <Label>..Filled Curves Transp.</Label>
+    <List>
+        <Option value='1.0' >Not Transparent</Option>
+        <Option value='0.9' >10% Transparent </Option>
+        <Option value='0.8' >20% Transparent </Option>
+        <Option value='0.7' >30% Transparent </Option>
+        <Option value='0.6' >40% Transparent </Option>
+        <Option value='0.5' >50% Transparent </Option>
+        <Option value='0.4' >60% Transparent </Option>
+        <Option value='0.3' >70% Transparent </Option>
+        <Option value='0.2' >80% Transparent </Option>
+        <Option value='0.1' >90% Transparent </Option>
+        <Option value='0.0' >Fully Transparent </Option>
+    </List>
+    </Field>
+
+
+<!--  text grid on/off   expand to off/dashed/solid -->
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="Border"	type="menu" defaultValue="1+2+4+8"  tooltip="Select x,y,xTop,yRight borders on off">
+    <Label>Show Axes  x,y,xTop,yRight ........:</Label>
+    <List>
+        <Option value='0+0+0+0' >All   OFF</Option>
+        <Option value='1+2+4+8' >All   ON</Option> <!--  this is taken from the GNUPLOT syntax   "set border 1+2+4+8"  will set border lines on  for all its for x y xtop yright 0=do not plot -->
+        <Option value='1+0+0+0' >Only  x</Option>
+        <Option value='1+2+0+0' >Only  x,y</Option>
+        <Option value='0+2+0+0' >Only  y</Option>
+        <Option value='1+0+0+8' >Only  x,yRight</Option>
+    </List>
+</Field>
+
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="Grid"	type="menu" defaultValue="0"  tooltip="Select Grid on or off">
+    <Label>Grid.................................. on/off:  </Label>
+    <List>
+        <Option value='0' >off</Option>
+        <Option value='1'       >ON-dashed  back           (X,YLeft)</Option>
+        <Option value='2'       >ON-solid     back thin    (X,YLeft)</Option>
+        <Option value='3'       >ON-solid     back thick    (X,YLeft)</Option>
+        <Option value='-1'      >ON-dashed  front           (X,YLeft)</Option>
+        <Option value='-2'      >ON-solid     front thin    (X,YLeft)</Option>
+        <Option value='-3'      >ON-solid     front thick   (X,YLeft)</Option>
+        <Option value='1y2'     >ON-dashed  back           (X,YRight)</Option>
+        <Option value='2y2'     >ON-solid     back thin     (X,YRight)</Option>
+        <Option value='3y2'     >ON-solid     back thick    (X,YRight)</Option>
+        <Option value='-1y2'    >ON-dashed  front          (X,YRight)</Option>
+        <Option value='-2y2'    >ON-solid     front thin    (X,YRight)</Option>
+        <Option value='-3y2'    >ON-solid     front thick   (X,YRight)</Option>
+        <Option value='1onlyx'  >ON-dashed  back           (X,-)</Option>
+        <Option value='2onlyx'  >ON-solid     back thin     (X,-)</Option>
+        <Option value='3onlyx'  >ON-solid     back thick    (X,-)</Option>
+        <Option value='-1onlyx' >ON-dashed  front          (X,-)</Option>
+        <Option value='-2onlyx' >ON-solid     front thin    (X,-)</Option>
+        <Option value='-3onlyx' >ON-solid     front thick   (X,-)</Option>
+        <Option value='1onlyy'  >ON-dashed  back           (-,YLeft)</Option>
+        <Option value='2onlyy'  >ON-solid     back thin     (-,YLeft)</Option>
+        <Option value='3onlyy'  >ON-solid     back thick    (-,YLeft)</Option>
+        <Option value='-1onlyy' >ON-dashed  front          (-,YLeft)</Option>
+        <Option value='-2onlyy' >ON-solid     front thin    (-,YLeft)</Option>
+        <Option value='-3onlyy' >ON-solid     front thick   (-,YLeft)</Option>
+        <Option value='1onlyy2' >ON-dashed  back           (-,YRight)</Option>
+        <Option value='2onlyy2' >ON-solid     back thin     (-,YRight)</Option>
+        <Option value='3onlyy2' >ON-solid     back thick    (-,YRight)</Option>
+        <Option value='-1onlyy2'>ON-dashed  front          (-,YRight)</Option>
+        <Option value='-2onlyy2'>ON-solid     front thin    (-,YRight)</Option>
+        <Option value='-3onlyy2'>ON-solid     front thick   (-,YRight)</Option>
+    </List>
+</Field>
+
+
+<!-- x scale -->
+<Field enabledBindingId="polarPlotText" visibleBindingId="polarPlotText" visibleBindingValue="true" id="textPolarP2"    type="textfield" defaultValue="use x-axis for Radius data" readonly="yes">
+    <Label></Label>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleFormatLabel"		type="label"  alignText ="right" fontcolor="grey">
+    <Label>X Scale: ...  you can use any number range (2.5:15) or datetime string 
+      eg 201801010100:201802010100 (YYYmmddHHMMSS)
+      for  x-format datafort+displayformat
+      the string before + describes the length of the datefield and 
+      the second part the format of the labels
+      for datetime:  eg %Y%m%d%H%M%S+%d-%H:M 
+      for regular numbers eg:  %5.2f+%4d
+      you can use %%v:varid or varname%% 
+        to make it dynamic using a variable </Label>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleRange"		type="textfield" defaultValue="00:100"  tooltip="Select x-min and x-max or leave blank for auto-mode for X axis" >
+    <Label>...FROM:TO </Label>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleTics"		type="textfield" defaultValue="20,40,60,80,100" tooltip="Select Tick marks or leave blank for auto-mode for X axis" >
+    <Label>...Tick Marks eg 1,2,5,10:</Label>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleFormat"		type="textfield" defaultValue="%.1f" tooltip="Enter format string for X-axis, (experts only) overwrites No. of dec. points" >
+    <Label>...FormatString:</Label>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleDecPoints"	type="menu" defaultValue="0"  tooltip="Select number of points after   .   for X axis numbers" >
+    <Label>...No. of dec. points:</Label>
+    <List>
+        <Option value='0' >0</Option>
+        <Option value='1' >1</Option>
+        <Option value='2' >2</Option>
+        <Option value='3' >3</Option>
+        <Option value='4' >4</Option>
+        <Option value='5' >5</Option>
+        <Option value='' >auto</Option>
+        </List>
+        </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true" id="XLog"				type="menu" defaultValue="0" tooltip="Select linear or log scale for X axis">
+    <Label>...Linear/LogScale:</Label>
+    <List>
+        <Option value='linear' >Linear</Option>
+        <Option value='log' >Log Scale</Option>
+        </List>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue="true" id="XLabel"			type="textfield" defaultValue="x-axis text"  tooltip="Enter text for X scale caption">
+    <Label>...Label:</Label>
+    </Field>
+
+
+
+
+
+
+<!-- left Y scale -->
+<Field visibleBindingId="showY2scale" visibleBindingValue="true" id="LeftScaleRange"	type="textfield" defaultValue="00:100"  tooltip="Select y-min and y-max or leave blank for auto-mode for left Y axis" >
+    <Label>Left Scale....................FROM:TO </Label>
+    </Field>
+
+<Field visibleBindingId="showY2scale" visibleBindingValue="true" id="LeftScaleTics"		type="textfield" defaultValue="20,40,60,80,100" tooltip="Select Tick marks or leave blank for auto-mode for left Y axis" >
+    <Label>...Tick Marks eg 1,2,5,10:</Label>
+    </Field>
+
+<Field visibleBindingId="showY2scale" visibleBindingValue="true" id="LeftScaleDecPoints" type="menu" defaultValue="0"  tooltip="Select number of points after   .   for left-y axis numbers" >
+    <Label>...No. of dec. points:</Label>
+    <List>
+        <Option value='0' >0</Option>
+        <Option value='1' >1</Option>
+        <Option value='2' >2</Option>
+        <Option value='3' >3</Option>
+        <Option value='4' >4</Option>
+        <Option value='5' >5</Option>
+        <Option value='' >auto</Option>
+        </List>
+    </Field>
+
+<Field visibleBindingId="showY2scale" visibleBindingValue="true" id="LeftLog"    		type="menu" defaultValue="0" tooltip="Select linear or log scale for left Y axis">
+    <Label>...Linear/LogScale:</Label>
+    <List>
+        <Option value='linear' >Linear</Option>
+        <Option value='log' >Log Scale</Option>
+    </List>
+    </Field>
+
+<Field enabledBindingId="polarPlotText" visibleBindingId="polarPlotText" visibleBindingValue="true" id="textPolarP3"    type="textfield" defaultValue="Text for N,W,S Angle lables" readonly="yes">
+    <Label></Label>
+    </Field>
+
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="LeftLabel"			type="textfield" defaultValue="     Temperature [F]"  tooltip="Text left Y or Polar Directions label ">
+    <Label>...Label:</Label>
+    </Field>
+
+
+
+
+
+<!-- right Y scale -->
+<Field visibleBindingId="showY2scale" visibleBindingValue="true" id="RightScaleRange"	type="textfield" defaultValue="00:200"  tooltip="Select y-min and y-max or leave blank for auto-mode for right Y axis">
+    <Label>Right Scale..................FROM:TO</Label>
+    </Field>
+
+<Field visibleBindingId="showY2scale" visibleBindingValue="true" id="RightScaleTics"	type="textfield" defaultValue="0,20,40,60,80,100" tooltip="Select Tick marks or leave blank for auto-mode for right Y axis" >
+    <Label>...Tick Marks eg 1,5,10:</Label>
+    </Field>
+
+<Field visibleBindingId="showY2scale" visibleBindingValue="true" id="RightScaleDecPoints" type="menu" defaultValue="0"  tooltip="Select number or points after   .   for right-y axis numbers">	                <Label>...No. of dec. points:</Label>
+    <List>
+        <Option value='0' >0</Option>
+        <Option value='1' >1</Option>
+        <Option value='2' >2</Option>
+        <Option value='3' >3</Option>
+        <Option value='4' >4</Option>
+        <Option value='5' >5</Option>
+        <Option value='' >auto</Option>
+    </List>
+    </Field>
+
+<Field visibleBindingId="showY2scale" visibleBindingValue="true" id="RightLog"    	type="menu" defaultValue="0" tooltip="Select linear of log scale for left Y axis" >
+    <Label>...Linear/LogScale:</Label>
+    <List>
+        <Option value='linear' >Linear</Option>
+        <Option value='log' >Log Scale</Option>
+    </List>
+    </Field>
+
+<Field visibleBindingId="showY2scale" visibleBindingValue="true" id="RightLabel"	type="textfield" defaultValue="Humidty and ON-Time[%]                     ."  tooltip="Enter text for right Y scale caption" >
+    <Label>...Label:</Label>
+    </Field>
+
+
+
+
+
+<!-- right format for tme of day  -->
+<Field visibleBindingId="amPm" visibleBindingValue="true" id="ampm"    		type="menu" defaultValue="24"  tooltip="select time format for x axis: 0-12am/0-12pm or 0-24">
+<Label>Time-Format:..............................</Label>
+    <List>
+        <Option value='24' >0-24</Option>
+        <Option value='12' >0-12am 0-12pm</Option>
+    </List>
+    </Field>
+
+
+
+
+<!-- free text anywhere on the page.. -->
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="ExtraText"		type="textfield" defaultValue="" tooltip="Extra Text" >
+    <Label>Extra text:...................................</Label>
+    </Field>
+
+<Field visibleBindingId="showExtraText" visibleBindingValue="true" id="ExtraTextXPos"		type="textfield" defaultValue="0.5" tooltip=" Text x position in screen coordinates  0...1" >
+    <Label>...x pos (0=Left,1.0=Right)</Label>
+    </Field>
+
+<Field visibleBindingId="showExtraText" visibleBindingValue="true" id="ExtraTextYPos"		type="textfield" defaultValue="0.5" tooltip=" Text y position in screen coordinates  0...1" >
+    <Label>... y pos (0=Bot.,1.0=Top)</Label>
+    </Field>
+
+<Field visibleBindingId="showExtraText" visibleBindingValue="true" id="ExtraTextRotate"	type="textfield" defaultValue="0" tooltip=" rotation 0..360 counterclockwise" >
+    <Label>... rotate (0..360)</Label>
+    </Field>
+
+<Field visibleBindingId="showExtraText" visibleBindingValue="true" id="ExtraTextFrontBack" type="menu" defaultValue="front" tooltip=" put text in foreground or background" >
+    <Label>... Front/Back</Label>
+    <List>
+        <Option value='front' >front</Option>
+        <Option value='back' >back</Option>
+    </List>
+    </Field>
+
+<Field visibleBindingId="showExtraText" visibleBindingValue="true" id="ExtraTextColorRGB" type="textfield" defaultValue="100,100,100"  tooltip="eg Red=255,0,0   Green=0,255,0   Blue=0,0,255" >
+    <Label>..RGB-Val.:0-255,0-255,0-255</Label>
+    </Field>
+
+<Field visibleBindingId="showExtraText" visibleBindingValue="true" id="ExtraTextSize" type="menu" defaultValue="8" tooltip="Select the font size in points" >
+    <Label>... Font Size pts:</Label>
+    <List>
+        <Option value='0'  >default</Option>
+        <Option value='4'  >4</Option>
+        <Option value='5'  >5</Option>
+        <Option value='6'  >6</Option>
+        <Option value='7'  >7</Option>
+        <Option value='8'  >8</Option>
+        <Option value='9'  >9</Option>
+        <Option value='10' >10</Option>
+        <Option value='11' >11</Option>
+        <Option value='12' >12</Option>
+        <Option value='13' >13</Option>
+        <Option value='14' >14</Option>
+        <Option value='15' >15</Option>
+        <Option value='16' >16</Option>
+        <Option value='17' >17</Option>
+        <Option value='18' >18</Option>
+        <Option value='19' >19</Option>
+        <Option value='20' >20</Option>
+        <Option value='21' >21</Option>
+        <Option value='22' >22</Option>
+        <Option value='24' >24</Option>
+        <Option value='26' >26</Option>
+        <Option value='28' >28</Option>
+        <Option value='30' >30</Option>
+    </List>
+    </Field>
+
+
+<!-- raw gnuplot command to be inserted into file if viven -->
+<Field visibleBindingId="ExpertsAndPlots" visibleBindingValue="true" id="Raw"	type="textfield" defaultValue="0"  tooltip="Enter RAW-Gnuplot command entered just before PLOT section in gnu file -- experts only ">
+    <Label>GNU/MATplot command:................</Label>
+    </Field>
+
+
+<Field visibleBindingId="ExpertsAndPlots" visibleBindingValue="true" id="drawZeroLine"    type="menu" defaultValue="true"  tooltip="draw invisible  line at zero in case there is sparse data, then x axis (time) might not be fully drawn">
+    <Label>FullX-scale set:.......................</Label>
+    <List>
+        <Option value='true' >draw invisble line at y=zero</Option>
+        <Option value='false' >do NOT draw invisble line at y=zero</Option>
+    </List>
+    </Field>
+
+
+
+
+<Field visibleBindingId="ExpertsAndPlots" visibleBindingValue="true" id="compressPNGfile"    type="menu" defaultValue="false"  tooltip="select if PNG fuiles should be further compress using pngquant">
+    <Label>Compress PNG files:....................</Label>
+    <List>
+        <Option value='false' >do NOT compress png files</Option>
+        <Option value='true' >compress png files</Option>
+    </List>
+    </Field>
+
+
+
+
+<!-- after everythin is entered the confirm button -->
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="buttonConfirmPlot" type="button"	tooltip="This will confirm the Plot you like to configure, must be confirmed before continuing with entering Lines">
+    <Label>After setting PLOT parameters --></Label>
+    <Title>CONFIRM</Title>
+    <CallbackMethod>buttonConfirmPlotCALLBACK</CallbackMethod>
+    </Field>
+
+<Field id="s2-2-2" type="separator"/>
+
+
+
+
+
+
+
+
+<!--    plot parameters  done   now line parameters       -->
+
+
+
+
+
+
+
+
+
+
+<Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLines" visibleBindingValue="true" id="text3-1"    type="textfield" defaultValue="  and then confirm !"     readonly="yes">
+    <Label>3. Manage Lines for THIS plot:..........</Label>
+    </Field>
+
+
+<!-- whats the selection, new or existing line? -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLines" visibleBindingValue="true" id="selectedExistingOrNewLine" type="menu" tooltip=" click on menue to open up selection to edit already configured lines or to add new lines to be added if you select Strarght-Line, use MULTIPLIER as slope(1= increase value by 1 at right Y axis) and OFFSET as Y left coordinate">
+    <Label>Modify or Add Lines:</Label>
+    <List class="self" filter="" method="filterExistingLine" dynamicReload="true"/>
+    <CallbackMethod>pickExistingOrNewLineCALLBACK</CallbackMethod>
+    </Field>
+
+<!-- Line data source A  -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLinesASelected" visibleBindingValue="true" id="selectedLineSourceATEXT"  type="textfield" defaultValue="" readonly="yes" tooltip="this is the line you selected">
+    <Label>DataSourceA for this Line:</Label>
+    </Field>
+
+<Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLinesANotSelect" visibleBindingValue="true" id="selectedLineSourceA"  type="menu" defaultValue="0" tooltip="select the data you like to plot">
+    <Label>DataSourceA for Line:</Label>
+    <List class="self" filter="" method="filterSelectedLinesA" dynamicReload="true"/>
+    <CallbackMethod>selectedLineSourceACALLBACK</CallbackMethod>
+    </Field>
+
+<Field enabledBindingId="polarLineText" visibleBindingId="polarLineText" visibleBindingValue="true" id="textPolarL1"    type="textfield" defaultValue="DataSourceA for radius  and DataSourceB for angle" readonly="yes">
+    <Label></Label>
+    </Field>
+
+<Field enabledBindingId="showFunc" visibleBindingId="showFunc" visibleBindingValue="true" id="lineFunc" type="menu" defaultValue="None" tooltip="select math function between line A and line B">
+    <Label>MATH...... Data-Source A+-*/B:</Label> <List>
+        <Option value='None'>No Operation</Option>
+        <Option value='+'>DataSourceA + DataSourceB</Option>
+        <Option value='-'>DataSourceA - DataSourceB</Option>
+        <Option value='*'>DataSourceA * DataSourceB</Option>
+        <Option value='/'>DataSourceA / DataSourceB</Option>
+        <Option value='S'>scatterplot DataSourceB value as Size of Solid Circle </Option>
+        <Option value='E'>scatterplot DataSourceB value as Size of Empty Circle </Option>
+        <Option value='C'>scatterplot DataSourceB value as Color of Dot </Option>
+    </List>
+    <CallbackMethod>lineFuncCALLBACK</CallbackMethod>
+    </Field>
+
+<Field enabledBindingId="DefineLinesBNotSelect" visibleBindingId="DefineLinesBNotSelect" visibleBindingValue="true" id="selectedLineSourceB"  type="menu" defaultValue="0" tooltip="if you like perfor math(+-/*) between 2 sets of data, select another line here">
+    <Label>DataSourceB for this Line:</Label>
+    <List class="self" filter="" method="filterSelectedLinesB" dynamicReload="true"/>
+    </Field>
+
+<Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLinesBSelected" visibleBindingValue="true" id="selectedLineSourceBTEXT"  type="textfield" defaultValue="" readonly="yes" tooltip="this is the line you selected">
+    <Label>DataSourceB for Line:</Label>
+    </Field>
+
+
+
+<!-- smoothing for xy/ lines-->
+<Field enabledBindingId="showSmooth" visibleBindingId="showSmooth" visibleBindingValue="true" id="lineSmooth" type="menu" defaultValue="None" tooltip="Select smoothing option for this line">
+    <Label>.. Smooth Option:</Label>
+    <List>
+        <Option value='combine3Bins'	>method: combine 3 bins</Option>
+        <Option value='average3Bins'	>method: average 3 bins</Option>
+        <Option value='trailingAverage'	>method: trailing average with last 5 bins</Option>
+        <Option value='strong'			>method: GNU s-bezier   / MAT  c-splines strong smoothing</Option>
+        <Option value='medium'			>method: GNU c-splines  / MAT  c-splines medium smoothing</Option>
+        <Option value='soft'			>method: GNU c-splines  / MAT  c-splines little smoothing</Option>
+        <Option value='None'			>No smoothing</Option>
+    </List>
+    </Field>
+
+<!-- y shift and offset -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" id="lineMultiplier"   type="textfield" defaultValue="1" tooltip="Select a MULTIPLIER (scale factor) for the line">
+    <Label> ...Multiplier:</Label>
+    </Field>
+<Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" id="lineOffset"       type="textfield" defaultValue="0" tooltip="Select an offset (up or down shift) for the line">
+    <Label>...Offset:</Label>
+    </Field>
+<Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" id="lineOffsetMultHelp"       type="textfield" readonly="yes"
+    defaultValue="offset: shift up down, Multiply value; for a straight line use OFFSET for left value and MULTIPLIER for slope you can use variable %%v:id or name%%" >
+    <Label>...use it to shift line|</Label>
+    </Field>
+
+<!-- line key text -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLines" visibleBindingValue="true" id="lineKey" type="textfield" defaultValue="" tooltip="Enter a line Key text. It is show on top of each plot for each line"> <Label>Line..................................... Key:</Label>
+    </Field>
+
+<!-- line type -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="showNotScatter" visibleBindingValue="true" id="lineType" type="menu" defaultValue='LineSolid' tooltip="Select type of line to be plotted">
+    <Label>...Type:</Label>
+    <List>
+        <Option value='DOT.'>Dot .</Option>
+        <Option value='DOT+'>Dot +</Option>
+        <Option value='DOTx'>Dot x</Option>
+        <Option value='DOT*'>Dot *</Option>
+        <Option value='DOTo'>Dot o</Option>
+        <Option value='DOTv'>Dot v</Option>
+        <Option value='DOT^'>Dot ^</Option>
+        <Option value='DOTs'>Dot Solid Square</Option>
+        <Option value='LineSolid'>LineSolid</Option>
+        <Option value='LineDashed'>LineDashed</Option>
+        <Option value='averageLeft' >Average, short line at LEFT  Y Axis</Option>
+        <Option value='averageRight'>Average, short line at RIGHT Y Axis</Option>
+        <Option value='Histogram' >Histogram</Option>
+        <Option value='Histogram0'>Histogram empty</Option>
+        <Option value='Histogram1'>Histogram pattern x</Option>
+        <Option value='Histogram2'>Histogram pattern xx(GNU) *(MAT) plot </Option>
+        <Option value='Histogram4'>Histogram pattern \</Option>
+        <Option value='Histogram5'>Histogram pattern /</Option>
+        <Option value='FilledCurves'>Filled (transparent) Curves</Option>
+        <Option value='Impulses'>vertical line  / impulse</Option>
+        <Option value='Numbers'>Show Numbers at point of data</Option>
+    </List>
+    </Field>
+
+<!-- line thickness -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="showNotScatterC" visibleBindingValue="true" id="lineWidth" type="menu" defaultValue='1' tooltip="Select width of line to be plotted">
+    <Label>...Width/size:</Label>
+    <List>
+        <Option value='0'>0/none/blank/empty</Option>
+        <Option value='0.02'>1/50 only for dots and special cases</Option>
+        <Option value='0.05'>1/20 only for dots and special cases</Option>
+        <Option value='0.1'>1/10 only for dots and special cases</Option>
+        <Option value='0.5'>1/2 only for dots and special cases</Option>
+        <Option value='1'>1: (default) and  tiny letters for lineType = Numbers</Option>
+        <Option value='2'>2: small letters for lineType = Numbers</Option>
+        <Option value='3'>3: regular letters for lineType = Numbers</Option>
+        <Option value='4'>4: large letters for lineType = Numbers</Option>
+        <Option value='5'>5: xLarge letters for lineType = Numbers</Option>
+    </List>
+    </Field>
+<Field visibleBindingId="lineType" visibleBindingValue="Numbers" id="lineNumbersFormat" type="textfield" defaultValue="%4.1f"  tooltip=" %3d or %4.1f  or %5.1e " >
+    <Label>format for numbers eg %3.0f or %3d</Label>
+    </Field>
+<Field  visibleBindingId="lineType" visibleBindingValue="Numbers" id="lineNumbersOffset" type="textfield" defaultValue='0.,1.0' tooltip="where should the numbers be plotted relative to the data point:  -1,2.5 =  one character to the left and 2.5 characters up">
+    <Label>...NumbersOffset: in pts x,y</Label>
+    </Field>
+<Field enabledBindingId="selectLinesOK" visibleBindingId="showNotScatter" visibleBindingValue="true" id="lineEveryRepeat" type="menu" defaultValue='1' tooltip="when should the numbers be plotted ">
+    <Label>...dot/numbers every x points:</Label>
+    <List>
+        <Option value='1'   >at every point, default</Option>
+        <Option value='2'   >at every 2. point</Option>
+        <Option value='3'   >at every 3. point</Option>
+        <Option value='4'   >at every 4. point</Option>
+        <Option value='5'   >at every 5. point</Option>
+        <Option value='6'   >at every 6. point</Option>
+        <Option value='7'   >at every 7. point</Option>
+        <Option value='8'   >at every 8. point</Option>
+        <Option value='9'   >at every 9. point</Option>
+        <Option value='10'  >at every 10. point</Option>
+        <Option value='12'  >at every 12. point</Option>
+        <Option value='15'  >at every 15. point</Option>
+        <Option value='20'  >at every 20. point</Option>
+        <Option value='30'  >at every 30. point</Option>
+        <Option value='60'  >at every 60. point</Option>
+        <Option value='hour00'           >at 00:00 - 00:55</Option>
+        <Option value='hour03'           >at 03:00 - 03:55</Option>
+        <Option value='hour06'           >at 06:00 - 06:55</Option>
+        <Option value='hour09'           >at 09:00 - 09:55</Option>
+        <Option value='hour11'           >at 11:00 - 11:55</Option>
+        <Option value='hour12'           >at 12:00 - 12:55</Option>
+        <Option value='hour15'           >at 15:00 - 15:55</Option>
+        <Option value='hour18'           >at 18:00 - 18:55</Option>
+        <Option value='hour21'           >at 21:00 - 21:55</Option>
+        <Option value='hour23'           >at 23:00 - 23:55</Option>
+        <Option value='hour00Last'       >at  00:55</Option>
+        <Option value='hour03Last'       >at  03:55</Option>
+        <Option value='hour06Last'       >at  06:55</Option>
+        <Option value='hour09Last'       >at  09:55</Option>
+        <Option value='hour11Last'       >at  11:55</Option>
+        <Option value='hour12Last'       >at  12:55</Option>
+        <Option value='hour15Last'       >at  15:55</Option>
+        <Option value='hour18Last'       >at  18:55</Option>
+        <Option value='hour21Last'       >at  21:55</Option>
+        <Option value='hour23Last'       >at  23:55</Option>
+        <Option value='hourLast'         >at  xx:55</Option>
+        <Option value='weekDay0'         >at Monday   00:00-23:55</Option>
+        <Option value='weekDay1'         >at Tuesday  00:00-23:55</Option>
+        <Option value='weekDay2'         >at Wednesday 00:00-23:55</Option>
+        <Option value='weekDay3'         >at Thursday 00:00-23:55</Option>
+        <Option value='weekDay4'         >at Friday   00:00-23:55</Option>
+        <Option value='weekDay5'         >at Saturday 00:00-23:55</Option>
+        <Option value='weekDay6'         >at Sunday   00:00-23:55</Option>
+        <Option value='weekDay0Last'     >at Monday   23:55</Option>
+        <Option value='weekDay1Last'     >at Tuesday  23:55</Option>
+        <Option value='weekDay2Last'     >at Wednesday 23:55</Option>
+        <Option value='weekDay3Last'     >at Thursday 23:55</Option>
+        <Option value='weekDay4Last'     >at Friday   23:55</Option>
+        <Option value='weekDay5Last'     >at Saturday 23:55</Option>
+        <Option value='weekDay6Last'     >at Sunday   23:55</Option>
+        <Option value='weekDayLast'      >at any day  23:55</Option>
+        <Option value='oddMinutes'       >at odd  minutes</Option>
+        <Option value='evenMinutes'      >at even minutes</Option>
+        <Option value='oddHours'         >at odd  hours</Option>
+        <Option value='evenHours'        >at even hours</Option>
+        <Option value='oddDays'          >at odd  days</Option>
+        <Option value='evenDays'         >at even days</Option>
+        <Option value='oddMonths'        >at odd  Months</Option>
+        <Option value='evenMonths'       >at even Months</Option>
+        <Option value='lastBinOfMonth'   >at last bin of Month</Option>
+        <Option value='lastBinOfYear'    >at last bin of Year</Option>
+        <Option value='firstBin'         >at first bin </Option>
+        <Option value='lastBin'          >at last bin with data</Option>
+        <Option value='max'              >at Max over all </Option>
+        <Option value='min'              >at Min over all </Option>
+        <Option value='maxHour'          >at Max each Hour </Option>
+        <Option value='minHour'          >at Min each Hour </Option>
+        <Option value='maxDay'           >at Max each Day </Option>
+        <Option value='minDay'           >at Min each Day </Option>
+        <Option value='maxMonth'        >at Max each Month </Option>
+        <Option value='minMonth'        >at Min each Month </Option>
+    </List>
+    </Field>
+
+<Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true"  id="lineFromTo"		type="textfield" defaultValue=""  tooltip="" >
+    <Label> ... use only data from:to</Label>
+    </Field>
+<Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true"  id="lineFromToHelp"		type="textfield" defaultValue="YYYYmmddHHMM:YYYYmmddHHMM"  tooltip="" readonly="Yes" >
+    <Label> .. format; empty=ignore</Label>
+    </Field>
+
+<!-- line color -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="showNotScatterS" visibleBindingValue="true" id="lineColor" type="menu" defaultValue='#000000' tooltip="Select color for line or lineNnumbers">
+    <Label>...Color:</Label>
+    <List>
+        <Option value='#FFA500' >orange</Option>
+        <Option value='#FF0000' >light-red</Option>
+        <Option value='#A00000' >dark-red</Option>
+        <Option value='#FFFF00' >light-yellow</Option>
+        <Option value='#A0A000' >dark-yellow</Option>
+        <Option value='#00FF00' >light-green</Option>
+        <Option value='#00A000' >dark-green</Option>
+        <Option value='#00FFFF' >light-green-blue</Option>
+        <Option value='#00A0A0' >dark-green-blue</Option>
+        <Option value='#0000FF' >light-blue</Option>
+        <Option value='#0000A0' >dark-blue</Option>
+        <Option value='#8B00B2' >light-indigo</Option>
+        <Option value='#4B0082' >dark-indigo</Option>
+        <Option value='#000000' >black</Option>
+        <Option value='#383838' >dark-grey</Option>
+        <Option value='#E0E0E0' >light-grey</Option>
+        <Option value='#FFFFFF' >white</Option>
+        <Option value='0'>enter RGB value below</Option>
+    </List>
+    <CallbackMethod>plotLineColorRGBCALLBACK</CallbackMethod>
+    </Field>
+
+<Field enabledBindingId="selectLinesOK" visibleBindingId="showNotScatterS" visibleBindingValue="true" id="lineColorRGB" type="textfield" defaultValue="100,100,100"  tooltip="eg Red=255,0,0   Green=0,255,0   Blue=0,0,255" >
+    <Label>..RGB-Val.:0-255,0-255,0-255</Label>
+    </Field>
+
+<!-- line in xy plot belongs to y1 or y2 ? -->
+<Field enabledBindingId="leftRight" visibleBindingId="leftRight" visibleBindingValue="true" id="lineLeftRight" type="menu" defaultValue="x1y1" tooltip="Should the line belong to the left or right Y-scale"> <!-- removed dynamic reload -->
+    <Label> ... scale:</Label>
+    <List>
+        <Option value="Left">Left</Option>
+        <Option value="Right">Right</Option>
+    </List>
+    </Field>
+
+
+
+<Field enabledBindingId="selectLinesOK" visibleBindingId="showLineShift" visibleBindingValue="true" id="lineShift" type="menu" defaultValue='0' tooltip="1 would show yesterdays data today,   365 would show last years data today">
+    <Label>...shift by # of days :</Label>
+    <List>
+        <Option value='0' >0 days: no shift, default</Option>
+        <Option value='1' >1 days: show yesterdays data today</Option>
+        <Option value='2' >2 days</Option>
+        <Option value='3' >3 days</Option>
+        <Option value='4' >4 days</Option>
+        <Option value='5' >5 days</Option>
+        <Option value='6' >6 days</Option>
+        <Option value='7' >7 days: last weeks data today</Option>
+        <Option value='8' >8 days</Option>
+        <Option value='9' >9 days</Option>
+        <Option value='10' >10 days</Option>
+        <Option value='11' >11 days</Option>
+        <Option value='12' >12 days</Option>
+        <Option value='13' >13 days</Option>
+        <Option value='14' >14 days</Option>
+        <Option value='20' >20 days, should only be used for HOUR and DAY plot</Option>
+        <Option value='21' >21 days = 3 weeks, should only be used for HOUR and DAY plot </Option>
+        <Option value='28' >28 days = 4 weeks, should only be used for HOUR and DAY plot</Option>
+        <Option value='30' >30 days = 1 month, should only be used for HOUR and DAY plot</Option>
+        <Option value='31' >31 days = 1 month, should only be used for HOUR and DAY plot</Option>
+        <Option value='60' >60 days = 2 months, should only be used for DAY plot </Option>
+        <Option value='90' >90 days = 3 months, should only be used for DAY plot</Option>
+        <Option value='92' >92 days = 3 months, should only be used for DAY plot</Option>
+        <Option value='180' >180 days: half a year, should only be used for DAY plot</Option>
+        <Option value='182' >182 days: half a year, should only be used for DAY plot</Option>
+        <Option value='183' >183 days: half a year, should only be used for DAY plot</Option>
+        <Option value='365' >365 days: show last years data today, should only be used for DAY plot</Option>
+    </List>
+    </Field>
+
+
+<!-- option to remove line -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLines" visibleBindingValue="true" id="DeleteLine" type="checkbox"	defaultValue="false" tooltip="This will delete the Line after confirm ">
+    <Label> ...Delete Line:</Label><Title>DELETE</Title>
+    </Field>
+
+!-- option to duplicate  line -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLines" visibleBindingValue="true" id="DuplicateLine" type="checkbox"	defaultValue="false" tooltip="This will duplicate the Line after confirm ">
+    <Label> ...Duplicate Line:</Label><Title>DUPLICATE</Title>
+    </Field>
+
+
+
+
+
+<Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" id="newLine" type="menu" tooltip="set sequence of line to be drawn, 1 will be drawn first,2 second, etc.  In MATPLOT lines assigned to rightY axis will be draw first then the lines associated with leftY ...">
+    <Label>set plot-order of line:</Label>
+    <List class="self" filter="" method="filterZorder" dynamicReload="true"/>
+    <CallbackMethod>zorderCALLBACK</CallbackMethod>
+    </Field>
+
+
+
+
+
+
+<!-- after all is entered confirm button -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLines" visibleBindingValue="true" id="buttonConfirmLineProps" type="button" tooltip="This will confirm Properties for THIS Line ">
+    <Label>After setting LINE parameters --></Label>
+    <Title>CONFIRM</Title>
+    <CallbackMethod>buttonConfirmLinePropsCALLBACK</CallbackMethod>
+    </Field>
+
+
+
+
+<Field  id="s97" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" type="separator"/>
+
+<Field  id="l97" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" type="label">
+    <Label>4. If you like: </Label>
+    </Field>
+
+
+
+<!-- button to immediately draw the plot on screen -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" id="buttonUpdatePlot" type="button" tooltip="will create the PNG files in INDIGOplotD or PLOT directory directory">
+    <Label>Update PNG files for THIS plot NOW:</Label>
+    <Title>UPDATE</Title>
+    <CallbackMethod>buttonUpdatePlotCALLBACK</CallbackMethod>
+    </Field>
+
+<!-- button to immediately draw the plot on screen -->
+<Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" id="buttonDrawPlot" type="button" tooltip="only works on server, will show currently existing PNG files of this plot, please make sure that GNUPLOT or MATPLOT are finished before clicking on SHOW, otherwise you will see the old files (2 seconds for GNUPLOT ~ 10 seconds for MATPLOT)">
+    <Label>Show THIS Plot on screen:</Label>
+    <Title>SHOW</Title>
+    <CallbackMethod>buttonDrawPlotCALLBACK</CallbackMethod>
+    </Field>
+
+
+
+
+<Field  id="s98" type="separator"/>
+
+<Field  id="l99" type="label">
+    <Label> ....  Make sure you click on [Save] to permanently save changes to disk  </Label>
+    </Field>
+
+
+
+</ConfigUI>
+
+</Device>
+
+
+</Devices>
+

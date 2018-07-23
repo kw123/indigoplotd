@@ -1,0 +1,315 @@
+<?xml version="1.0"?>
+<PluginConfig>
+
+
+<Field id="infoLabel" type="label">
+    <Label>Plot Device Properties: Temp,Humidty,Consumption,Rain,AC-OnOff,..</Label>
+    </Field>
+
+<Field id="infoLabel2" type="label">
+    <Label>									- Developed by Karl Wachs</Label>
+    </Field>
+
+
+<Field id="s0" type="separator"/>
+
+<Field  id="PLOTlistLast"  type="textfield"  defaultValue="" hidden="yes"> </Field>
+
+
+<Field id="testxx" type="checkbox" defaultValue="false" hidden="yes">
+    </Field>
+
+
+<Field  id="expertONOFF" type="checkbox" defaultValue="true">
+    <Label>Expert Mode ON / OFF:</Label>
+    <Description>To set ADVANCED parameters</Description>
+    </Field>
+
+
+
+
+<Field id="s1-2-12" type="separator"/>
+
+
+<Field  id="gnuORmat"   type="menu" defaultValue="mat" >
+    <Label>Pick Graphing tool:</Label>
+    <List>
+        <Option value="mat"    >MATplot</Option>
+        <Option value="gnu"    >GNUplot</Option>
+    </List>
+    <CallbackMethod>gnuORmatCALLBACK</CallbackMethod>
+    </Field>
+
+<Field  id="gnuPlotBin"  visibleBindingId="gnuORmat" visibleBindingValue="gnu"  type="textfield" defaultValue="/usr/local/bin/gnuplot"     readonly="no">
+    <Label>path to gnuplot</Label> 
+    </Field>
+
+
+
+<Field  visibleBindingId="expertONOFF" visibleBindingValue="true" id="indigoPNGdir"    type="textfield" defaultValue=""     readonly="no">
+    <Label>path to PlotFiles.png</Label>
+</Field>
+
+
+<Field  visibleBindingId="expertONOFF" visibleBindingValue="true" id="samplingPeriod"    type="menu" defaultValue="60"     readonly="no">
+    <Label>sampling period:</Label>
+    <List>
+        <Option value="60">60 seconds between samples -- default</Option>
+        <Option value="30">30 seconds between samples</Option>
+        <Option value="20">20 seconds between samples</Option>
+        <Option value="15">15 seconds between samples</Option>
+        <Option value="10">10 seconds between samples</Option>
+        <Option value="6"  >6 seconds between samples  --only with faster MACs</Option>
+        <Option value="5"  >5 seconds between samples  --only with faster MACs</Option>
+        <Option value="4"  >4 seconds between samples  --only with faster MACs</Option>
+    </List>
+    </Field>
+<Field visibleBindingId="expertONOFF" visibleBindingValue="true" id="s1-2-3" type="separator"/>
+
+<Field  visibleBindingId="expertONOFF" visibleBindingValue="true" id="noOfDays"    type="menu" defaultValue="[8, 38, 390]"     readonly="no">
+    <Label>No of days to be tracked in data:</Label>
+    <List>
+        <Option value="[8, 38, 390]"    >8/38/390    for Minute/Hour/Days Data -- default</Option>
+        <Option value="[22, 100, 1000]" >22/100/1000 for Minute/Hour/Days Data  -- only if your MAC is big enough</Option>
+        <Option value="[60, 300, 1500]" >60/300/1500 for Minute/Hour/Days Data  -- only if your MAC is REALLY big enough</Option>
+    </List>
+    </Field>
+<Field  id="s1-2-4" type="separator"/>
+
+<Field  id="sqlDynamic"    type="menu" defaultValue="batch2Days"     readonly="no">
+    <Label>How should data be retrieved from sql Database:</Label>
+    <List>
+<!--		<Option value="online"    >Online execution of SQL-Logger data retrieval</Option> -->
+        <Option value="batch"     >Batch(background) execution of SQL-Logger data retrieval import all data from sql</Option>
+        <Option value="batch2Days">Batch(background) execution of SQL-Logger data retrieval import 2 days ONLY from sql  (faster)</Option>
+        <Option value="None"      >Do not use SQL-Logger data base</Option>
+    </List>
+    </Field>
+<Field   id="liteOrPsql" visibleBindingId="sqlDynamic" visibleBindingValue="batch,batch2Days"   type="menu" defaultValue="sqlite" >
+    <Label>Pick SQL database tool:</Label>
+    <List>
+        <Option value="sqlite"  >sqlLite used in SQL logger</Option>
+        <Option value="psql"    >postgre used in SQL logger</Option>
+    </List>
+    </Field>
+
+<Field  visibleBindingId="liteOrPsql" visibleBindingValue="psql" id="liteOrPsqlString"    type="textfield" defaultValue="/Library/PostgreSQL/bin/psql indigo_history postgres "     readonly="no">
+    <Label>postgre command string </Label>
+    </Field>
+<Field  visibleBindingId="liteOrPsql" visibleBindingValue="sqlite" id="sqlitepath"    type="textfield" defaultValue="/Library/Application Support/Perceptive Automation/Indigo 7"     readonly="no">
+    <Label>Path to sqLite Database</Label>
+    </Field>
+
+
+<Field id="s1-2-7" type="separator"/>
+
+<Field   id="originalCopySQL" visibleBindingId="liteOrPsql" visibleBindingValue="sqlite"   type="menu" defaultValue="original"
+   tooltip="switch to SQL copy only if you have a lot of error messages from INDIGO regarding locked database in the log, using copy can add significant time to the import process ">
+    <Label>run sql import against copy or original SQLite DB</Label>
+    <List>
+        <Option value="original"  >ORIGINAL</Option>
+        <Option value="copy"      >COPY ... ONLY if you have serious sql "database locked" errors</Option>
+    </List>
+    </Field>
+<Field id="s1-2-6" type="separator"/>
+
+
+    
+    <Field id="infoLabel99" type="label"> <Label>debug level for plugin:</Label>  </Field>
+        
+    <Field    id="debugInitialize"  type="checkbox"  defaultValue="false"       tooltip=""> <Label> Debug...                   ... (1) initialize:</Label>  </Field>
+    <Field    id="debugGeneral"     type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (2) general:</Label>  </Field>
+    <Field    id="debugSQL"         type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (3) SQL import:</Label>  </Field>
+    <Field    id="debugPlotting"    type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (4) plotting:</Label>  </Field>
+    <Field    id="debugRestore"     type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (5) restore/reload  config:</Label>  </Field>
+    <Field    id="special"          type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (6) special:</Label>  </Field>
+    <Field    id="debugall"         type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (7) all of the above = everthing:</Label>  </Field>
+    <Field    id="logFileActive"    type="checkbox"  defaultValue="false"       tooltip=""> <Label> send logs to file:</Label> tooltip="in ~/Documents/piBeacon" </Field>
+
+
+    <Field    id="supressGnuWarnings"    type="checkbox"  defaultValue="false"       tooltip=""> <Label> do not show gnuplot warnings:</Label>  </Field>
+
+
+
+
+<Field id="s1-2-1" type="separator"/>
+<Field  visibleBindingId="expertONOFF" visibleBindingValue="true" id="l95" type="label">
+    <Label>Define the COST and TIMING parameters to be used for the different Consumption types :</Label>
+</Field>
+
+<Field visibleBindingId="expertONOFF" visibleBindingValue="true" id="consumptionType"   type="menu" defaultValue="0">
+    <Label>Select costing Type for Electric,Gas,Water Consumption:</Label>
+    <List>
+        <Option value="eConsumption">enter costs for Electric Consumption</Option>
+        <Option value="gConsumption">enter costs for Gas Consumption</Option>
+        <Option value="wConsumption">enter costs for Water Usage</Option>
+        <Option value="oConsumption">enter costs for "other" Usage</Option>
+        <Option value="0">--</Option>
+    </List>
+    <CallbackMethod>consumptionTypeCALLBACK</CallbackMethod>
+</Field>
+
+<Field   visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="consumptionPeriodType"   type="menu" defaultValue="WeekDay"
+    tooltip="Select which time schedule you like: WeekDay/... will reset the COST on a wekkly repeating basis; Using PERIOD you will need to defined the point in ime for each cost reset  Year/month/day-Hour , ie when was the meter read in a month">
+    <Label>Select energy costing Type Schedule:</Label>
+    <List>
+        <Option value="WeekDay">Weekly schedule on a Weekday/hour basis </Option>
+        <Option value="Period">Period: specify Costs for specific time periods YYYY/MM/DD/HH</Option>
+    </List>
+</Field>
+
+<Field   visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="consumptionPeriod"   type="menu" defaultValue="1" >
+    <Label>Select energy pricing schedule number:</Label>
+    <List>
+        <Option value="1"> 1</Option>
+        <Option value="2"> 2</Option>
+        <Option value="3"> 3</Option>
+        <Option value="4"> 4</Option>
+        <Option value="5"> 5</Option>
+        <Option value="6"> 6</Option>
+        <Option value="7"> 7</Option>
+        <Option value="8"> 8</Option>
+        <Option value="9"> 9</Option>
+        <Option value="10">10</Option>
+        <Option value="11">11</Option>
+        <Option value="12">12</Option>
+        <Option value="13">13</Option>
+        <Option value="14">14</Option>
+        <Option value="15">15</Option>
+        <Option value="16">16</Option>
+        <Option value="17">17</Option>
+        <Option value="18">18</Option>
+        <Option value="19">19</Option>
+        <Option value="20">20</Option>
+        <Option value="21">21</Option>
+        <Option value="22">22</Option>
+        <Option value="23">23</Option>
+        <Option value="24">24</Option>
+        <Option value="25">25</Option>
+        <Option value="26">26</Option>
+        <Option value="27">27</Option>
+        <Option value="28">28</Option>
+        <Option value="29">29</Option>
+        <Option value="30">30</Option>
+    </List>
+    <CallbackMethod>consumptionPeriodCALLBACK</CallbackMethod>
+</Field>
+
+
+<Field visibleBindingId="consumptionPeriodType" visibleBindingValue="Period" id="p00" type="label">
+    <Label>                             Enter start time of period to change price, 0= not used:</Label></Field>
+
+<Field   visibleBindingId="consumptionPeriodType" visibleBindingValue="Period"  id="thisPeriod"    type="textfield" defaultValue="2999/00/00/00"  readonly="no">
+    <Label>Format: YYYY/MM/DD/HH</Label>
+</Field>
+
+<Field visibleBindingId="consumptionPeriodType" visibleBindingValue="WeekDay" id="p01" type="label">
+    <Label>                             Pick Weekday/Hour to change cost:</Label></Field>
+
+<Field   visibleBindingId="consumptionPeriodType" visibleBindingValue="WeekDay"  id="day"   type="menu" defaultValue="99" >
+    <Label>day of the week:</Label>
+    <List>
+        <Option value="-1">all Days</Option>
+        <Option value="0" >Monday</Option>
+        <Option value="1" >Tuesday</Option>
+        <Option value="2" >Wednesday</Option>
+        <Option value="3" >Thursday</Option>
+        <Option value="4" >Friday</Option>
+        <Option value="5" >Saturday</Option>
+        <Option value="6" >Sunday</Option>
+        <Option value="99">disable</Option>
+    </List>
+</Field>
+
+<Field   visibleBindingId="consumptionPeriodType" visibleBindingValue="WeekDay"  id="hour"   type="menu" defaultValue="0" >
+    <Label>Rate Start Time HH:</Label>
+    <List>
+        <Option value="0" >00:00</Option>
+        <Option value="1" >01:00</Option>
+        <Option value="2" >02:00</Option>
+        <Option value="3" >03:00</Option>
+        <Option value="4" >04:00</Option>
+        <Option value="5" >05:00</Option>
+        <Option value="6" >06:00</Option>
+        <Option value="7" >07:00</Option>
+        <Option value="8" >08:00</Option>
+        <Option value="9" >09:00</Option>
+        <Option value="10">10:00</Option>
+        <Option value="11">11:00</Option>
+        <Option value="12">12:00</Option>
+        <Option value="13">13:00</Option>
+        <Option value="14">14:00</Option>
+        <Option value="15">15:00</Option>
+        <Option value="16">16:00</Option>
+        <Option value="17">17:00</Option>
+        <Option value="18">18:00</Option>
+        <Option value="19">19:00</Option>
+        <Option value="20">20:00</Option>
+        <Option value="21">21:00</Option>
+        <Option value="22">22:00</Option>
+        <Option value="23">23:00</Option>
+    </List>
+</Field>
+
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate" id="p02" type="label">
+    <Label>           Enter COSTS($/Euro/..) for each consumed unit(eg kWh) starting at consumed Units(eg kWh).            This can be used for rates that go up with higher consumption;     cost=0 will be ignored:</Label></Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="consumed0"    type="textfield" defaultValue="0"  readonly="yes">
+    <Label>0. Starting at consumed kWh/cMeter/...</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="cost0"    type="textfield" defaultValue="0."      readonly="no">
+    <Label>...Cost in $/Euro/GBP is:</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="consumed1"    type="textfield" defaultValue="0"  readonly="no">
+    <Label>1. Starting at consumed kWh/cMeter/...</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="cost1"    type="textfield" defaultValue="0."      readonly="no">
+    <Label>...Cost in $/Euro/GBP is:</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="consumed2"    type="textfield" defaultValue="0"  readonly="no">
+    <Label>2. Starting at consumed kWh/cMeter/...</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="cost2"    type="textfield" defaultValue="0."      readonly="no">
+    <Label>...Cost in $/Euro/GBP is:</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="consumed3"    type="textfield" defaultValue="0"  readonly="no">
+    <Label>3. Starting at consumed kWh/cMeter/...</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="cost3"    type="textfield" defaultValue="0."      readonly="no">
+    <Label>...Cost in $/Euro/GBP is:</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="consumed4"    type="textfield" defaultValue="0"  readonly="no">
+    <Label>4. Starting at consumed kWh/cMeter/...</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate"  id="cost4"    type="textfield" defaultValue="0."      readonly="no">
+    <Label>...Cost in $/Euro/GBP is:</Label>
+</Field>
+
+<Field visibleBindingId="consumptionType" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate" id="deleteCRate" type="checkbox"	tooltip="This will reset / delete this reate schedule after you confirm it ">
+    <Label>to Delete checkbox</Label><Title>DELETE</Title>
+</Field>
+
+<Field  visibleBindingId="consumptionType"  visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate" id="buttonConfirmCRates" type="button"	tooltip="This will store the properties for this rate">
+    <Label>After selecting properties click</Label><Title>CONFIRM</Title>  <CallbackMethod>buttonConfirmRatesCALLBACK</CallbackMethod>
+</Field>
+
+
+
+<Field  id="l99" type="label">
+    <Label>Make sure you click on [Save] </Label></Field>
+
+
+</PluginConfig>
+
+
+

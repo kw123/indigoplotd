@@ -1,0 +1,1159 @@
+<?xml version="1.0"?>
+<MenuItems>
+
+
+<MenuItem id="myFirstPlot">
+    <Name>Simple Plot</Name>
+    <ConfigUI>
+
+        <Field  id="oldNew"    type="textfield"  defaultValue="old"  hidden="yes"   readonly="no"> <Label></Label>  </Field>
+
+
+        <Field  id="fistPlotMessageText"    type="textfield"  defaultValue=" "     readonly="yes"> <Label>Status, error messages:</Label>  </Field>
+
+        <Field  id="nPlot"    type="menu" tooltip="select an exsting plot or choose NEW" defaultValue="0">
+            <Label>1...Name of the Plot here...............</Label>
+            <List class="self" filter="" method="filterPlotNames" dynamicReload="true"/><CallbackMethod>plotNameSelectedCALLBACK</CallbackMethod>
+        </Field>
+
+        <Field  id="newPlotName" visibleBindingId ="oldNew" visibleBindingValue="new"   type="textfield"  defaultValue=""  > <Label>enter name</Label>  </Field>
+        
+        <Field   id="buttonConfirmName" type="button"  visibleBindingId ="oldNew" visibleBindingValue="new" tooltip="this will store the new plot name">
+            <Label>confirm NEW Name</Label><Title>CONFIRM</Title> <CallbackMethod>buttonConfirNewPlotNameCALLBACK</CallbackMethod>
+        </Field>
+
+        <Field id="s3" type="separator"/>
+
+
+<!--	select device / variable		-->
+        <Field  id="selectedDeviceIDMFP" type="menu" >
+            <Label>Pick new Device/Variable:</Label>
+            <List class="self" filter="" method="filterDevicesThatQualify" dynamicReload="true"/>
+            <CallbackMethod>pickDevicesThatQualifyCALLBACK</CallbackMethod>
+        </Field>
+
+
+<!--	confirm selection
+        <Field   id="idbuttonConfirmDevice" type="button"	tooltip="This will confirm the device you selected for state/properties selection">
+            <Label>After selection click</Label><Title>CONFIRM</Title>
+            <CallbackMethod>buttonConfirmDeviceMFPCALLBACK</CallbackMethod>
+        </Field>
+
+-->
+<!--	select state top be plotted		-->
+        <Field   id="selDeviceStateMFP"  type="menu" defaultValue="0">
+            <Label>...state:</Label>
+            <List class="self" filter="" method="filterselDeviceStatesMFP" dynamicReload="true"/>
+        </Field>
+
+        <Field id="s4" type="separator"/>
+
+
+<!--	select line properties		-->
+        <Field id="lineType" type="menu" defaultValue='LineSolid' tooltip="Select type of line to be plotted">
+            <Label>3...DEFINE the LINE ............... Type</Label> <List>
+                <Option value='DOT.'>Dot .</Option>
+                <Option value='DOT+'>Dot +</Option>
+                <Option value='DOTx'>Dot x</Option>
+                <Option value='DOT*'>Dot *</Option>
+                <Option value='DOTo'>Dot o</Option>
+                <Option value='DOTv'>Dot v</Option>
+                <Option value='DOT^'>Dot ^</Option>
+                <Option value='DOTs'>Dot Solid Square</Option>
+                <Option value='LineSolid'>LineSolid</Option>
+                <Option value='LineDashed'>LineDashed</Option>
+                <Option value='Histogram' >Histogram</Option>
+                <Option value='Histogram0'>Histogram empty</Option>
+                <Option value='Histogram1'>Histogram pattern x</Option>
+                <Option value='Histogram2'>Histogram pattern xx(GNU) *(MAT) plot </Option>
+                <Option value='Histogram4'>Histogram pattern \</Option>
+                <Option value='Histogram5'>Histogram pattern /</Option>
+                <Option value='FilledCurves'>Filled (transparent) Curves</Option>
+            </List></Field>
+
+        <!-- line thickness -->
+        <Field id="lineWidth" type="menu" defaultValue='1' tooltip="Select width of line to be plotted">
+            <Label>... Width</Label> <List>
+                <Option value='0'>0</Option>
+                <Option value='1'>1</Option>
+                <Option value='2'>2</Option>
+                <Option value='3'>3</Option>
+                <Option value='4'>4</Option>
+                <Option value='5'>5</Option>
+            </List></Field>
+
+
+        <Field  id="lineColor" type="menu" defaultValue="#000000" tooltip="Select color of line" >
+            <Label>... Color</Label> <List>
+                <Option value='#FFA500' >orange</Option>
+                <Option value='#FF0000' >light-red</Option>
+                <Option value='#A00000' >dark-red</Option>
+                <Option value='#FFFF00' >light-yellow</Option>
+                <Option value='#A0A000' >dark-yellow</Option>
+                <Option value='#00FF00' >light-green</Option>
+                <Option value='#00A000' >dark-green</Option>
+                <Option value='#00FFFF' >light-green-blue</Option>
+                <Option value='#00A0A0' >dark-green-blue</Option>
+                <Option value='#0000FF' >light-blue</Option>
+                <Option value='#0000A0' >dark-blue</Option>
+                <Option value='#8B00B2' >light-indigo</Option>
+                <Option value='#4B0082' >dark-indigo</Option>
+                <Option value='#000000' >black</Option>
+                <Option value='#383838' >dark-grey</Option>
+                <Option value='#E0E0E0' >light-grey</Option>
+                <Option value='#FFFFFF' >white</Option>
+            </List></Field>
+        <Field id="s5" type="separator"/>
+
+<!--	select plot properties		-->
+        <Field  id="TitleText"    type="textfield"  defaultValue="The text that goes on top of the Plot"     readonly="no">
+            <Label>4...Other parameters..........Title Text</Label>  </Field>
+
+        <Field  id="TextSize" type="menu" defaultValue="8" tooltip="Select the font size in points" >
+            <Label>Font Size pts:</Label> <List>
+                <Option value='0'  >default</Option>
+                <Option value='4'  >4</Option>
+                <Option value='5'  >5</Option>
+                <Option value='6'  >6</Option>
+                <Option value='7'  >7</Option>
+                <Option value='8'  >8</Option>
+                <Option value='9'  >9</Option>
+                <Option value='10' >10</Option>
+                <Option value='11' >11</Option>
+                <Option value='12' >12</Option>
+                <Option value='13' >13</Option>
+                <Option value='14' >14</Option>
+                <Option value='15' >15</Option>
+                <Option value='16' >16</Option>
+                <Option value='17' >17</Option>
+                <Option value='18' >18</Option>
+                <Option value='19' >19</Option>
+                <Option value='20' >20</Option>
+                <Option value='21' >21</Option>
+                <Option value='22' >22</Option>
+                <Option value='24' >24</Option>
+                <Option value='26' >26</Option>
+                <Option value='28' >28</Option>
+                <Option value='30' >30</Option>
+            </List></Field>
+
+        <Field  id="TextColor" type="menu" defaultValue="#000000" tooltip="Select color of text and frame in plot" >
+            <Label>Text  Color</Label> <List>
+                <Option value='#FFA500' >orange</Option>
+                <Option value='#FF0000' >light-red</Option>
+                <Option value='#A00000' >dark-red</Option>
+                <Option value='#FFFF00' >light-yellow</Option>
+                <Option value='#A0A000' >dark-yellow</Option>
+                <Option value='#00FF00' >light-green</Option>
+                <Option value='#00A000' >dark-green</Option>
+                <Option value='#00FFFF' >light-green-blue</Option>
+                <Option value='#00A0A0' >dark-green-blue</Option>
+                <Option value='#0000FF' >light-blue</Option>
+                <Option value='#0000A0' >dark-blue</Option>
+                <Option value='#8B00B2' >light-indigo</Option>
+                <Option value='#4B0082' >dark-indigo</Option>
+                <Option value='#000000' >black</Option>
+                <Option value='#383838' >dark-grey</Option>
+                <Option value='#E0E0E0' >light-grey</Option>
+                <Option value='#FFFFFF' >white</Option>
+            </List></Field>
+
+
+        <Field  id="plotSize" type="menu" defaultValue="850,350" tooltip="Select size of plot" >
+            <Label>Plot size</Label> <List>
+                <Option value='850,350' >small (850x350)</Option>
+                <Option value='1024,768' >large (1024x768)</Option>
+            </List></Field>
+
+        <Field  id="Background" type="menu" defaultValue="#FFFFFF" tooltip="Select color of background" >
+            <Label>Background Color</Label> <List>
+                <Option value='#FFA500' >orange</Option>
+                <Option value='#FF0000' >light-red</Option>
+                <Option value='#A00000' >dark-red</Option>
+                <Option value='#FFFF00' >light-yellow</Option>
+                <Option value='#A0A000' >dark-yellow</Option>
+                <Option value='#00FF00' >light-green</Option>
+                <Option value='#00A000' >dark-green</Option>
+                <Option value='#00FFFF' >light-green-blue</Option>
+                <Option value='#00A0A0' >dark-green-blue</Option>
+                <Option value='#0000FF' >light-blue</Option>
+                <Option value='#0000A0' >dark-blue</Option>
+                <Option value='#8B00B2' >light-indigo</Option>
+                <Option value='#4B0082' >dark-indigo</Option>
+                <Option value='#000000' >black</Option>
+                <Option value='#383838' >dark-grey</Option>
+                <Option value='#E0E0E0' >light-grey</Option>
+                <Option value='#FFFFFF' >white</Option>
+            </List></Field>
+
+        <Field id="s9" type="separator"/>
+
+
+<!--	now create / plot it		-->
+        <Field   id="buttonConfirmSelection" type="button"	tooltip="This will CREATE the device/state/text/color you selected">
+            <Label>5...click to create plot file................</Label><Title>CREATE</Title> <CallbackMethod>buttonConfirmSelectionMFPCALLBACK</CallbackMethod>
+        </Field>
+        <Field id="infoLabel101" type="label"> <Label>      it will tell INDIGOplotD to create the plot in ~Documents/INDIGOplotD/</Label> </Field>
+
+        <Field   id="idshowPlotCALLBACK" type="button"	tooltip="This will show the plot on your screen">
+            <Label>6...click to show plot.......................</Label><Title>SHOW</Title> <CallbackMethod>showPlotMFPCALLBACK</CallbackMethod>
+        </Field>
+
+    </ConfigUI>
+</MenuItem>
+
+
+
+    <MenuItem id="d10"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+
+
+
+    <MenuItem id="defineDataSource">
+        <Name>Define / select data sources, needed in PLOTS</Name>
+        <ConfigUI>
+
+
+            <Field id="DefineDevices" type="label"  >
+                <Label>1. pick Device or Variable data to be used (tracked) for plotting :</Label>
+                <Description>First Step</Description>
+            </Field>
+
+            <Field id="s1" type="separator"/>
+
+
+            <Field id="testxx" type="checkbox" defaultValue="false" hidden="yes">
+            </Field>
+
+
+            <Field id="DefineDevicesAndNew" type="checkbox" defaultValue="false" hidden="yes">
+            </Field>
+            <Field id="DefineDevicesAndOld" type="checkbox" defaultValue="false" hidden="yes">
+            </Field>
+            <Field id="DefineDevicesDummy" type="checkbox" defaultValue="true" hidden="yes">
+            </Field>
+            <Field id="selectDeviceStatesOK" type="checkbox" defaultValue="false" hidden="yes">
+            </Field>
+
+            <Field  id="expertONOFF" type="checkbox" defaultValue="true">
+                <Label>Expert Mode ON / OFF:</Label>
+                <Description>if you want to set ADVANCED parameters</Description>
+            </Field>
+
+
+
+            <Field  id="text1-1"    type="textfield"  defaultValue="  and then confirm !"     readonly="yes">
+                <Label>1.1 Select Device or Variable to be tracked.................</Label>
+            </Field>
+
+
+            <Field   id="selectedExistingOrNewDevice" type="menu" tooltip="you have to click on your choice to signal your entry" >
+                <Label>Select existing or new Device/Variable:</Label>
+                <List class="self" filter="" method="filterExistingDevice" dynamicReload="true"/>
+                <CallbackMethod>pickExistingOrNewDeviceCALLBACK</CallbackMethod>
+            </Field>
+
+
+            <Field  visibleBindingId="DefineDevicesAndNew" visibleBindingValue="true" id="selectedDeviceID" type="menu" defaultValue="0">
+                <Label>Pick new Device/Variable:</Label>
+                <List class="self" filter="" method="filterDevicesThatQualify" dynamicReload="false"/>
+                <CallbackMethod>pickDevicesThatQualifyCALLBACK</CallbackMethod>
+            </Field>
+
+            <Field visibleBindingId="DefineDevicesAndOld" visibleBindingValue="true" id="DeleteDevice" type="checkbox"	tooltip="This will delete the device after confirm ">
+                <Label>to Delete checkbox</Label><Title>DELETE</Title>
+            </Field>
+
+            <Field visibleBindingId="DefineDevicesDummy" visibleBindingValue="true" id="DeleteDeviceEmpty" type="label">
+                <Label> </Label>
+            </Field>
+
+            <Field   id="idbuttonConfirmDevice" type="button"	tooltip="This will confirm the device you selected for state/properties selection">
+                <Label>After selection click</Label><Title>CONFIRM</Title>
+                <CallbackMethod>buttonConfirmDeviceCALLBACK</CallbackMethod>
+            </Field>
+
+
+
+
+            <!--    Device selected  now dev props -->
+            <Field  id="s1-2" type="separator"/>
+
+            <Field   id="text1-2"    type="textfield" defaultValue="  and then confirm !"     readonly="yes">
+                <Label>1.2 Select States of Device/Variable to be tracked.</Label>
+            </Field>
+
+
+            <Field  enabledBindingId="selectDeviceStatesOK"   id="selDeviceStatea1"  type="menu" defaultValue="0">
+                <Label>1...........................................state:</Label>
+                <List class="self" filter="" method="filterselDeviceStates1" dynamicReload="true"/>
+            </Field>
+
+            <Field  enabledBindingId ="selectDeviceStatesOK"   id="selDevicemeasurement1"   type="menu" defaultValue="average"
+                tooltip="Select the MEASUREMENT you like to perform on the device/state (or what kind of data is this):">
+                <Label>..measurement:</Label>
+                <List>
+                    <Option value="delete" >delete this state from selection list</Option>
+                    <Option value="eventUP"     >Events-UP,     raw data, no averages, read SQL-logger, only when State is changed to UP/TRUE/1/ON</Option>
+                    <Option value="eventCHANGE" >Events-CHANGE, raw data, no averages, read SQL-logger, only when State is changed</Option>
+                    <Option value="eventANY"    >Events-ANY,    raw data, no averages, read SQL-logger, when State is updated - any entry</Option>
+                    <Option value="eventDOWN"   >Events-DOWN,   raw data, no averages, read SQL-logger, only when State is changed to DOWN/FALSE/OFF/0</Option>
+                    <Option value="eventCOUNT"  >Events-COUNT,  raw data,  count in bin range, read SQL-logger, only when State is UP/TRUE/1/ON, please set RESET period</Option>
+                    <Option value="Direction0to360East" >Direction 0 to 360  0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0to360North">Direction 0 to 360  0 at North  clock wise increase (like compass)</Option>
+                    <Option value="Direction0toPiEast"  >Direction 0 to 2pi   0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0toPiNorth" >Direction 0 to 2pi   0 at North  clock wise increase (like compass)</Option>
+                    <Option value="eConsumption">Electric Consumption (Cost)</Option>
+                    <Option value="gConsumption">Gas Consumption (Cost)</Option>
+                    <Option value="wConsumption">Water Consumption (Cost)</Option>
+                    <Option value="oConsumption">Other Consumption (Cost)</Option>
+                    <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
+                    <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)   eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="max"    >max</Option>
+                    <Option value="min"    >min</Option>
+                    <Option value="count"  >count</Option>
+                    <Option value="sum"    >sum</Option>
+                    <Option value="average">average</Option>
+                </List>
+            </Field>
+
+            <Field  enabledBindingId ="selectDeviceStatesOK" visibleBindingId ="selDevicemeasurement1" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate,eventCOUNT"  id="resetType1"   type="menu" defaultValue="0"
+                tooltip="Select the the RESET frequency for the consumption or integration . FOR CONSUMPTION ONLY:  The details (period timing ) and applied Cost are defined in the COST section below:">
+                <Label>..reset:</Label>
+                <List>
+                    <Option value="day">reset each Day, variable Cost for Consumption only</Option>
+                    <Option value="week" >reset each Week, variable Cost for Consumption only</Option>
+                    <Option value="month">reset each Month, variable Cost for Consumption only</Option>
+                    <Option value="year">reset each Year, variable Cost for Consumption only</Option>
+                    <Option value="Period">reset each Period, variable Cost for Consumption only</Option>
+                    <Option value="PeriodNoCost">reset each Period, cost=1  for Consumption only</Option>
+                    <Option value="dayNoCost">reset each Day, cost=1 for Consumption and Integration</Option>
+                    <Option value="weekNoCost" >reset each Week, cost=1 for Consumption and Integration</Option>
+                    <Option value="monthNoCost">reset each Month, cost=1 for Consumption and Integration</Option>
+                    <Option value="yearNoCost">reset each Year, cost=1 for Consumption and Integration</Option>
+                </List>
+            </Field>
+
+            <Field  visibleBindingId="resetType1" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="resetPeriods1"    type="textfield" defaultValue="0"  >
+                <Label> reset points for PERIOD selection, 0=disable:</Label>
+            </Field>
+
+            <Field  visibleBindingId="resetType1" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="la1" alignText="right" fontSize="small" type="label">
+                <Label>use format YYYY/MM/DD/HH+Y/M/D/H+Y/M/+... enter up to 30:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceoffset1"    type="textfield" defaultValue="0.0"     readonly="no">
+                <Label>add to measured value(offset):</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemultiplier1"    type="textfield" defaultValue="1.0"     readonly="no">
+                <Label>multiply value with:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceminValue1"    type="textfield" defaultValue="-200.0"     readonly="no">
+                <Label>Ignore if ... LESS than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemaxValue1"    type="textfield" defaultValue="+50000.0"     readonly="no">
+                <Label>... GREATER than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="fillGaps1"  type="menu"  defaultValue="1"     readonly="no"
+                tooltip="fillGap =no: if there is no data in the time-bin, no value is extrapolated, fillGap=yes: if there is no data in the time bin the value from the last time bin us used.">
+                <Label>Fill data gaps</Label>
+                <List>
+                    <Option value="0" >do not fill data gaps if no information in Time bin</Option>
+                    <Option value="1">fill data gaps with last available info if no information in Time bin</Option>
+                </List>
+            </Field>
+            <Field   visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="nickName1"    type="textfield"  defaultValue=""     readonly="no">
+                <Label>nick-Name </Label>
+            </Field>
+
+
+
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDeviceStatea2"  type="menu" defaultValue="0">
+                <Label>2...........................................state:</Label>
+                <List class="self" filter="" method="filterselDeviceStates2" dynamicReload="true"/>
+            </Field>
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDevicemeasurement2"   type="menu" defaultValue="0" >
+                <Label>..measurement:</Label>
+                <List>
+                    <Option value="delete" >delete this state from selection list</Option>
+                    <Option value="eventUP"     >Events-UP,     raw data, no averages, read SQL-logger, only when State is changed to UP/TRUE/1/ON</Option>
+                    <Option value="eventCHANGE" >Events-CHANGE, raw data, no averages, read SQL-logger, only when State is changed</Option>
+                    <Option value="eventANY"    >Events-ANY,    raw data, no averages, read SQL-logger, when State is updated - any entry</Option>
+                    <Option value="eventDOWN"   >Events-DOWN,   raw data, no averages, read SQL-logger, only when State is changed to DOWN/FALSE/OFF/0</Option>
+                    <Option value="eventCOUNT"  >Events-COUNT,  raw data,  count in bin range, read SQL-logger, only when State is UP/TRUE/1/ON, please set RESET period</Option>
+                    <Option value="Direction0to360East" >Direction 0 to 360  0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0to360North">Direction 0 to 360  0 at North  clock wise increase (like compass)</Option>
+                    <Option value="Direction0toPiEast"  >Direction 0 to 2pi   0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0toPiNorth" >Direction 0 to 2pi   0 at North  clock wise increase (like compass)</Option>
+                    <Option value="eConsumption">Electric Consumption (Cost)</Option>
+                    <Option value="gConsumption">Gas Consumption (Cost)</Option>
+                    <Option value="wConsumption">Water Consumption (Cost)</Option>
+                    <Option value="oConsumption">Other Consumption (Cost)</Option>
+                    <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
+                    <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="max"    >max</Option>
+                    <Option value="min"    >min</Option>
+                    <Option value="count"  >count</Option>
+                    <Option value="sum"    >sum</Option>
+                    <Option value="average">average</Option>
+                </List>
+            </Field>
+
+            <Field  enabledBindingId ="selectDeviceStatesOK" visibleBindingId ="selDevicemeasurement2" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate,eventCOUNT"  id="resetType2"   type="menu" defaultValue="0"
+                tooltip="Select the the RESET frequency for the consumption or integration . FOR CONSUMPTION ONLY:  The details (period timing ) and applied Cost are defined in the COST section below:">
+                <Label>..reset:</Label>
+                <List>
+                    <Option value="day">reset each Day, variable Cost for Consumption only</Option>
+                    <Option value="week" >reset each Week, variable Cost for Consumption only</Option>
+                    <Option value="month">reset each Month, variable Cost for Consumption only</Option>
+                    <Option value="year">reset each Year, variable Cost for Consumption only</Option>
+                    <Option value="Period">reset each Period, variable Cost for Consumption only</Option>
+                    <Option value="PeriodNoCost">reset each Period, cost=1  for Consumption only</Option>
+                    <Option value="dayNoCost">reset each Day, cost=1 for Consumption and Integration</Option>
+                    <Option value="weekNoCost" >reset each Week, cost=1 for Consumption and Integration</Option>
+                    <Option value="monthNoCost">reset each Month, cost=1 for Consumption and Integration</Option>
+                    <Option value="yearNoCost">reset each Year, cost=1 for Consumption and Integration</Option>
+                </List>
+            </Field>
+
+            <Field  visibleBindingId="resetType2" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="resetPeriods2"    type="textfield" defaultValue="0"  >
+                <Label> reset points for PERIOD selection, 0=disable:</Label>
+            </Field>
+
+            <Field  visibleBindingId="resetType2" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="la2" alignText="center" fontSize="small" type="label">
+                <Label>use format YYYY/MM/DD/HH+Y/M/D/H+Y/M/+... enter up to 30:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceoffset2"    type="textfield" defaultValue="0.0"     readonly="no">
+                <Label>add to measured value(offset):</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemultiplier2"    type="textfield" defaultValue="1.0"     readonly="no">
+                <Label>multiply value with:</Label>
+            </Field>
+
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceminValue2"    type="textfield" defaultValue="-200.0"     readonly="no">
+                <Label>Ignore if ... LESS than:</Label>
+            </Field>
+
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemaxValue2"    type="textfield" defaultValue="+50000.0"     readonly="no">
+                <Label>... if GREATER than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="fillGaps2"  type="menu"  defaultValue="1"     readonly="no"
+                tooltip="fillGap =no: if there is no data in the time-bin, no value is extrapolated, fillGap=yes: if there is no data in the time bin the value from the last time bin us used.">
+                <Label>Fill data gaps</Label>
+                <List>
+                    <Option value="0" >do not fill data gaps if no information in Time bin</Option>
+                    <Option value="1">fill data gaps with last available info if no information in Time bin</Option>
+                </List>
+            </Field>
+
+            <Field   visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="nickName2"    type="textfield"  defaultValue=""     readonly="no">
+                <Label>nick-Name </Label>
+            </Field>
+
+
+
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDeviceStatea3"  type="menu" defaultValue="0">
+                <Label>3...........................................state:</Label>
+                <List class="self" filter="" method="filterselDeviceStates3" dynamicReload="true"/>
+            </Field>
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDevicemeasurement3"   type="menu" defaultValue="0" >
+                <Label>..measurement:</Label>
+                <List>
+                    <Option value="delete" >delete this state from selection list</Option>
+                    <Option value="eventUP"     >Events-UP,     raw data, no averages, read SQL-logger, only when State is changed to UP/TRUE/1/ON</Option>
+                    <Option value="eventCHANGE" >Events-CHANGE, raw data, no averages, read SQL-logger, only when State is changed</Option>
+                    <Option value="eventANY"    >Events-ANY,    raw data, no averages, read SQL-logger, when State is updated - any entry</Option>
+                    <Option value="eventDOWN"   >Events-DOWN,   raw data, no averages, read SQL-logger, only when State is changed to DOWN/FALSE/OFF/0</Option>
+                    <Option value="eventCOUNT"  >Events-COUNT,  raw data,  count in bin range, read SQL-logger, only when State is UP/TRUE/1/ON, please set RESET period</Option>
+                    <Option value="Direction0to360East" >Direction 0 to 360  0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0to360North">Direction 0 to 360  0 at North  clock wise increase (like compass)</Option>
+                    <Option value="Direction0toPiEast"  >Direction 0 to 2pi   0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0toPiNorth" >Direction 0 to 2pi   0 at North  clock wise increase (like compass)</Option>
+                    <Option value="eConsumption">Electric Consumption (Cost)</Option>
+                    <Option value="gConsumption">Gas Consumption (Cost)</Option>
+                    <Option value="wConsumption">Water Consumption (Cost)</Option>
+                    <Option value="oConsumption">Other Consumption (Cost)</Option>
+                    <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
+                    <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="max"    >max</Option>
+                    <Option value="min"    >min</Option>
+                    <Option value="count"  >count</Option>
+                    <Option value="sum"    >sum</Option>
+                    <Option value="average">average</Option>
+                </List>
+            </Field>
+
+            <Field  enabledBindingId ="selectDeviceStatesOK" visibleBindingId ="selDevicemeasurement3" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate,eventCOUNT"  id="resetType3"   type="menu" defaultValue=""
+                tooltip="Select the the RESET frequency for the consumption or integration . FOR CONSUMPTION ONLY:  The details (period timing ) and applied Cost are defined in the COST section below:">
+                <Label>..reset:</Label>
+                <List>
+                    <Option value="day">reset each Day, variable Cost for Consumption only</Option>
+                    <Option value="week" >reset each Week, variable Cost for Consumption only</Option>
+                    <Option value="month">reset each Month, variable Cost for Consumption only</Option>
+                    <Option value="year">reset each Year, variable Cost for Consumption only</Option>
+                    <Option value="Period">reset each Period, variable Cost for Consumption only</Option>
+                    <Option value="PeriodNoCost">reset each Period, cost=1  for Consumption only</Option>
+                    <Option value="dayNoCost">reset each Day, cost=1 for Consumption and Integration</Option>
+                    <Option value="weekNoCost" >reset each Week, cost=1 for Consumption and Integration</Option>
+                    <Option value="monthNoCost">reset each Month, cost=1 for Consumption and Integration</Option>
+                    <Option value="yearNoCost">reset each Year, cost=1 for Consumption and Integration</Option>
+                </List>
+            </Field>
+
+            <Field  visibleBindingId="resetType3" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="resetPeriods3"    type="textfield" defaultValue="0"  >
+                <Label> reset points for PERIOD selection, 0=disable:</Label>
+            </Field>
+
+            <Field  visibleBindingId="resetType3" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="la3" alignText="center" fontSize="small" type="label">
+                <Label>use format YYYY/MM/DD/HH+Y/M/D/H+Y/M/+... enter up to 30:</Label></Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceoffset3"    type="textfield" defaultValue="0.0"     readonly="no">
+                <Label>add to measured value(offset):</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemultiplier3"    type="textfield" defaultValue="1.0"     readonly="no">
+                <Label>multiply value with:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceminValue3"    type="textfield" defaultValue="-200.0"     readonly="no">
+                <Label>Ignore if ... LESS than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemaxValue3"    type="textfield" defaultValue="+50000.0"     readonly="no">
+                <Label>... if GREATER than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="fillGaps3"  type="menu"  defaultValue="1"     readonly="no"
+                tooltip="fillGap =no: if there is no data in the time-bin, no value is extrapolated, fillGap=yes: if there is no data in the time bin the value from the last time bin us used.">
+                <Label>Fill data gaps</Label>
+                <List>
+                    <Option value="0" >do not fill data gaps if no information in Time bin</Option>
+                    <Option value="1">fill data gaps with last available info if no information in Time bin</Option>
+                </List>
+            </Field>
+
+            <Field   visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="nickName3"    type="textfield"  defaultValue=""     readonly="no">
+                <Label>nick-Name </Label>
+            </Field>
+
+
+
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDeviceStatea4"  type="menu" defaultValue="0">
+                <Label>4...........................................state:</Label>    <List class="self" filter="" method="filterselDeviceStates4" dynamicReload="true"/>
+            </Field>
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDevicemeasurement4"   type="menu" defaultValue="0" >
+                <Label>..measurement:</Label>
+                <List>
+                    <Option value="delete" >delete this state from selection list</Option>
+                    <Option value="eventUP"     >Events-UP,     raw data, no averages, read SQL-logger, only when State is changed to UP/TRUE/1/ON</Option>
+                    <Option value="eventCHANGE" >Events-CHANGE, raw data, no averages, read SQL-logger, only when State is changed</Option>
+                    <Option value="eventANY"    >Events-ANY,    raw data, no averages, read SQL-logger, when State is updated - any entry</Option>
+                    <Option value="eventDOWN"   >Events-DOWN,   raw data, no averages, read SQL-logger, only when State is changed to DOWN/FALSE/OFF/0</Option>
+                    <Option value="eventCOUNT"  >Events-COUNT,  raw data,  count in bin range, read SQL-logger, only when State is UP/TRUE/1/ON, please set RESET period</Option>
+                    <Option value="Direction0to360East" >Direction 0 to 360  0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0to360North">Direction 0 to 360  0 at North  clock wise increase (like compass)</Option>
+                    <Option value="Direction0toPiEast"  >Direction 0 to 2pi   0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0toPiNorth" >Direction 0 to 2pi   0 at North  clock wise increase (like compass)</Option>
+                    <Option value="eConsumption">Electric Consumption (Cost)</Option>
+                    <Option value="gConsumption">Gas Consumption (Cost)</Option>
+                    <Option value="wConsumption">Water Consumption (Cost)</Option>
+                    <Option value="oConsumption">Other Consumption (Cost)</Option>
+                    <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
+                    <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="max"    >max</Option>
+                    <Option value="min"    >min</Option>
+                    <Option value="count"  >count</Option>
+                    <Option value="sum"    >sum</Option>
+                    <Option value="average">average</Option>
+                </List>
+            </Field>
+
+            <Field  enabledBindingId ="selectDeviceStatesOK" visibleBindingId ="selDevicemeasurement4" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate,eventCOUNT"  id="resetType4"   type="menu" defaultValue="0"
+                tooltip="Select the the RESET frequency for the consumption or integration . FOR CONSUMPTION ONLY:  The details (period timing ) and applied Cost are defined in the COST section below:">
+                <Label>..reset:</Label>
+                <List>
+                    <Option value="day">reset each Day, variable Cost for Consumption only</Option>
+                    <Option value="week" >reset each Week, variable Cost for Consumption only</Option>
+                    <Option value="month">reset each Month, variable Cost for Consumption only</Option>
+                    <Option value="year">reset each Year, variable Cost for Consumption only</Option>
+                    <Option value="Period">reset each Period, variable Cost for Consumption only</Option>
+                    <Option value="PeriodNoCost">reset each Period, cost=1  for Consumption only</Option>
+                    <Option value="dayNoCost">reset each Day, cost=1 for Consumption and Integration</Option>
+                    <Option value="weekNoCost" >reset each Week, cost=1 for Consumption and Integration</Option>
+                    <Option value="monthNoCost">reset each Month, cost=1 for Consumption and Integration</Option>
+                    <Option value="yearNoCost">reset each Year, cost=1 for Consumption and Integration</Option>
+                </List>
+            </Field>
+
+            <Field  visibleBindingId="resetType4" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="resetPeriods4"    type="textfield" defaultValue="0"  >
+                <Label> reset points for PERIOD selection, 0=disable:</Label>
+            </Field>
+
+            <Field  visibleBindingId="resetType4" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="la4" alignText="center" fontSize="small" type="label">
+                <Label>use format YYYY/MM/DD/HH+Y/M/D/H+Y/M/+... enter up to 30:</Label></Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceoffset4"    type="textfield" defaultValue="0.0"     readonly="no">
+                <Label>add to measured value(offset):</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemultiplier4"    type="textfield" defaultValue="1.0"     readonly="no">
+                <Label>multiply value with:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceminValue4"    type="textfield" defaultValue="-200.0"     readonly="no">
+                <Label>Ignore if ... LESS than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemaxValue4"    type="textfield" defaultValue="+50000.0"     readonly="no">
+                <Label>... if GREATER than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="fillGaps4"  type="menu"  defaultValue="1"     readonly="no"
+                tooltip="fillGap =no: if there is no data in the time-bin, no value is extrapolated, fillGap=yes: if there is no data in the time bin the value from the last time bin us used.">
+                <Label>Fill data gaps</Label>
+                <List>
+                    <Option value="0" >do not fill data gaps if no information in Time bin</Option>
+                    <Option value="1">fill data gaps with last available info if no information in Time bin</Option>
+                </List>
+            </Field>
+
+            <Field   visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="nickName4"    type="textfield"  defaultValue=""     readonly="no">
+                <Label>nick-Name </Label>
+            </Field>
+
+
+
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDeviceStatea5"  type="menu" defaultValue="0">
+                <Label>5...........................................state:</Label>    <List class="self" filter="" method="filterselDeviceStates5" dynamicReload="true"/>
+            </Field>
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDevicemeasurement5"   type="menu" defaultValue="0" >
+                <Label>..measurement:</Label>
+                <List>
+                    <Option value="delete" >delete this state from selection list</Option>
+                    <Option value="eventUP"     >Events-UP,     raw data, no averages, read SQL-logger, only when State is changed to UP/TRUE/1/ON</Option>
+                    <Option value="eventCHANGE" >Events-CHANGE, raw data, no averages, read SQL-logger, only when State is changed</Option>
+                    <Option value="eventANY"    >Events-ANY,    raw data, no averages, read SQL-logger, when State is updated - any entry</Option>
+                    <Option value="eventDOWN"   >Events-DOWN,   raw data, no averages, read SQL-logger, only when State is changed to DOWN/FALSE/OFF/0</Option>
+                    <Option value="eventCOUNT"  >Events-COUNT,  raw data,  count in bin range, read SQL-logger, only when State is UP/TRUE/1/ON, please set RESET period</Option>
+                    <Option value="Direction0to360East" >Direction 0 to 360  0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0to360North">Direction 0 to 360  0 at North  clock wise increase (like compass)</Option>
+                    <Option value="Direction0toPiEast"  >Direction 0 to 2pi   0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0toPiNorth" >Direction 0 to 2pi   0 at North  clock wise increase (like compass)</Option>
+                    <Option value="eConsumption">Electric Consumption (Cost)</Option>
+                    <Option value="gConsumption">Gas Consumption (Cost)</Option>
+                    <Option value="wConsumption">Water Consumption (Cost)</Option>
+                    <Option value="oConsumption">Other Consumption (Cost)</Option>
+                    <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
+                    <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="max"    >max</Option>
+                    <Option value="min"    >min</Option>
+                    <Option value="count"  >count</Option>
+                    <Option value="sum"    >sum</Option>
+                    <Option value="average">average</Option>
+                </List>
+            </Field>
+
+            <Field  enabledBindingId ="selectDeviceStatesOK" visibleBindingId ="selDevicemeasurement5" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate,eventCOUNT"  id="resetType5"   type="menu" defaultValue="0"
+                tooltip="Select the the RESET frequency for the consumption or integration . FOR CONSUMPTION ONLY:  The details (period timing ) and applied Cost are defined in the COST section below:">
+                <Label>..reset:</Label>
+                <List>
+                    <Option value="day">reset each Day, variable Cost for Consumption only</Option>
+                    <Option value="week" >reset each Week, variable Cost for Consumption only</Option>
+                    <Option value="month">reset each Month, variable Cost for Consumption only</Option>
+                    <Option value="year">reset each Year, variable Cost for Consumption only</Option>
+                    <Option value="Period">reset each Period, variable Cost for Consumption only</Option>
+                    <Option value="PeriodNoCost">reset each Period, cost=1  for Consumption only</Option>
+                    <Option value="dayNoCost">reset each Day, cost=1 for Consumption and Integration</Option>
+                    <Option value="weekNoCost" >reset each Week, cost=1 for Consumption and Integration</Option>
+                    <Option value="monthNoCost">reset each Month, cost=1 for Consumption and Integration</Option>
+                    <Option value="yearNoCost">reset each Year, cost=1 for Consumption and Integration</Option>
+                </List>
+            </Field>
+
+            <Field  visibleBindingId="resetType5" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="resetPeriods5"    type="textfield" defaultValue="0"  >
+                <Label> reset points for PERIOD selection, 0=disable:</Label>
+            </Field>
+
+            <Field  visibleBindingId="resetType5" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="la5" alignText="center" fontSize="small" type="label">
+                <Label>use format YYYY/MM/DD/HH+Y/M/D/H+Y/M/+... enter up to 30:</Label></Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceoffset5"    type="textfield" defaultValue="0.0"     readonly="no">
+                <Label>add to measured value(offset):</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemultiplier5"    type="textfield" defaultValue="1.0"     readonly="no">
+                <Label>multiply value with:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceminValue5"    type="textfield" defaultValue="-200.0"     readonly="no">
+                <Label>Ignore if ... LESS than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemaxValue5"    type="textfield" defaultValue="+50000.0"     readonly="no">
+                <Label>... if GREATER than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="fillGaps5"  type="menu"  defaultValue="1"     readonly="no"
+                tooltip="fillGap =no: if there is no data in the time-bin, no value is extrapolated, fillGap=yes: if there is no data in the time bin the value from the last time bin us used.">
+                <Label>Fill data gaps</Label>
+                <List>
+                    <Option value="0" >do not fill data gaps if no information in Time bin</Option>
+                    <Option value="1">fill data gaps with last available info if no information in Time bin</Option>
+                </List>
+            </Field>
+
+            <Field   visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="nickName5"    type="textfield"  defaultValue=""     readonly="no">
+                <Label>nick-Name </Label>
+            </Field>
+
+
+
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDeviceStatea6"  type="menu" defaultValue="0">
+                <Label>6...........................................state:</Label>    <List class="self" filter="" method="filterselDeviceStates6" dynamicReload="true"/>
+            </Field>
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDevicemeasurement6"   type="menu" defaultValue="0" >
+                <Label>..measurement:</Label>
+                <List>
+                    <Option value="delete" >delete this state from selection list</Option>
+                    <Option value="eventUP"     >Events-UP,     raw data, no averages, read SQL-logger, only when State is changed to UP/TRUE/1/ON</Option>
+                    <Option value="eventCHANGE" >Events-CHANGE, raw data, no averages, read SQL-logger, only when State is changed</Option>
+                    <Option value="eventANY"    >Events-ANY,    raw data, no averages, read SQL-logger, when State is updated - any entry</Option>
+                    <Option value="eventDOWN"   >Events-DOWN,   raw data, no averages, read SQL-logger, only when State is changed to DOWN/FALSE/OFF/0</Option>
+                    <Option value="eventCOUNT"  >Events-COUNT,  raw data,  count in bin range, read SQL-logger, only when State is UP/TRUE/1/ON, please set RESET period</Option>
+                    <Option value="Direction0to360East" >Direction 0 to 360  0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0to360North">Direction 0 to 360  0 at North  clock wise increase (like compass)</Option>
+                    <Option value="Direction0toPiEast"  >Direction 0 to 2pi   0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0toPiNorth" >Direction 0 to 2pi   0 at North  clock wise increase (like compass)</Option>
+                    <Option value="eConsumption">Electric Consumption (Cost)</Option>
+                    <Option value="gConsumption">Gas Consumption (Cost)</Option>
+                    <Option value="wConsumption">Water Consumption (Cost)</Option>
+                    <Option value="oConsumption">Other Consumption (Cost)</Option>
+                    <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
+                    <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="max"    >max</Option>
+                    <Option value="min"    >min</Option>
+                    <Option value="count"  >count</Option>
+                    <Option value="sum"    >sum</Option>
+                    <Option value="average">average</Option>
+                </List>
+            </Field>
+
+            <Field  enabledBindingId ="selectDeviceStatesOK" visibleBindingId ="selDevicemeasurement6" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate,eventCOUNT"  id="resetType6"   type="menu" defaultValue="0"
+                tooltip="Select the the RESET frequency for the consumption or integration . FOR CONSUMPTION ONLY:  The details (period timing ) and applied Cost are defined in the COST section below:">
+                <Label>..reset:</Label>
+                <List>
+                    <Option value="day">reset each Day, variable Cost for Consumption only</Option>
+                    <Option value="week" >reset each Week, variable Cost for Consumption only</Option>
+                    <Option value="month">reset each Month, variable Cost for Consumption only</Option>
+                    <Option value="year">reset each Year, variable Cost for Consumption only</Option>
+                    <Option value="Period">reset each Period, variable Cost for Consumption only</Option>
+                    <Option value="PeriodNoCost">reset each Period, cost=1  for Consumption only</Option>
+                    <Option value="dayNoCost">reset each Day, cost=1 for Consumption and Integration</Option>
+                    <Option value="weekNoCost" >reset each Week, cost=1 for Consumption and Integration</Option>
+                    <Option value="monthNoCost">reset each Month, cost=1 for Consumption and Integration</Option>
+                    <Option value="yearNoCost">reset each Year, cost=1 for Consumption and Integration</Option>
+                </List>
+            </Field>
+
+            <Field  visibleBindingId="resetType6" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="resetPeriods6"    type="textfield" defaultValue="0"  >
+                <Label> reset points for PERIOD selection, 0=disable:</Label>
+            </Field>
+
+            <Field  visibleBindingId="resetType6" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="la6" alignText="center" fontSize="small" type="label">
+                <Label>use format YYYY/MM/DD/HH+Y/M/D/H+Y/M/+... enter up to 30:</Label></Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceoffset6"    type="textfield" defaultValue="0.0"     readonly="no">
+                <Label>add to measured value(offset):</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemultiplier6"    type="textfield" defaultValue="1.0"     readonly="no">
+                <Label>multiply value with:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceminValue6"    type="textfield" defaultValue="-200.0"     readonly="no">
+                <Label>Ignore if ... LESS than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemaxValue6"    type="textfield" defaultValue="+50000.0"     readonly="no">
+                <Label>... if GREATER than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="fillGaps6"  type="menu"  defaultValue="1"    readonly="no"
+                tooltip="fillGap =no: if there is no data in the time-bin, no value is extrapolated, fillGap=yes: if there is no data in the time bin the value from the last time bin us used.">
+                <Label>Fill data gaps</Label>
+                <List>
+                    <Option value="0" >do not fill data gaps if no information in Time bin</Option>
+                    <Option value="1">fill data gaps with last available info if no information in Time bin</Option>
+                </List>
+            </Field>
+
+            <Field   visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="nickName6"    type="textfield"  defaultValue=""     readonly="no">
+                <Label>nick-Name </Label>
+            </Field>
+
+
+
+
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDeviceStatea7"  type="menu" defaultValue="0">
+                <Label>7...........................................state:</Label>    <List class="self" filter="" method="filterselDeviceStates7" dynamicReload="true"/>
+            </Field>
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDevicemeasurement7"   type="menu" defaultValue="0" >
+                <Label>..measurement:</Label>
+                <List>
+                    <Option value="delete" >delete this state from selection list</Option>
+                    <Option value="eventUP"     >Events-UP,     raw data, no averages, read SQL-logger, only when State is changed to UP/TRUE/1/ON</Option>
+                    <Option value="eventCHANGE" >Events-CHANGE, raw data, no averages, read SQL-logger, only when State is changed</Option>
+                    <Option value="eventANY"    >Events-ANY,    raw data, no averages, read SQL-logger, when State is updated - any entry</Option>
+                    <Option value="eventDOWN"   >Events-DOWN,   raw data, no averages, read SQL-logger, only when State is changed to DOWN/FALSE/OFF/0</Option>
+                    <Option value="eventCOUNT"  >Events-COUNT,  raw data,  count in bin range, read SQL-logger, only when State is UP/TRUE/1/ON, please set RESET period</Option>
+                    <Option value="Direction0to360East" >Direction 0 to 360  0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0to360North">Direction 0 to 360  0 at North  clock wise increase (like compass)</Option>
+                    <Option value="Direction0toPiEast"  >Direction 0 to 2pi   0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0toPiNorth" >Direction 0 to 2pi   0 at North  clock wise increase (like compass)</Option>
+                    <Option value="eConsumption">Electric Consumption (Cost)</Option>
+                    <Option value="gConsumption">Gas Consumption (Cost)</Option>
+                    <Option value="wConsumption">Water Consumption (Cost)</Option>
+                    <Option value="oConsumption">Other Consumption (Cost)</Option>
+                    <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
+                    <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="max"    >max</Option>
+                    <Option value="min"    >min</Option>
+                    <Option value="count"  >count</Option>
+                    <Option value="sum"    >sum</Option>
+                    <Option value="average">average</Option>
+                </List>
+            </Field>
+
+            <Field  enabledBindingId ="selectDeviceStatesOK" visibleBindingId ="selDevicemeasurement7" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate,eventCOUNT"  id="resetType7"   type="menu" defaultValue="0"
+                tooltip="Select the the RESET frequency for the consumption or integration . FOR CONSUMPTION ONLY:  The details (period timing ) and applied Cost are defined in the COST section below:">
+                <Label>..reset:</Label>
+                <List>
+                    <Option value="day">reset each Day, variable Cost for Consumption only</Option>
+                    <Option value="week" >reset each Week, variable Cost for Consumption only</Option>
+                    <Option value="month">reset each Month, variable Cost for Consumption only</Option>
+                    <Option value="year">reset each Year, variable Cost for Consumption only</Option>
+                    <Option value="Period">reset each Period, variable Cost for Consumption only</Option>
+                    <Option value="PeriodNoCost">reset each Period, cost=1  for Consumption only</Option>
+                    <Option value="dayNoCost">reset each Day, cost=1 for Consumption and Integration</Option>
+                    <Option value="weekNoCost" >reset each Week, cost=1 for Consumption and Integration</Option>
+                    <Option value="monthNoCost">reset each Month, cost=1 for Consumption and Integration</Option>
+                    <Option value="yearNoCost">reset each Year, cost=1 for Consumption and Integration</Option>
+                </List>
+            </Field>
+
+            <Field  visibleBindingId="resetType7" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="resetPeriods7"    type="textfield" defaultValue="0"  >
+                <Label> reset points for PERIOD selection, 0=disable:</Label>
+            </Field>
+
+            <Field  visibleBindingId="resetType7" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="la7" alignText="center" fontSize="small" type="label">
+                <Label>use format YYYY/MM/DD/HH+Y/M/D/H+Y/M/+... enter up to 30:</Label></Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceoffset7"    type="textfield" defaultValue="0.0"     readonly="no">
+                <Label>add to measured value(offset):</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemultiplier7"    type="textfield" defaultValue="1.0"     readonly="no">
+                <Label>multiply value with:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceminValue7"    type="textfield" defaultValue="-200.0"     readonly="no">
+                <Label>Ignore if ... LESS than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemaxValue7"    type="textfield" defaultValue="+50000.0"     readonly="no">
+                <Label>... if GREATER than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="fillGaps7"   type="menu"  defaultValue="1"    readonly="no"
+                tooltip="fillGap =no: if there is no data in the time-bin, no value is extrapolated, fillGap=yes: if there is no data in the time bin the value from the last time bin us used.">
+                <Label>Fill data gaps</Label>
+                <List>
+                    <Option value="0" >do not fill data gaps if no information in Time bin</Option>
+                    <Option value="1">fill data gaps with last available info if no information in Time bin</Option>
+                </List>
+            </Field>
+
+            <Field   visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="nickName7"    type="textfield"  defaultValue=""     readonly="no">
+                <Label>nick-Name </Label>
+            </Field>
+
+
+
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDeviceStatea8"  type="menu" defaultValue="0">
+                <Label>8...........................................state:</Label>    <List class="self" filter="" method="filterselDeviceStates8" dynamicReload="true"/>
+            </Field>
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="selDevicemeasurement8"   type="menu" defaultValue="0" >
+                <Label>..measurement:</Label>
+                <List>
+                    <Option value="delete" >delete this state from selection list</Option>
+                    <Option value="eventUP"     >Events-UP,     raw data, no averages, read SQL-logger, only when State is changed to UP/TRUE/1/ON</Option>
+                    <Option value="eventCHANGE" >Events-CHANGE, raw data, no averages, read SQL-logger, only when State is changed</Option>
+                    <Option value="eventANY"    >Events-ANY,    raw data, no averages, read SQL-logger, when State is updated - any entry</Option>
+                    <Option value="eventDOWN"   >Events-DOWN,   raw data, no averages, read SQL-logger, only when State is changed to DOWN/FALSE/OFF/0</Option>
+                    <Option value="eventCOUNT"  >Events-COUNT,  raw data,  count in bin range, read SQL-logger, only when State is UP/TRUE/1/ON, please set RESET period</Option>
+                    <Option value="Direction0to360East" >Direction 0 to 360  0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0to360North">Direction 0 to 360  0 at North  clock wise increase (like compass)</Option>
+                    <Option value="Direction0toPiEast"  >Direction 0 to 2pi   0 at East    counter clock increase (math convention)</Option>
+                    <Option value="Direction0toPiNorth" >Direction 0 to 2pi   0 at North  clock wise increase (like compass)</Option>
+                    <Option value="eConsumption">Electric Consumption (Cost)</Option>
+                    <Option value="gConsumption">Gas Consumption (Cost)</Option>
+                    <Option value="wConsumption">Water Consumption (Cost)</Option>
+                    <Option value="oConsumption">Other Consumption (Cost)</Option>
+                    <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
+                    <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="max"    >max</Option>
+                    <Option value="min"    >min</Option>
+                    <Option value="count"  >count</Option>
+                    <Option value="sum"    >sum</Option>
+                    <Option value="average">average</Option>
+                </List>
+            </Field>
+
+            <Field  enabledBindingId ="selectDeviceStatesOK" visibleBindingId ="selDevicemeasurement8" visibleBindingValue="eConsumption,gConsumption,wConsumption,oConsumption,integrate,eventCOUNT"  id="resetType8"   type="menu" defaultValue="0"
+                tooltip="Select the the RESET frequency for the consumption or integration . FOR CONSUMPTION ONLY:  The details (period timing ) and applied Cost are defined in the COST section below:">
+                <Label>..reset:</Label>
+                <List>
+                    <Option value="day">reset each Day, variable Cost for Consumption only</Option>
+                    <Option value="week" >reset each Week, variable Cost for Consumption only</Option>
+                    <Option value="month">reset each Month, variable Cost for Consumption only</Option>
+                    <Option value="year">reset each Year, variable Cost for Consumption only</Option>
+                    <Option value="Period">reset each Period, variable Cost for Consumption only</Option>
+                    <Option value="PeriodNoCost">reset each Period, cost=1  for Consumption only</Option>
+                    <Option value="dayNoCost">reset each Day, cost=1 for Consumption and Integration</Option>
+                    <Option value="weekNoCost" >reset each Week, cost=1 for Consumption and Integration</Option>
+                    <Option value="monthNoCost">reset each Month, cost=1 for Consumption and Integration</Option>
+                    <Option value="yearNoCost">reset each Year, cost=1 for Consumption and Integration</Option>
+                </List>
+            </Field>
+
+            <Field  visibleBindingId="resetType8" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="resetPeriods8"    type="textfield" defaultValue="0"  >
+                <Label> reset points for PERIOD selection, 0=disable:</Label>
+            </Field>
+
+            <Field  visibleBindingId="resetType8" visibleBindingValue="Period,PeriodNoCost" enabledBindingId ="selectDeviceStatesOK" id="la8" alignText="center" fontSize="small" type="label">
+                <Label>use format YYYY/MM/DD/HH+Y/M/D/H+Y/M/+... enter up to 30:</Label></Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceoffset8"    type="textfield" defaultValue="0.0"     readonly="no">
+                <Label>add to measured value(offset):</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemultiplier8"    type="textfield" defaultValue="1.0"     readonly="no">
+                <Label>multiply value with:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDeviceminValue8"    type="textfield" defaultValue="-200.0"     readonly="no">
+                <Label>Ignore if ... LESS than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="selDevicemaxValue8"    type="textfield" defaultValue="+50000.0"     readonly="no">
+                <Label>... if GREATER than:</Label>
+            </Field>
+
+            <Field  visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="fillGaps8"  type="menu"  defaultValue="1"   readonly="no"
+                tooltip="fillGap =no: if there is no data in the time-bin, no value is extrapolated, fillGap=yes: if there is no data in the time bin the value from the last time bin us used.">
+                <Label>Fill data gaps</Label>
+                <List>
+                    <Option value="0" >do not fill data gaps if no information in Time bin</Option>
+                    <Option value="1">fill data gaps with last available info if no information in Time bin</Option>
+                </List>
+            </Field>
+
+            <Field   visibleBindingId="expertONOFF" visibleBindingValue="true" enabledBindingId ="selectDeviceStatesOK" id="nickName8"    type="textfield"  defaultValue=""     readonly="no">
+                <Label>nick-Name </Label>
+            </Field>
+
+
+
+
+
+            <Field  enabledBindingId="selectDeviceStatesOK"  id="buttonConfirmDeviceProps" type="button"	tooltip="This will store the properties for this device">
+                <Label>After selecting properties click..........................:</Label><Title>CONFIRM</Title>
+                <CallbackMethod>buttonConfirmDeviceStatesCALLBACK</CallbackMethod>
+            </Field>
+
+
+
+
+
+        </ConfigUI>
+    </MenuItem>
+    
+    <MenuItem id="d20"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+    <MenuItem id="d21"> <Name>-----------------   V    utilities    V ------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+
+
+    <MenuItem id="refreshAllPlots">
+        <Name>Refresh  ALL  Plots</Name>
+        <CallbackMethod>inpPlotALL</CallbackMethod></MenuItem>
+
+    <MenuItem id="d70"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+
+
+
+
+    <MenuItem id="menu1">
+        <Name>WRITE file paths and name of PLOT.png files to logfile for use in Control Pages</Name>
+        <CallbackMethod>inpFnameToLog</CallbackMethod></MenuItem>
+    <MenuItem id="d30"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+    <MenuItem id="menu3">
+        <Name>(re)INSTALL GNUplot with Font support</Name>
+        <CallbackMethod>inpInstallGnuplot</CallbackMethod></MenuItem>
+
+    <MenuItem id="d40"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+    <MenuItem id="menu4">
+        <Name>Re-load Data from SQL Database </Name>
+        <CallbackMethod>inpReloadSQL</CallbackMethod></MenuItem>
+
+    <MenuItem id="menu41">
+        <Name>Re-load Data from SQL Database for last 2 days </Name>
+        <CallbackMethod>inpReloadSQL2Days</CallbackMethod></MenuItem>
+    
+
+    <MenuItem id="menu42">
+        <Name>Re-load SINGLE Device/State from SQL</Name>
+        <ConfigUI>
+            <Field   id="selSELdevStateColumn"  type="menu">
+                <Label>Select Device/State.. to re-read </Label>
+                <List class="self" filter="" method="filterselSQLdevState" />
+            </Field>
+            <Field  id="buttonSQLdevSTATE" type="button"	>
+                <Label> ....after selection click</Label><Title>EXECUTE</Title> <CallbackMethod>buttonConfirmSQLDevStateCALLBACK</CallbackMethod>
+            </Field>
+        </ConfigUI></MenuItem>
+
+
+    <MenuItem id="d50"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+
+    <MenuItem id="menu5">
+        <Name>Print/Log Plot configuration parameters</Name>
+        <ConfigUI>
+            <Field   id="selPrintToPlot"  type="menu">
+                <List  class="indigo.devices" filter="self" />
+                <Label> pick Plot to be printed</Label>
+            </Field>
+            <Field  id="execPrintPlot" type="button"	>
+                <Label> ....after selection click</Label><Title>EXECUTE</Title>
+                <CallbackMethod>inpPrintPlotData</CallbackMethod>
+            </Field>
+        </ConfigUI>
+    </MenuItem>
+
+    <MenuItem id="menu5-1">
+        <Name>Print/Log Device/Variable source  parameters</Name>
+        <CallbackMethod>inpPrintDeviceData</CallbackMethod></MenuItem>
+
+    <MenuItem id="menu5-2">
+        <Name>Print/Log States of all devices and variables and eligibilty to plot</Name>
+        <CallbackMethod>inpPrintdevStates</CallbackMethod></MenuItem>
+
+    <MenuItem id="menu5-3">
+        <Name>Print FORMATTED source data to ~/Documents/INDIGOPLOTD/DATA/xxx.dat.formatted </Name>
+        <CallbackMethod>inpPrintData</CallbackMethod></MenuItem>
+
+    <MenuItem id="d60"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+
+
+
+    <MenuItem id="backupRestore">
+        <Name>Select configuration to restore</Name>
+        <ConfigUI>
+            <Field   id="selBackUpFile"  type="menu">
+                <Label>Select backupfile to restore </Label>
+                <List class="self" filter="" method="filterselBackUpFiles" />
+            </Field>
+            <Field  id="buttonBackUpFile" type="button"	>
+                <Label> ....after selection click</Label><Title>EXECUTE</Title> <CallbackMethod>buttonConfirmBackUpFileCALLBACK</CallbackMethod>
+            </Field>
+            <Field  id="lab1" type="label"	>
+                <Label>after clicking EXECUTE you MIGHT get a timeout as the restore process could take longer than 10 secs(time limit by indigo for waiting to come back to the display) for a large config. That is not a problem</Label>
+            </Field>
+
+        </ConfigUI></MenuItem>
+
+    <MenuItem id="menu8-1">
+        <Name>Save CURRENT configuration to file</Name>
+        <CallbackMethod>inpSavePy</CallbackMethod></MenuItem>
+
+
+    <MenuItem id="d80"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+
+    <MenuItem id="debugOn">
+        <Name>DEBUG ON</Name>
+        <CallbackMethod>inpDebugON</CallbackMethod>
+    </MenuItem>
+    <MenuItem id="debugOFF">
+        <Name>DEBUG OFF</Name>
+        <CallbackMethod>inpDebugOFF</CallbackMethod>
+    </MenuItem>
+    <MenuItem id="toMATplot">
+        <Name>Switch to MATPLOT (until next restart)</Name>
+        <CallbackMethod>inpMATPLOT</CallbackMethod>
+    </MenuItem>
+    <MenuItem id="toGNUplot">
+        <Name>Switch to GNUPLOT (until next restart)</Name>
+        <CallbackMethod>inpGNUPLOT</CallbackMethod>
+    </MenuItem>
+
+
+
+
+    <MenuItem id="d90"> <Name>-----------------------------------------------</Name> <CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+    <MenuItem id="d91"> <Name>------- EXPERTS only  ---------------------------</Name> <CallbackMethod>inpDummy</CallbackMethod></MenuItem>
+
+    <MenuItem id="deleteColumn">
+        <Name>Remove single data source </Name>
+        <ConfigUI>
+            <Field   id="columnToRemove"  type="menu">
+                <Label>Select device/state to remove </Label>
+                <List class="self" filter="" method="filterColumns" />
+            </Field>
+            <Field  id="buttonColumn" type="button"	>
+                <Label> ....after selection click</Label><Title>EXECUTE</Title> <CallbackMethod>buttonConfirmdeleteColumnCALLBACK</CallbackMethod>
+            </Field>
+        </ConfigUI></MenuItem>
+        
+    <MenuItem id="deleteData">
+        <Name>DELETE         DEVICE/VARIABLE configuration data = RESET to start from scratch  !!</Name>
+        <ConfigUI>
+            <Field  id="lab1" type="label"	>
+                <Label>after clicking EXECUTE you MIGHT get a timeout as the delete process could take longer than 10 secs(time limit by indigo for waiting to come back to the display) for a large config. That is not a problem</Label>
+            </Field>
+            <Field  id="buttonColumn" type="button"	>
+                <Label>click on execute to reset all device data </Label><Title>EXECUTE</Title> <CallbackMethod>inpResetDeviceConfigurationParameters</CallbackMethod>
+            </Field>
+        </ConfigUI></MenuItem>
+
+
+
+
+</MenuItems>

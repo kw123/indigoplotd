@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<Actions>
+<!--
+    <SupportURL>httptype="textfield" default=//www.perceptiveautomation.com/wiki/doku.php?id=pluginstype="textfield" default=airfoil</SupportURL>
+-->
+
+    <Action id="createAndShowPlotPNG">
+        <Name>request PNG plot-file to be recreated and to be displayed on screen now </Name>
+        <CallbackMethod>showPlotPNGCALLBACKaction</CallbackMethod>
+        <ConfigUI>
+        <Field id="deviceNameOfPlot"		type="menu" default=""						hidden="False" >
+        <List class="self" method="filterListOfPlotDeviceNamesaction"></List>
+        <Label>pick DEVICE name of the plot to be shown on screen  </Label></Field>
+        </ConfigUI>
+    </Action>
+
+
+
+    <Action id="doExport" uiPath="hidden" >
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>doExportCALLBACKaction</CallbackMethod>
+    </Action>
+    
+    
+    <Action id="doExportMini" uiPath="hidden" >
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>doExportMiniCALLBACKaction</CallbackMethod>
+    </Action>
+    
+    <Action id="showDeviceStates" uiPath="hidden" >
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>showDeviceStatesCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="setConfigParameters" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>setConfigParametersCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="createOrModifyPlot" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>createOrModifyPlotCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="deletePlot" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>deletePlotCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="deleteLine" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>deleteLineCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="addDeviceAndStateToSelectionList" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>addDeviceAndStateToSelectionListCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="deleteDeviceAndStateFromSelectionList" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>deleteDeviceAndStateFromSelectionListCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="deleteDeviceFromSelectionList" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>deleteDeviceFromSelectionListCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="createOrModifyLine" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>createOrModifyLineCALLBACKaction</CallbackMethod>
+    </Action>
+    
+    <Action id="savePlot" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>savePlotCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="showPlotONLY" uiPath="hidden" >
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>showPlotONLYCALLBACKaction</CallbackMethod>
+    </Action>
+
+    <Action id="createPlotPNG" uiPath="hidden">
+        <Name>--- only for python Script---</Name>
+        <CallbackMethod>createPlotPNGCALLBACKaction</CallbackMethod>
+    </Action>
+    
+    
+</Actions>
