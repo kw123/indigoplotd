@@ -1024,11 +1024,19 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
                                                         if theValue>  yMaxR or theValue <yMinR: continue
                                                     else:
                                                         if theValue>  yMaxL or theValue <yMinL: continue
-                                                else:
-                                                    if plotN["lines"][lCol]["lineLeftRight"] == "Right":	
-                                                        theValue = max(yMinR,min(yMaxR,theValue))
+                                                else: # lines and histogarms
+                                                    if plotN["lines"][lCol]["lineLeftRight"] == "Right":
+                                                        dy = (yMaxR - yMinR)*0.3 # if with boundary and >< 50% over or below draw lines  ==do  show only if really outside
+                                                        if (theValue <=  yMaxR  and theValue >= yMinR ) or (theValue >  yMaxR + dy and theValue < yMinR - dy): 
+                                                            theValue = max(yMinR,min(yMaxR,theValue))
+                                                        else:
+                                                            theValue = None
                                                     else:
-                                                        theValue = max(yMinL,min(yMaxL,theValue))
+                                                        dy = (yMaxL - yMinL)*0.3 ## if with boundary and >< 50% over or below draw lines  ==do  show only if really outside
+                                                        if (theValue <=  yMaxL  and theValue >= yMinL ) or (theValue >  yMaxL + dy and theValue < yMinL - dy): 
+                                                            theValue = max(yMinL,min(yMaxL,theValue))
+                                                        else:
+                                                            theValue = None
 
                                             theColumnValues.append(theValue)
                                             xtimeForOneCol.append(shiftedTime)
@@ -2339,7 +2347,7 @@ logHandle					= open( matplotlog , "a")
 if not os.path.isdir( indigoPlotDataDir ): 	quitNOW = True
 
 sendToLog(" ",level=1)
-sendToLog("INDIGO matplot started Version 6.6",FULL= True,level=1)
+sendToLog("INDIGO matplot started Version 6.7",FULL= True,level=1)
 
 
 PLOT={}

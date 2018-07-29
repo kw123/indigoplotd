@@ -10540,7 +10540,6 @@ class Plugin(indigo.PluginBase):
 
 
                 
-            #			if theDeviceId == lastDeviceId and theState == lastProperty and sqlID >0 : continue
             if  os.path.isfile(self.indigoPlotDir+"sql/"+theDeviceId+"-"+theState+".done"):	os.remove(self.indigoPlotDir+"sql/"+theDeviceId+"-"+theState+".done") # delete "ready" flag file
             lout = "date +\"%H:%M:%S          "+theDeviceName+"-"+property+"\" >>"+self.indigoPlotDir+"sql/sqlcmd.log \n"
             f.write(lout.encode('utf8'))  # time stamp of sql start
@@ -10556,45 +10555,26 @@ class Plugin(indigo.PluginBase):
                 else:
                     select1 = "/usr/bin/sqlite3 -separator \";\" indigo_history.sqlite "
                 timestamp= "strftime('%Y%m%d%H%M%S',ts,'localtime') ,"
-
-#			sqlCommandText=select1
-#			sqlCommandText+=  "\" SELECT id, "+ timestamp +property+" from " + tableName+" t1 "
-#			sqlCommandText+=  " WHERE  (ID > "+str(sqlID)+") AND NOT EXISTS ( SELECT  id, ts, "+property+" t1"
-#			sqlCommandText+=  " FROM  "+tableName+" t2"
-#			sqlCommandText+=  " WHERE t2.ts = t1.ts"
-#			sqlCommandText+=  " and   t2.id = t1.id -1  "
-#			sqlCommandText+=  " and   t2."+property+" = t1."+property
-#			sqlCommandText+=  " ) "
-#			sqlCommandText+=  " LIMIT " + str(maxNumberOfRecords)+";\""
-
-            sqlCommandText=select1
+            sqlCommandText =  "rm "+self.indigoPlotDir+"sql/"+theDeviceId+"-"+property+".done ;"
+            sqlCommandText+=  select1
             sqlCommandText+=  "\" SELECT id, "+ timestamp +property+" from " + tableName
             sqlCommandText+=  " WHERE "+property+" IS NOT NULL  AND  ID > "+str(sqlID) + orderby
             sqlCommandText+=  " LIMIT " + str(maxNumberOfRecords)+";\""
 
 
-## for next version: awk 'BEGIN {FS="#"};{gsub(/:/,\"\",$2);gsub(/-/,\"\",$2);gsub(/ /,\"\",$2);print$1\"#\"$2\"#\"$3\"#\"$4\"#\"$5}'
             postProcessing =  " "
             postProcessing+=  " 2>"+self.indigoPlotDir+"sql/"+theDeviceId+"-"+theState+".error"
             postProcessing+=  " | awk -F';' 'NF>2 && !/data unavailable/ {print}' "  # >=3 parameters only, and skip id no data indicator  ... faster than  than py code
-##			postProcessing+=  " | awk '{print $1 \" \" $2 $3 \" \" $4$5$6$7$8$9}' |awk '{gsub(/:/,\"\",$2)}1'| awk '{gsub(/-/,\"\",$2)}1' "  # select date and data column(s) , remove : and -  characters
-#			postProcessing+=  " |awk 'BEGIN{FS=\" \"};{gsub(/:/,\"\",$3); gsub(/-/,\"\",$2);print$1\" \"$2$3\" \"$4$5$6$7$8$9}' "  # select date and data column(s) , remove : and -  characters
             postProcessing+=  " > "+self.indigoPlotDir+"sql/"+theDeviceId+"-"+property+".sqlOut"
-##			postProcessing+=  " >> "+self.indigoPlotDir+"sql/"+theDeviceId+"-"+property
-            postProcessing+=  "\n\n"
+            postProcessing+=  " && "
             postProcessing+=  self.pythonPath+" '"+self.indigoPath+"Plugins/"+self.pluginName+".indigoPlugin/Contents/Server Plugin/fixSQLoutput.py' " 
-            postProcessing+=  "'"+json.dumps( {"fileDir":self.indigoPlotDir+"sql/","inputFile":theDeviceId+"-"+property+".sqlout", "outputFile":theDeviceId+"-"+property,"logFile":"sqlFix","startID":str(sqlID)})+"'"
-
-##			self.ML.myLog("Plotting", postProcessing )
-##			postProcessing+=  self.pythonPath+" '"+self.indigoPath+"Plugins/"+self.pluginName+".indigoPlugin/Contents/Server Plugin/fixSQLoutput.py'  "+self.indigoPlotDir+"sql/ "+theDeviceId+"-"+property+" "       +theDeviceId+"-"+property+ " sqlFix"
-
-            postProcessing+=  "\n\n"
-            f.write(("\n"+ sqlCommandText+postProcessing).encode("utf8")) # this is the sqllite command
+            postProcessing+=  "'"+json.dumps( {"fileDir":self.indigoPlotDir+"sql/","inputFile":theDeviceId+"-"+property+".sqlout", "outputFile":theDeviceId+"-"+property,"logFile":"sqlFix","startID":str(sqlID)})+"' "
+            f.write((sqlCommandText+postProcessing).encode("utf8")) # this is the sqllite command
             self.ML.myLog("SQL", sqlCommandText+postProcessing) # this is the sql command
 
-            f.write(("ls -l -T  "+self.indigoPlotDir+"sql/"+theDeviceId+"-"+property+" | awk '{print $8 \" \"  $5 \"      \"  $10}' >>"+self.indigoPlotDir+"sql/sqlcmd.log \n").encode("utf8")) # time stamp and file size  awk removes unwanted columns
+            f.write((" && ls -l -T  "+self.indigoPlotDir+"sql/"+theDeviceId+"-"+property+" | awk '{print $8 \" \"  $5 \"      \"  $10}' >>"+self.indigoPlotDir+"sql/sqlcmd.log").encode("utf8")) # time stamp and file size  awk removes unwanted columns
 
-            f.write(("echo finished > "+self.indigoPlotDir+"sql/"+theDeviceId+"-"+property+".done \n").encode("utf8")) # create sql command finished flag file
+            f.write((" && echo finished > "+self.indigoPlotDir+"sql/"+theDeviceId+"-"+property+".done \n\n").encode("utf8")) # create sql command finished flag file
 
             self.ML.myLog("SQL", u"sql command for col:"+str(theCol)+"  name-state:"+(theDeviceName+"-"+property).ljust(50)+" starting at record:"+str(sqlID).rjust(8)+" added; last existing record is: "+ theTailS.strip("\n"))
 
@@ -10610,8 +10590,6 @@ class Plugin(indigo.PluginBase):
         self.pidSQL = str( subprocess.Popen( "sh "+self.indigoPlotDir+"sql/sqlcmd.sh ", shell=True).pid )
         self.checkFileExistsErrorMessageCounter =99
         self.ML.myLog("SQL", u"sql commands launched "+str(datetime.datetime.now())+"  waiting for SQL tasks to end to read data into "+self.pluginName+" pid=" +self.pidSQL)
-#		self.ML.myLog("SQL", u"sql commands sqlLastImportedDate  "+str(self.sqlLastImportedDate))
-#		self.ML.myLog("SQL", u"sql commands lastID  "+str(self.sqlLastID))
 
 
     ########################################
@@ -10622,7 +10600,7 @@ class Plugin(indigo.PluginBase):
             f= open( self.indigoPlotDir+"sql/fixSQL.sh" , "w")
 
             f.write("echo ' '  >> "+ self.indigoPlotDir+"sql/sqlFix.log \n")  # all sql commands finished
-            f.write("echo 'started at'  >> "+ self.indigoPlotDir+"sql/sqlFix.log \n")  # all sql commands finished
+            f.write("echo 'post import fixSQLFiles started at'  >> "+ self.indigoPlotDir+"sql/sqlFix.log \n")  # all sql commands finished
             f.write("date >> "+ self.indigoPlotDir+"sql/sqlFix.log  \n")  # all sql commands finished
             for theCol in range (1,self.dataColumnCount+1):
                 devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
@@ -10653,10 +10631,9 @@ class Plugin(indigo.PluginBase):
                     f.write(cmd+" \n")  # all sql commands finished
     
     
-            f.write("echo x  >> "+ self.indigoPlotDir+"sql/sqlFix.log \n")  # all sql commands finished
-            f.write("echo 'finished  at' >> "+ self.indigoPlotDir+"sql/sqlFix.log \n")  # all sql commands finished
+            f.write("echo 'post import fixSQLFiles finished  at' >> "+ self.indigoPlotDir+"sql/sqlFix.log \n")  # all sql commands finished
             f.write("date >> "+ self.indigoPlotDir+"sql/sqlFix.log  \n")  # all sql commands finished
-            f.write("echo '  '  >> "+ self.indigoPlotDir+"sql/sqlFix.log \n")  # all sql commands finished
+            f.write("echo 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'  >> "+ self.indigoPlotDir+"sql/sqlFix.log \n")  # all sql commands finished
             f.close()
 
             thePID = str(subprocess.Popen( "sh "+self.indigoPlotDir+"sql/fixSQL.sh ", shell=True).pid)
@@ -11005,9 +10982,7 @@ class Plugin(indigo.PluginBase):
             rejectRange 	= 0
             badDataCount=0
         
-            fSize = os.path.getsize(self.indigoPlotDir+"sql/"+theDeviceId+"-"+theState)
-            f = open(self.indigoPlotDir+"sql/"+theDeviceId+"-"+theState, "r")
-            f.close()
+            # check if file is compleye by checking file size, if it does not change over time it is done ... dont know ho else to check
             self.sleep(0.1)
             nSleep = 0
             for ii in range(100):
@@ -11024,23 +10999,23 @@ class Plugin(indigo.PluginBase):
                 fSize = fSize2
 
             f= open(self.indigoPlotDir+"sql/"+theDeviceId+"-"+theState, "r")
-            lastLine =""
-            while True:
-                
-                line = f.readline()
-                if not line: break 
+            recId = -1
+            for line  in f.readlines():
                 sqlHistoryData = line.strip("\n").strip(" ").split(";")
 
                 nrecs +=1
                 if len(sqlHistoryData)!=3: continue
                 lastLine = sqlHistoryData
+                try:    newSQLid = int(sqlHistoryData[0])
+                except: continue 
+                if recId > newSQLid: continue
+                recId = newSQLid
                 if atLeastOneRecord ==0: atLeastOneRecord =1
                 if sqlHistoryData[1] >= self.FirstBinDate:  ## this works with strings as they all have the same length!! and 9>8>7> ...>0
                     atLeastOneRecord =2
                     sqlData.append([sqlHistoryData[1],float(sqlHistoryData[-1])])# take date field and data field ignore other fields (0=id, 2...x = day/wek .. fields last one is data field
                 else:
                     reject2days +=1
-
             if atLeastOneRecord ==2:
                 self.sqlLastID[theCol]=sqlHistoryData[0]
             if atLeastOneRecord ==1:

@@ -16,7 +16,7 @@ params      = json.loads(sys.argv[1])
 fileDir     = params["fileDir"]
 inputFile   = params["inputFile"]
 outputFile  = params["outputFile"]
-logFile     = params["logFile"]
+logFile     = fileDir+params["logFile"]
 if "startID" in params:
     startID = int(params["startID"])
 else:
@@ -50,32 +50,6 @@ if sameFile:
     g=open(fileDir+outputFile,"w")
 else:
     g=open(fileDir+outputFile,"a")
-logF=open(logFile+".log","a")
-
-logF.seek(0,2)
-size = logF.tell()
-#print " size "+str(size)
-
-
-if size > 500000:
-    try:
-        logF.close()
-        try:			# error if it does not exit
-            os.remove( logFile+".1.log" )
-        except:
-            pass
-        try:			# error if it does not exit
-            os.rename( logFile+".log", logFile+".1.log")
-        except:
-            pass
-        logF= open( logFile+".log" , "a")
-    except:
-        pass
-
-
-logF.write("\n\n input "+inputFile)
-logF.write("\n output "+outputFile+"\n")
-logF.write(" starting at id: "+str(startID)+"\n")
 
 lastID=-1
 lastDate =" "
@@ -90,6 +64,7 @@ outCount =0
 lCount=0
 lastLine=""
 iDate =0
+nBytes = 0
 
 for line in f.readlines():
     l=line.strip("\n").strip(" ").split(";")
@@ -141,6 +116,7 @@ for line in f.readlines():
 
     if lastDate != l1:
         if lastID >0:		# skip the first one
+            nBytes += len(lastLine)
             g.write(lastLine)
             outCount+=1
     else: dateCount+=1
@@ -150,20 +126,46 @@ for line in f.readlines():
     lastValue = l[2]
         
 if lastID >0:				# write out last record
+    nBytes += len(lastLine)
     g.write(lastLine)
     outCount+=1
 
-logF.write(" last  id written: "+str(lastID)+"\n")
 
-logF.write(u"   read/written: "+str(inCount).rjust(8)+"/"+str(outCount).rjust(8)
-    +"; Val OK: "+str(valCount).rjust(7)
-    +"       records;   removed .. due to duplicate IDs: "+str(idCount).rjust(7)
-    +"; date: "+str(iDate).rjust(7)
-    +"; noValue: "+str(lCount).rjust(7)
-    +"; sameDate&Value: "+str(valDateCount).rjust(7)
-    +"; Val not float of T/F: "+str(valCountBAD).rjust(7)
-    +"; sameSecond: "+str(dateCount).rjust(7)
-    +"   elapsed time: "+str(time.time()-d0)[:6])
+##### do logfile output 
+logF=open(logFile+".log","a")
+logF.seek(0,2)
+size = logF.tell()
+if size > 500000:
+    try:
+        logF.close()
+        try:			# error if it does not exit
+            os.remove( logFile+".1.log" )
+        except:
+            pass
+        try:			# error if it does not exit
+            os.rename( logFile+".log", logFile+".1.log")
+        except:
+            pass
+        logF= open( logFile+".log" , "a")
+    except:
+        pass
+outLog = {}
+outLog["output"]        = outputFile
+outLog["startID"]       = startID
+outLog["lastID"]        = lastID
+outLog["inCount"]       = inCount
+outLog["outCount"]      = outCount
+outLog["valCount"]      = valCount
+outLog["idCount"]       = idCount
+outLog["iDate"]         = iDate
+outLog["valDateCount"]  = valDateCount
+outLog["valCountBAD"]   = valCountBAD
+outLog["dateCount"]     = dateCount
+outLog["nBytes"]        = nBytes
+outLog["elapseTime"]    = str(time.time()-d0)[:6]
+logF.write(inputFile+"+++"+json.dumps(outLog)+"\n")
+#####
+
 
 if sameFile:
     os.remove(fileDir+inputFile)
