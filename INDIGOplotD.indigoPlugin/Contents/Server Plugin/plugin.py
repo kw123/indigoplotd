@@ -327,7 +327,8 @@ class Plugin(indigo.PluginBase):
         # find the current indigo version number and path to indigo directories
         # /Library/Application Support/Perceptive Automation/Indigo n/
         try:
-            indigoVersion = int(self.indigoPath.strip("/").split("ndigo ")[1].strip())
+            major, minor, release = map(int, indigo.server.version.split("."))
+            indigoVersion = major
         except  Exception, e:
             self.ML.myLog("Plotting","Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
             self.sleep(100)
