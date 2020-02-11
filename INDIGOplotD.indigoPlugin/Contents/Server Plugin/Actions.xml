@@ -16,6 +16,20 @@
 
 
 
+    <Action id="reeloadSingleDevStateSQL">
+        <Name>Re-load SINGLE Device/State/Variable from SQL</Name>
+        <CallbackMethod>buttonConfirmSQLDevStateCALLBACKaction</CallbackMethod>
+        <ConfigUI>
+            <Field   id="selSELdevStateColumn"  type="menu">
+                <Label>Select Device/State.. to re-read </Label>
+                <List class="self" filter="" method="filterselSQLdevState" />
+            </Field>
+        </ConfigUI></Action>
+
+ 
+
+
+
     <Action id="doExport" uiPath="hidden" >
         <Name>--- only for python Script---</Name>
         <CallbackMethod>doExportCALLBACKaction</CallbackMethod>
@@ -46,6 +60,8 @@
         <Name>--- only for python Script---</Name>
         <CallbackMethod>deletePlotCALLBACKaction</CallbackMethod>
     </Action>
+
+
 
     <Action id="deleteLine" uiPath="hidden">
         <Name>--- only for python Script---</Name>
@@ -86,6 +102,7 @@
         <Name>--- only for python Script---</Name>
         <CallbackMethod>createPlotPNGCALLBACKaction</CallbackMethod>
     </Action>
-    
+ 
+  
     
 </Actions>

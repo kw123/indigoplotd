@@ -1,12 +1,8 @@
 <?xml version="1.0"?>
 <Devices>
 
-
-
-
 <Device type="custom" id="plots">
         <Name>plots</Name>
-
 
 <ConfigUI>
 
@@ -14,14 +10,12 @@
 <Field id="PLOTindigo" type="textfield" defaultValue="" readonly="yes" hidden="yes"> </Field>
 
 
-
-
 <Field id="infoLabel" type="label">
     <Label>Plot Device Properties: Temp,Humidty,Energy,Rain,AC-OnOff,..</Label>
     </Field>
 
 <Field id="infoLabel2" type="label">
-    <Label>									- Developed by Karl Wachs</Label>
+    <Label>.......- Developed by Karl Wachs</Label>
     </Field>
 
 
@@ -34,11 +28,7 @@
     </Field>
 
 <Field id="dev1"   type="label" >
-    <Label>                                1.     Remember to FIRST define the devices you </Label>
-    </Field>
-
-<Field id="dev2"  type="label" >
-    <Label>                                                     want to plot in -Plugin/Configure-</Label>
+    <Label>1.     Remember to FIRST define the devices you want to plot in -Plugin/Configure</Label>
     </Field>
 
 <Field id="DefinePlots"         type="checkbox"  defaultValue="false">
@@ -97,7 +87,7 @@
 
 <!--  what kind of plot:  value vs time x or value v Phi in polar coordinates -->
 <Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="XYvPolar"   type="menu" defaultValue="xy" tooltip="Select the TYPE of plot:   y vs x   or   y vs degree polar ">
-<Label> X/Y or Polar plot........................:</Label>
+<Label>X/Y or Polar plot........................:</Label>
         <List>
             <Option value="xy" >Y versus X (eg timeline plot)</Option>
             <Option value="polar" >Y versus angle = Polar Plot</Option>
@@ -108,7 +98,7 @@
 
 <!--  source of data:  completely (x,y1,y2,y3,y4..) from file/variable or directly from device recorded over time -->
 <Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="PlotType"   type="menu" defaultValue="dataFromTimeSeries" tooltip="Select the TYPE of data source for the lines you select in step 3">
-    <Label> Data Source for LINES in Plot....:</Label>
+    <Label>Data Source for LINES in Plot....:</Label>
     <List>
         <Option value="dataFromVariable"   >Data in Variable entered below</Option>
         <Option value="dataFromFile"       >Data in File entered below</Option>
@@ -203,7 +193,7 @@
 <!-- text type for gnuplot-->
 <Field visibleBindingId="fontsGNUONOFF" visibleBindingValue="true" id="TextFont"  type="menu" defaultValue="0" tooltip="select font for GNUplots, chose unicode fonts for sepcial characters" >
     <Label>... Font:</Label>
-    <List class="self" filter="" method="filterFont" dynamicReload="true"/>
+    <List class="self" filter="" method="filterFont" dynamicReload="false"/>
     </Field>
 
 <!-- for text type matplot-->
@@ -404,7 +394,12 @@
 <Field   visibleBindingId="showBins" visibleBindingValue="true" id="DayBinNoOfDays"   type="menu" defaultValue="390" tooltip="how many DAYS should the DAY plot show" >
 <Label>...for DAY plot:</Label>
     <List>
-        <Option value="0" >do not plot</Option>
+        <Option value="0"   >do not plot</Option>
+        <Option value="5"   > 5 days</Option>
+        <Option value="7"   > 7 days</Option>
+        <Option value="14"  > 14 days</Option>
+        <Option value="21"  > 21 days</Option>
+        <Option value="28"  > 28 days</Option>
         <Option value="31"  > 31 days</Option>
         <Option value="60"  > 60 days</Option>
         <Option value="90"  > 90 days</Option>
@@ -426,13 +421,15 @@
     </List>
     </Field>
 
-<Field   visibleBindingId="showBinsS" visibleBindingValue="true" id="DayBinShift"   type="menu" defaultValue="0"  tooltip="how many DAYS should the time window that is plotted shift left.. 0= most right day is today;  =3 would be 3 days older  or show constant time window eg one week Moinay-Sunday" >
+<Field   visibleBindingId="showBinsS" visibleBindingValue="true" id="DayBinShift"   type="menu" defaultValue="0"  tooltip="how many DAYS should the time window that is plotted shift left.. 0= most right day is today;  =3 would be 3 days older  or show constant time window eg one week Monday-Sunday" >
 <Label>....shift LEFT:</Label>
     <List>
         <Option value="0" >0 = do not shift default</Option>
         <Option value="-20"> show  current MONTH  1. .. 31</Option>
         <Option value="-30"> show  current QUARTER  eg JANUARY .. MARCH</Option>
         <Option value="-40"> show  current YEAR   JANUARY .. DECEMBER</Option>
+        <Option value="-1" >shift   1 day forward </Option>
+        <Option value="1"  >shift   1 day back </Option>
         <Option value="7"  >shift   7 days</Option>
         <Option value="14" >shift  14 days</Option>
         <Option value="21" >shift  21 days</Option>
@@ -454,6 +451,59 @@
       MATPLOT:  fewer ticks= 0.5, more ticks= 1.5,2,3  
       off = leave it to GNUPLOT or MATPLOT</Label>
     </Field>
+
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleFormatLabel"		type="label"  alignText ="right" fontcolor="grey">
+    <Label>X Scale: ...  you can use any number range (2.5:15) or datetime string 
+      eg 201801010100:201802010100 (YYYmmddHHMMSS)
+      for  x-format dataformat+displayformat
+      the string before + describes the length of the datefield and 
+      the second part the format of the labels
+      for datetime:  eg %Y%m%d%H%M%S+%d-%H:M 
+      for regular numbers eg:  %5.2f+%4d
+      you can use %%v:varid or varname%% 
+        to make it dynamic using a variable </Label>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleRange"		type="textfield" defaultValue="00:100"  tooltip="Select x-min and x-max or leave blank for auto-mode for X axis" >
+    <Label>...FROM:TO </Label>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleTics"		type="textfield" defaultValue="20,40,60,80,100" tooltip="Select Tick marks or leave blank for auto-mode for X axis" >
+    <Label>...Tick Marks eg 1,2,5,10:</Label>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleFormat"		type="textfield" defaultValue="%.1f" tooltip="Enter format string for X-axis, (experts only) overwrites No. of dec. points" >
+    <Label>...FormatString:</Label>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleDecPoints"	type="menu" defaultValue="0"  tooltip="Select number of points after   .   for X axis numbers" >
+    <Label>...No. of dec. points:</Label>
+    <List>
+        <Option value='0' >0</Option>
+        <Option value='1' >1</Option>
+        <Option value='2' >2</Option>
+        <Option value='3' >3</Option>
+        <Option value='4' >4</Option>
+        <Option value='5' >5</Option>
+        <Option value='' >auto</Option>
+        </List>
+        </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue= "true" id="XLog"				type="menu" defaultValue="0" tooltip="Select linear or log scale for X axis">
+    <Label>...Linear/LogScale:</Label>
+    <List>
+        <Option value='linear' >Linear</Option>
+        <Option value='log' >Log Scale</Option>
+        </List>
+    </Field>
+
+<Field visibleBindingId="showXscale" visibleBindingValue="true" id="XLabel"			type="textfield" defaultValue="x-axis text"  tooltip="Enter text for X scale caption">
+    <Label>...Label:</Label>
+    </Field>
+
+
+
 
 
 <!--  background color either std format or rgb values -->
@@ -570,57 +620,6 @@
     <Label></Label>
     </Field>
 
-<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleFormatLabel"		type="label"  alignText ="right" fontcolor="grey">
-    <Label>X Scale: ...  you can use any number range (2.5:15) or datetime string 
-      eg 201801010100:201802010100 (YYYmmddHHMMSS)
-      for  x-format datafort+displayformat
-      the string before + describes the length of the datefield and 
-      the second part the format of the labels
-      for datetime:  eg %Y%m%d%H%M%S+%d-%H:M 
-      for regular numbers eg:  %5.2f+%4d
-      you can use %%v:varid or varname%% 
-        to make it dynamic using a variable </Label>
-    </Field>
-
-<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleRange"		type="textfield" defaultValue="00:100"  tooltip="Select x-min and x-max or leave blank for auto-mode for X axis" >
-    <Label>...FROM:TO </Label>
-    </Field>
-
-<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleTics"		type="textfield" defaultValue="20,40,60,80,100" tooltip="Select Tick marks or leave blank for auto-mode for X axis" >
-    <Label>...Tick Marks eg 1,2,5,10:</Label>
-    </Field>
-
-<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleFormat"		type="textfield" defaultValue="%.1f" tooltip="Enter format string for X-axis, (experts only) overwrites No. of dec. points" >
-    <Label>...FormatString:</Label>
-    </Field>
-
-<Field visibleBindingId="showXscale" visibleBindingValue= "true"  id="XScaleDecPoints"	type="menu" defaultValue="0"  tooltip="Select number of points after   .   for X axis numbers" >
-    <Label>...No. of dec. points:</Label>
-    <List>
-        <Option value='0' >0</Option>
-        <Option value='1' >1</Option>
-        <Option value='2' >2</Option>
-        <Option value='3' >3</Option>
-        <Option value='4' >4</Option>
-        <Option value='5' >5</Option>
-        <Option value='' >auto</Option>
-        </List>
-        </Field>
-
-<Field visibleBindingId="showXscale" visibleBindingValue= "true" id="XLog"				type="menu" defaultValue="0" tooltip="Select linear or log scale for X axis">
-    <Label>...Linear/LogScale:</Label>
-    <List>
-        <Option value='linear' >Linear</Option>
-        <Option value='log' >Log Scale</Option>
-        </List>
-    </Field>
-
-<Field visibleBindingId="showXscale" visibleBindingValue="true" id="XLabel"			type="textfield" defaultValue="x-axis text"  tooltip="Enter text for X scale caption">
-    <Label>...Label:</Label>
-    </Field>
-
-
-
 
 
 
@@ -713,6 +712,28 @@
     </Field>
 
 
+<Field visibleBindingId="DefinePlots" visibleBindingValue="true" id="boxWidth"	type="menu" defaultValue="0.5"  tooltip=" ">
+    <Label>Width of histog blocks  (for ALL lines 0-1 binsize</Label>
+    <List>
+        <Option value='0.02' >0.02 of a bin</Option>
+        <Option value='0.04' >0.04 of a bin</Option>
+        <Option value='0.06' >0.06 of a bin</Option>
+        <Option value='0.08' >0.08 of a bin</Option>
+        <Option value='0.1'  >0.1 of a bin</Option>
+        <Option value='0.2'  >0.2 of a bin</Option>
+        <Option value='0.3'  >0.3 of a bin</Option>
+        <Option value='0.4'  >0.4 of a bin</Option>
+        <Option value='0.5'  >0.5  = half bin width</Option>
+        <Option value='0.6'  >0.6 of a bin</Option>
+        <Option value='0.7'  >0.7 of a bin</Option>
+        <Option value='0.8'  >0.8 of a bin</Option>
+        <Option value='0.9'  >0.9 of a bin</Option>
+        <Option value='1.0'  >1.0 = full bin width</Option>
+        <Option value='1.5'  >1.5 of full bin</Option>
+    </List>
+    </Field>
+
+
 
 
 <!-- free text anywhere on the page.. -->
@@ -773,6 +794,10 @@
         <Option value='30' >30</Option>
     </List>
     </Field>
+
+
+
+
 
 
 <!-- raw gnuplot command to be inserted into file if viven -->
@@ -898,7 +923,7 @@
 
 <!-- y shift and offset -->
 <Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" id="lineMultiplier"   type="textfield" defaultValue="1" tooltip="Select a MULTIPLIER (scale factor) for the line">
-    <Label> ...Multiplier:</Label>
+    <Label>...Multiplier:</Label>
     </Field>
 <Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true" id="lineOffset"       type="textfield" defaultValue="0" tooltip="Select an offset (up or down shift) for the line">
     <Label>...Offset:</Label>
@@ -1040,10 +1065,10 @@
     </Field>
 
 <Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true"  id="lineFromTo"		type="textfield" defaultValue=""  tooltip="" >
-    <Label> ... use only data from:to</Label>
+    <Label>... use only data from:to</Label>
     </Field>
 <Field enabledBindingId="selectLinesOK" visibleBindingId="ExpertsAndLines" visibleBindingValue="true"  id="lineFromToHelp"		type="textfield" defaultValue="YYYYmmddHHMM:YYYYmmddHHMM"  tooltip="" readonly="Yes" >
-    <Label> .. format; empty=ignore</Label>
+    <Label>.. format, empty=ignore</Label>
     </Field>
 
 <!-- line color -->
@@ -1078,7 +1103,7 @@
 
 <!-- line in xy plot belongs to y1 or y2 ? -->
 <Field enabledBindingId="leftRight" visibleBindingId="leftRight" visibleBindingValue="true" id="lineLeftRight" type="menu" defaultValue="x1y1" tooltip="Should the line belong to the left or right Y-scale"> <!-- removed dynamic reload -->
-    <Label> ... scale:</Label>
+    <Label>... scale:</Label>
     <List>
         <Option value="Left">Left</Option>
         <Option value="Right">Right</Option>
@@ -1091,6 +1116,7 @@
     <Label>...shift by # of days :</Label>
     <List>
         <Option value='0' >0 days: no shift, default</Option>
+        <Option value='-1'>-1 days: show today's data yesterday</Option>
         <Option value='1' >1 days: show yesterdays data today</Option>
         <Option value='2' >2 days</Option>
         <Option value='3' >3 days</Option>
@@ -1123,12 +1149,12 @@
 
 <!-- option to remove line -->
 <Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLines" visibleBindingValue="true" id="DeleteLine" type="checkbox"	defaultValue="false" tooltip="This will delete the Line after confirm ">
-    <Label> ...Delete Line:</Label><Title>DELETE</Title>
+    <Label>...Delete Line:</Label><Title>DELETE</Title>
     </Field>
 
 !-- option to duplicate  line -->
 <Field enabledBindingId="selectLinesOK" visibleBindingId="DefineLines" visibleBindingValue="true" id="DuplicateLine" type="checkbox"	defaultValue="false" tooltip="This will duplicate the Line after confirm ">
-    <Label> ...Duplicate Line:</Label><Title>DUPLICATE</Title>
+    <Label>...Duplicate Line:</Label><Title>DUPLICATE</Title>
     </Field>
 
 
@@ -1184,7 +1210,7 @@
 <Field  id="s98" type="separator"/>
 
 <Field  id="l99" type="label">
-    <Label> ....  Make sure you click on [Save] to permanently save changes to disk  </Label>
+    <Label>....  Make sure you click on [Save] to permanently save changes to disk  </Label>
     </Field>
 
 

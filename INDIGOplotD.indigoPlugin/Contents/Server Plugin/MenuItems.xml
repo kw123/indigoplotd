@@ -193,7 +193,7 @@
         <Field   id="buttonConfirmSelection" type="button"	tooltip="This will CREATE the device/state/text/color you selected">
             <Label>5...click to create plot file................</Label><Title>CREATE</Title> <CallbackMethod>buttonConfirmSelectionMFPCALLBACK</CallbackMethod>
         </Field>
-        <Field id="infoLabel101" type="label"> <Label>      it will tell INDIGOplotD to create the plot in ~Documents/INDIGOplotD/</Label> </Field>
+        <Field id="infoLabel101" type="label"> <Label>      it will tell INDIGOplotD to create the plot in your plot directory/</Label> </Field>
 
         <Field   id="idshowPlotCALLBACK" type="button"	tooltip="This will show the plot on your screen">
             <Label>6...click to show plot.......................</Label><Title>SHOW</Title> <CallbackMethod>showPlotMFPCALLBACK</CallbackMethod>
@@ -309,6 +309,8 @@
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)   eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="first"  >first data in time bin</Option>
+                    <Option value="last"   >last data in time bin</Option>
                     <Option value="max"    >max</Option>
                     <Option value="min"    >min</Option>
                     <Option value="count"  >count</Option>
@@ -398,6 +400,8 @@
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="first"  >first data in time bin</Option>
+                    <Option value="last"   >last data in time bin</Option>
                     <Option value="max"    >max</Option>
                     <Option value="min"    >min</Option>
                     <Option value="count"  >count</Option>
@@ -490,6 +494,8 @@
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="first"  >first data in time bin</Option>
+                    <Option value="last"   >last data in time bin</Option>
                     <Option value="max"    >max</Option>
                     <Option value="min"    >min</Option>
                     <Option value="count"  >count</Option>
@@ -578,6 +584,8 @@
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="first"  >first data in time bin</Option>
+                    <Option value="last"   >last data in time bin</Option>
                     <Option value="max"    >max</Option>
                     <Option value="min"    >min</Option>
                     <Option value="count"  >count</Option>
@@ -666,6 +674,8 @@
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="first"  >first data in time bin</Option>
+                    <Option value="last"   >last data in time bin</Option>
                     <Option value="max"    >max</Option>
                     <Option value="min"    >min</Option>
                     <Option value="count"  >count</Option>
@@ -754,6 +764,8 @@
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="first"  >first data in time bin</Option>
+                    <Option value="last"   >last data in time bin</Option>
                     <Option value="max"    >max</Option>
                     <Option value="min"    >min</Option>
                     <Option value="count"  >count</Option>
@@ -843,6 +855,8 @@
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="first"  >first data in time bin</Option>
+                    <Option value="last"   >last data in time bin</Option>
                     <Option value="max"    >max</Option>
                     <Option value="min"    >min</Option>
                     <Option value="count"  >count</Option>
@@ -931,6 +945,8 @@
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
+                    <Option value="first"  >first data in time bin</Option>
+                    <Option value="last"   >last data in time bin</Option>
                     <Option value="max"    >max</Option>
                     <Option value="min"    >min</Option>
                     <Option value="count"  >count</Option>
@@ -1077,9 +1093,8 @@
         <CallbackMethod>inpPrintdevStates</CallbackMethod></MenuItem>
 
     <MenuItem id="menu5-3">
-        <Name>Print FORMATTED source data to ~/Documents/INDIGOPLOTD/DATA/xxx.dat.formatted </Name>
+        <Name>Print FORMATTED source data to /Library/Application Support/Perceptive Automation/Indigo 7.x/Preferences/Plugins/com.karlwachs.INDIGOplotD/data/xxx.dat.formatted </Name>
         <CallbackMethod>inpPrintData</CallbackMethod></MenuItem>
-
     <MenuItem id="d60"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
 
 

@@ -1,0 +1,73 @@
+changes in v7.20.69  @ 2019-10-12
+==================  
+
+1. fixed nickname functionality 
+2. fixed width of histogram bars
+3. fixed some menu items referencing old paths now all pointing to the indigo directories
+
+
+
+changes in v7.20.68  @ 2019-10-10
+==================  
+
+1. added try/ except around individual lines in matplot, in case one line does not work the others get plotted 
+
+
+changes in v7.20.67  @ 2019-08-12
+==================  
+
+1. added measurement first and last. the data shown will only use the first /last data in that time bin.
+
+
+
+
+changes in v7.19.67  @ 2019-08-12
+==================  
+
+1. worked on plotting external files
+
+
+
+
+changes in v7.19.66  @ 2019-08-12
+==================  
+
+1. added action to reload sql data for ONE device/state/variable
+2. some spelling fixes
+
+changes in v7.19.65  @ 2019-08-11
+==================  
+
+1. added option to show todays data yesterday
+   in setup line chhose shift line = -1day
+
+
+changes in v7.18.64  @ 2019-08-10
+==================  
+
+1. fixed added option for box width. only working in gnuplot right now
+
+
+
+changes in v7.18.62  @ 2019-08-08
+==================  
+
+1. fixed ' in devices / variable names in backup/restore
+
+
+changes in v7.18.61  @ 2019-03-06
+==================  
+
+1. move most logging to std  plugin logging, only error and strtup messages show in indigo log
+2. removed old style version checking
+3. fixed some path statements that could contain space - added '' around them
+
+
+
+changes in v7.18.56  @ 2018-12-28
+==================  
+
+1. added  device comm enabled to plot devices : 
+	if enabled plots are created
+	if not enabled: plots are not created, but all data work is continuing
+

@@ -93,10 +93,10 @@
     </List>
     </Field>
 
-<Field  visibleBindingId="liteOrPsql" visibleBindingValue="psql" id="liteOrPsqlString"    type="textfield" defaultValue="/Library/PostgreSQL/bin/psql indigo_history postgres "     readonly="no">
+<Field id="liteOrPsqlString"    visibleBindingId="liteOrPsql" visibleBindingValue="psql"   type="textfield" defaultValue="/Library/PostgreSQL/bin/psql indigo_history postgres"     readonly="no">
     <Label>postgre command string </Label>
     </Field>
-<Field  visibleBindingId="liteOrPsql" visibleBindingValue="sqlite" id="sqlitepath"    type="textfield" defaultValue="/Library/Application Support/Perceptive Automation/Indigo 7"     readonly="no">
+<Field id="sqlitepath"   visibleBindingId="liteOrPsql" visibleBindingValue="sqlite"   type="textfield" defaultValue="/Library/Application Support/Perceptive Automation/Indigo 7"     readonly="no">
     <Label>Path to sqLite Database</Label>
     </Field>
 
@@ -121,13 +121,12 @@
     <Field    id="debugGeneral"     type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (2) general:</Label>  </Field>
     <Field    id="debugSQL"         type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (3) SQL import:</Label>  </Field>
     <Field    id="debugPlotting"    type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (4) plotting:</Label>  </Field>
-    <Field    id="debugRestore"     type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (5) restore/reload  config:</Label>  </Field>
-    <Field    id="DebugSpecial"     type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (6) special:</Label>  </Field>
-    <Field    id="debugall"         type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (7) all of the above = everthing:</Label>  </Field>
-    <Field    id="logFileActive2"   type="menu"      defaultValue="standard"      > <Label> send logs to ..:</Label>
+    <Field    id="debugMatplot"     type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (5) matplot function:</Label>  </Field>
+    <Field    id="debugRestore"     type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (6) restore/reload  config:</Label>  </Field>
+    <Field    id="DebugSpecial"     type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (7) special:</Label>  </Field>
+    <Field    id="debugall"         type="checkbox"  defaultValue="false"       tooltip=""> <Label>     ... (8) all of the above = everthing:</Label>  </Field>
+    <Field    id="logFileActive2"   type="menu"      defaultValue="indigo"      > <Label> send logs to ..:</Label>
         <List>
-            <Option value="standard" > no special INDIGOplotD logfile, std indigo logfile</Option>
-            <Option value="user"     > ~/indigo/INDIGOplotD/plugin.log                    </Option>
             <Option value="indigo"   > .. Perceptive Automation/Indigo x/Logs/com.karlwachs.INDIGOplotD/plugin.log </Option>
         </List>
     </Field>

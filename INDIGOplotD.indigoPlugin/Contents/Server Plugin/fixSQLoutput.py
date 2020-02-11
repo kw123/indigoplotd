@@ -2,7 +2,7 @@ import sys
 import os
 import time
 import json
-import getNumber.getNumber as GT
+import getNumber as GT
 #print "hello"
 
 def makeEvents():

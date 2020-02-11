@@ -21,19 +21,17 @@ import copy
 #import gc
 import resource
 #import psutil
+import logging.handlers
+global logging, logger
 
 
-
-#import simplejson as json
-
-#
 #
 ########################################
 #	Main loop
 ########################################
 def main():
 # main loop check for comamnds and gather data and create plots
-	global indigoPlotDataDir, parameterFile, indigoPNGdir
+	global  parameterFile, indigoPNGdir
 	global quitNOW , fileData, parameterFile
 	global plotSizeNames, plotTimeNames, timeDataNumbers, dataVersion, parameterVersion,debugEnable,numberOfTimeTypes
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
@@ -72,7 +70,7 @@ def main():
 		if timeCount > 720./waitTime: break	# nothing has changed in the last 12 minutes .. exit
 
 		if os.path.isfile(matplotcommand):
-			sendToLog("new matplot input command found",FULL=True,level=1)
+			logger.log(10,"new matplot input command found")
 			try:
 				f = open (matplotcommand,"r")
 				fNamesToPlot = json.loads(f.read())
@@ -80,10 +78,10 @@ def main():
 				if isinstance(fNamesToPlot, str) or isinstance(fNamesToPlot, unicode):
 					fNamesToPlot=[fNamesToPlot]
 				for fn in fNamesToPlot:
-					sendToLog("matplot input command read >>"+fn+"<<",FULL=True ,level=1)
+					logger.log(10,"matplot input command read >>{}<<".format(fn))
 				os.remove( matplotcommand )
 			except:
-				sendToLog("matplot input command file present, but empty, can't read ",FULL=True,level=0)
+				logger.log(10,"matplot input command file present, but empty, can't read ")
 				try:
 					f.close()
 					os.remove( matplotcommand )
@@ -102,57 +100,13 @@ def main():
 			plotNow(fNamesToPlot)
 			thePlotCount    += 1
 			timeCount        = 0
-			sendToLog(secMillis(d0)+" S.m; new param.- finished +  count "+ str(thePlotCount)+",  memory used: "+str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024.*1024.))[:6]+"[MB]" ,FULL=False, level=1)
+			logger.log(10,"time used: {}[secs]; new param.- finished +  count:{},  memory used: {}[MB]".format(secMillis(d0), thePlotCount, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024.*1024.) ) )
 
-	sendToLog("stopping program, no new data for too long, # of plots since new data: "+str(thePlotCount)+ "  # of cycles:"+str(timeCount),FULL=True,level=0)
-	logHandle.close()
+	logger.log(10,"stopping program, no new data for too long, # of plots since new data: {};  # of cycles:{}".format(thePlotCount, timeCount))
 	# exit program
 	return
 
 
-
-########################################
-def sendToLog(theText,FULL=False, level=1):
-	global indigoPlotDataDir, parameterFile, indigoPNGdir
-	global msgCount, logHandle
-	global debugEnable
-
-#	logHandle= open( indigoPlotDataDir+"matplot.log" , "a")
-
-	if level ==2: return
-	logHandle.seek(0,2)
-	size = logHandle.tell()
-	if size > 5000000:
-		try:
-			logHandle.close()
-			try:			# error if it does not exit
-				os.remove( matplotlog1 )
-			except:
-				pass
-			try:			# error if it does not exit
-				os.rename( matplotlog, matplotlog1)
-			except:
-				pass
-			logHandle= open( matplotlog , "a")
-		except:
-			pass
-
-	if FULL:
-		dString = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" PID:" + myPID
-	else:
-		dString=datetime.datetime.now().strftime("%M:%S.%f")[:8]
-
-	if level ==0 :
-		logHandle.write(dString+ " --------------\n")
-		logHandle.write(dString+ " " + theText.encode('utf8') +"\n")
-		logHandle.write(dString+ " --------------\n")
-	else:
-		logHandle.write(dString+ " " + theText.encode('utf8') +"\n")
-
-
-	logHandle.flush()
-
-	return
 
 
 
@@ -164,7 +118,7 @@ def sendToLog(theText,FULL=False, level=1):
 ########################################
 def readPlotParameters():
 	global PLOT,oldPLOT, DEVICE, dataColumnToDevice0Prop1Index
-	global indigoPlotDataDir, parameterFile,parameterFileD, indigoPNGdir
+	global  parameterFile,parameterFileD, indigoPNGdir, prefsDir
 	global dataOffsetInTimeDataNumbers
 
 
@@ -179,17 +133,16 @@ def readPlotParameters():
 				dataColumnToDevice0Prop1Index   = copy.deepcopy(xxxx["dataColumnToDevice0Prop1Index"])
 				dataOffsetInTimeDataNumbers     = copy.deepcopy(xxxx["dataOffsetInTimeDataNumbers"])
 				indigoPNGdir                    = copy.deepcopy(xxxx["PNGdir"])
-				sendToLog(" plot   parameters from indigoplotD first     1000 char\n " + unicode(json.dumps(PLOT,sort_keys=True, indent=2))[:100]+" ...",level=1 )
-				#sendToLog(" DEVICE parameters from indigoplotD first     1000 char\n " + unicode(DEVICE.dumps(PLOT,sort_keys=True, indent=2))[:1000]+" ...",level=1 )
+				logger.log(10," plot   parameters from indigoplotD first     1000 char\n {}".format(json.dumps(PLOT,sort_keys=True, indent=2)[:100]) )
 				xxxx=""
 				input=""
 				return True
 			except  Exception, e:
-				sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
 				time.sleep(1)
 		return False
 	else:
-		sendToLog(" no plot parameters from indigoplotD\n " ,1 )
+		logger.log(10," no plot parameters from indigoplotD\n " ,1 )
 		return False
 
 
@@ -205,7 +158,7 @@ def getEventData():
 	eventData  ={}
 	eventIndex ={}
 	eventType  ={}
-	#sendToLog("dataColumnToDevice0Prop1Index " + unicode(dataColumnToDevice0Prop1Index) )
+	#logger.log(10,"dataColumnToDevice0Prop1Index " + unicode(dataColumnToDevice0Prop1Index) )
 	for theCol in range(1,len(dataColumnToDevice0Prop1Index)):
 			devNo= dataColumnToDevice0Prop1Index[theCol][0]
 			stateNo=dataColumnToDevice0Prop1Index[theCol][1]
@@ -240,8 +193,8 @@ def getEventData():
 				errorC =0
 				for ii in range(3):
 					try:
-						#print "doing: ..."+indigoPlotDataDir+"sql/"+unicode(DEVICE[unicode(devNo)]["Id"]) + "-" + DEVICE[unicode(devNo)]["state"][stateNo]
-						f=open(indigoPlotDataDir+"sql/"+unicode(DEVICE[unicode(devNo)]["Id"]) + "-" + DEVICE[unicode(devNo)]["state"][stateNo], "r")
+						#print "doing: ..."+prefsDir+"sql/"+unicode(DEVICE[unicode(devNo)]["Id"]) + "-" + DEVICE[unicode(devNo)]["state"][stateNo]
+						f=open(prefsDir+"sql/"+unicode(DEVICE[unicode(devNo)]["Id"]) + "-" + DEVICE[unicode(devNo)]["state"][stateNo], "r")
 						datax =[]
 						nn=0
 						for line in f.readlines():
@@ -263,19 +216,18 @@ def getEventData():
 						errorC =0
 						break
 					except  Exception, e:
-						sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
-						sendToLog("DEVICE " + unicode(DEVICE[str(devNo)]["Id"])+";  col#:"+ str(theCol)+" no event data ?" ,level=1)
+						logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+						logger.log(10,"DEVICE " + unicode(DEVICE[str(devNo)]["Id"])+";  col#:"+ str(theCol)+" no event data ?" )
 						time.sleep(4)
 						errorC +=1
-				if errorC==0: sendToLog("read event ...sql/"+unicode(DEVICE[unicode(devNo)]["Id"]) + "-" + DEVICE[unicode(devNo)]["state"][stateNo]+" ok" ,level=1)
-	#print " read event done"
-	#sendToLog("eventIndex " + unicode(eventIndex) ,level=1)
-	#sendToLog("eventData  " + unicode(eventData)[0:200] ,level=1)
-	
+				if errorC==0: logger.log(10,"read event ...sql/"+unicode(DEVICE[unicode(devNo)]["Id"]) + "-" + DEVICE[unicode(devNo)]["state"][stateNo]+" ok")
+	return
+
+
 ########################################
 def getDiskData(tType):
 	global fileData
-	global indigoPlotDataDir, parameterFile, indigoPNGdir
+	global  parameterFile, indigoPNGdir
 	global plotSizeNames, plotTimeNames, fileData, dataVersion, parameterVersion,debugEnable
 	global newData
 	global oldfileData
@@ -289,15 +241,15 @@ def getDiskData(tType):
 		f.close()
 		if i+1 !=numberOfTimeBins[tType]:
 			if i < 50:
-				sendToLog(" read file "+fileData[tType] +" file line: "+str(i+1)+"  rejecting too small  " ,level=1)
+				logger.log(10," read file "+fileData[tType] +" file line: "+str(i+1)+"  rejecting too small  " )
 				quitNOW =True
 				return
 			else:
-				sendToLog(" read file "+fileData[tType] +" file line: "+str(i+1)+";  and expexted line: " + str(numberOfTimeBins[tType]),level=1)
+				logger.log(10," read file "+fileData[tType] +" file line: "+str(i+1)+";  and expexted line: " + str(numberOfTimeBins[tType]))
 				numberOfTimeBins[tType] =i+1
 				noOfDays[tType]= ((i+1)*numberOfMinutesInTimeBins[tType])/(60*24)
 				timeDataNumbers[tType]=	[0  for l in range(numberOfTimeBins[tType])]
-				sendToLog("changed # of days to:  "+str(noOfDays[tType]) +" len(timeDataNumbers) is now:  " + str(len(timeDataNumbers[tType])),level=1)
+				logger.log(10,"changed # of days to:  "+str(noOfDays[tType]) +" len(timeDataNumbers) is now:  " + str(len(timeDataNumbers[tType])))
 
 
 		f=open(fileData[tType], "r")
@@ -333,11 +285,11 @@ def getDiskData(tType):
 	else:
 		newData=False
 
-	sendToLog(" timeDataNumbers "+str(len( timeDataNumbers[tType])) ,level=1)# +"\n"+str(timeDataNumbers[tType]) ,level=1)
+	logger.log(10," timeDataNumbers "+str(len( timeDataNumbers[tType])) )# +"\n"+str(timeDataNumbers[tType]) )
 
 
 
-	sendToLog(" reading data, tType: "+ str(tType) +"   newData:"+str(newData),level=1)
+	logger.log(10," reading data, tType: "+ str(tType) +"   newData:"+str(newData))
 
 	return True
 
@@ -347,7 +299,7 @@ def getDiskData(tType):
 
 
 ########################################
-def firstLastDayToPlot(days, shift, type):
+def firstLastDayToPlot(days, shift,tType):
 
 
 	d  =  datetime.date.today()
@@ -357,20 +309,29 @@ def firstLastDayToPlot(days, shift, type):
 
 	if days ==0: return earliestDay, lastDay
 	
-	if type ==2  or type ==1 :  ###  for day & hour plot
-		if  shift >=0:
+	if tType ==2  or tType ==1 :  ###  for day & hour plot
+		if  shift >= 0:
+			earliestDay		= ( dd +datetime.timedelta(1) - datetime.timedelta( days+ shift) )
+			lastDay			= ( dd +datetime.timedelta(1) - datetime.timedelta( shift ) )
+			return earliestDay, lastDay
+		elif  shift > -9:
 			earliestDay		= ( dd +datetime.timedelta(1) - datetime.timedelta( days+ shift) )
 			lastDay			= ( dd +datetime.timedelta(1) - datetime.timedelta( shift ) )
 			return earliestDay, lastDay
 
-	if type ==0  :  ###  for minute plot
-		if shift>=0:
+	if tType ==0  :  ###  for minute plot
+		if shift == 0:
+			YRIGHT 			= dd+datetime.timedelta(1)
+			lastDay			= YRIGHT 
+			earliestDay		= ( YRIGHT - datetime.timedelta( days ) )
+			return earliestDay, lastDay
+		elif shift > 0:
 			YRIGHT 			= dd+datetime.timedelta(1)
 			lastDay			= ( YRIGHT - datetime.timedelta( shift)                                       )
 			earliestDay		= ( YRIGHT - datetime.timedelta( days+ shift ) )
 			return earliestDay, lastDay
 			
-		elif shift ==-1: # this is for continous shift every hour
+		elif shift == -1: # this is for continous shift every hour
 			x = datetime.datetime.now()
 			YRIGHT0			=	ddn -datetime.timedelta(minutes=x.minute,seconds=x.second)
 			YRIGHT			=	YRIGHT0 + datetime.timedelta( hours=1)
@@ -421,7 +382,7 @@ def firstLastDayToPlot(days, shift, type):
 ########################################
 def secMillis(d0):
 	d =datetime.datetime.now()-d0
-	return (str(d.seconds).rjust(2)+"."+str(d.microseconds))[:5]
+	return "{:2.0f}.{:3.0f}".format(d.seconds,d.microseconds)
 
 
 ########################################
@@ -429,7 +390,7 @@ def plotNow(filenamesToPlot):
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
 	global newData, plotDatastore
 	global numberOfPlots,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
-	global indigoPlotDataDir, parameterFile, indigoPNGdir,indigoPath
+	global  parameterFile, indigoPNGdir,indigoDir
 	global myPID, msgCount, logHandle, quitNOW
 	global plotSizeNames, plotTimeNames, timeDataNumbers, dataVersion, parameterVersion,debugEnable
 	global xtimeCol, columnDataToPlot,  countTimeBinsMax, countTimeBinsWithDataMax, zeroYColumn
@@ -442,7 +403,7 @@ def plotNow(filenamesToPlot):
 	d0= datetime.datetime.now()
 	d1 = datetime.datetime.now()- datetime.timedelta(hours=d0.hour,minutes=d0.minute,seconds=d0.second,microseconds=d0.microsecond)# set to midnight today  =  hours, minutes, seconds to 0
 	d1= d1+datetime.timedelta(days=1)
-	sendToLog("Starting New PLOTS",FULL=True,level=1 )
+	logger.log(10,"Starting New PLOTS")
 	for nPlot in PLOT:							#this can be 6 per plot definition
 		do_nPlot(nPlot, filenamesToPlot)
 
@@ -454,7 +415,7 @@ def plotNow(filenamesToPlot):
 	except:
 		pass
 
-	sendToLog(secMillis(d0)+" S.m  finished ..  after cleanup",level=1)
+	logger.log(10,secMillis(d0)+" S.m  finished ..  after cleanup")
 	xTime=[]
 	columnDataToPlot=[]
 	oldPLOT=copy.deepcopy(PLOT)
@@ -466,7 +427,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
 	global newData, plotDatastore
 	global numberOfPlots,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
-	global indigoPlotDataDir, parameterFile, indigoPNGdir,indigoPath
+	global  parameterFile, indigoPNGdir,indigoDir, prefsDir
 	global myPID, msgCount, logHandle, quitNOW
 	global plotSizeNames, plotTimeNames, timeDataNumbers, dataVersion, parameterVersion,debugEnable
 	global xtimeCol, columnDataToPlot,  countTimeBinsMax, countTimeBinsWithDataMax, zeroYColumn
@@ -479,21 +440,21 @@ def do_nPlot(nPlot,filenamesToPlot):
 		#		print str(PLOT[nPlot]["NumberIsUsed"]) +" " +str(nPlot)+" " +str(numberOfPlots)
 				plotN = PLOT[nPlot]
 				if plotN["NumberIsUsed"] !=1: return
+				if "enabled" in plotN and  plotN["enabled"] !="True": return
 				if not( filenamesToPlot[0] =="" or filenamesToPlot[0] =="do all plots" or plotN["DeviceNamePlot"] in filenamesToPlot  ): return
 		
 				#### check if there is anything new in the PLOT definition
 				doPLOT=False
 		#		if  filenamesToPlot[0] =="" or filenamesToPlot[0] =="do all plots":
 				if plotN["PlotType"] == "dataFromTimeSeries" and newData: doPLOT=True
-		#		sendToLog("-- "+ plotN["DeviceNamePlot"]+" "+plotN["PlotType"] +"   newData "+str(newData),FULL=True,level=1 )
 
 				if nPlot in oldPLOT:
 					if cmp(oldPLOT[nPlot],PLOT[nPlot]) !=0:
 						oldPLOT[nPlot]=copy.deepcopy(plotN)
-						sendToLog("-- oldplot!=newplot"+ plotN["DeviceNamePlot"],FULL=True,level=1 )
+						logger.log(10,"-- oldplot!=newplot"+ plotN["DeviceNamePlot"])
 						doPLOT=True
 					else:
-						sendToLog("-- oldplot==newplot"+ plotN["DeviceNamePlot"],FULL=True,level=1 )
+						logger.log(10,"-- oldplot==newplot"+ plotN["DeviceNamePlot"] )
 					if not doPLOT:				### check if plotfiles already exist, if not need to redo
 						for tType in range(numberOfTimeTypes):
 							if plotN["PlotType"] != "dataFromTimeSeries" and tType>0: continue
@@ -514,7 +475,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 		#			doPLOT=True
 			
 				if not doPLOT:
-					sendToLog("-- no change in data and plot definition and files exist, skipping plotting: "+ plotN["DeviceNamePlot"],FULL=True,level=1 )
+					logger.log(10,"-- no change in data and plot definition and files exist, skipping plotting: "+ plotN["DeviceNamePlot"] )
 					return
 
 
@@ -577,8 +538,8 @@ def do_nPlot(nPlot,filenamesToPlot):
 						BorderColor[i]=plotN["Background"]
 
 
-				sendToLog(" ",level=1 )
-				sendToLog("plotting ################:"+ str(nPlot)+"   -- plot: "+ plotN["DeviceNamePlot"]+"   -- compress PNG: "+ str(plotN["compressPNGfile"])+" ################",level=1 )
+				logger.log(10,"" )
+				logger.log(10,"################ plotting ################:"+ str(nPlot)+"   -- plot: "+ plotN["DeviceNamePlot"]+"   -- compress PNG: "+ str(plotN["compressPNGfile"])+" ################" )
 
 				colOffset = 1 + dataOffsetInTimeDataNumbers
 				rows=0
@@ -588,7 +549,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 					xTime=[]
 					zeroYColumn=[]
 					plotDatastore =[]
-					f=open(indigoPlotDataDir+"data/"+plotN["PlotFileOrVariName"],"r")
+					f=open(prefsDir+"data/"+plotN["PlotFileOrVariName"],"r")
 					for line in f.readlines():
 						if len(line) < 2: continue  # skip junk lines
 						if line.find("#")==0: continue # skip first line
@@ -600,7 +561,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 						zeroYColumn.append(zeroYValue)
 						numberofNonTimeBins+=1
 					f.close()
-		#			sendToLog("plotDatastore "+ str(plotDatastore[:10]),1)
+		#			logger.log(10,"plotDatastore "+ str(plotDatastore[:10]),1)
 					firstDaytoPlot = xMin
 					lastDaytoPlot  = xMax
 					DeviceNamePlotpng0= indigoPNGdir+plotN["DeviceNamePlot"]
@@ -609,9 +570,9 @@ def do_nPlot(nPlot,filenamesToPlot):
 						if comp(NOTdataFromTimeSeries[plotN["DeviceNamePlot"]],plotDatastore)!=0:
 							NOTdataFromTimeSeries[plotN["DeviceNamePlot"]]= copy.deepcopy(plotDatastore)
 							doPLOT=True
-					sendToLog("#c:"+unicode(colsToPlot)+"; grid:"+plotN["Grid"]+"; 0Ln:"+str(plotN["drawZeroLine"])+"-   doPlot: "+ str(doPLOT)+" rows: "+str(rows)+ "   Border Color: "+ str(BorderColor)+"   Background Color: "+ plotN["Background"],level=1)
+					logger.log(10,"#c:"+unicode(colsToPlot)+"; grid:"+plotN["Grid"]+"; 0Ln:"+str(plotN["drawZeroLine"])+";  doPlot: "+ str(doPLOT)+";  HW: "+ str(plotN["boxWidth"] )+"; rows: "+str(rows)+ "; Border Color: "+ str(BorderColor)+";  Background Color: "+ plotN["Background"])
 				else:
-					sendToLog("#c:"+unicode(colsToPlot)+"; grid:"+plotN["Grid"]+"; 0Ln:"+str(plotN["drawZeroLine"])+"-   doPlot: "+ str(doPLOT)+ "   Border Color: "+ str(BorderColor)+"   Background Color: "+ plotN["Background"],level=1 )
+					logger.log(10,"#c:"+unicode(colsToPlot)+"; grid:"+plotN["Grid"]+"; 0Ln:"+str(plotN["drawZeroLine"])+";  doPlot: "+ str(doPLOT)+";  HW: "+ str(plotN["boxWidth"] )                    + ";  Border Color: "+ str(BorderColor)+";  Background Color: "+ plotN["Background"] )
 				## show border or not
 
 		#		t1 = time.time()
@@ -619,7 +580,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 					do_PlottType( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor)
 
 	except  Exception, e:
-		sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
+		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
 	## end of plot loop
 
 					
@@ -636,7 +597,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
 	global newData, plotDatastore, weightDataToPlot
 	global numberOfPlots,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
-	global indigoPlotDataDir, parameterFile, indigoPNGdir,indigoPath
+	global  parameterFile, indigoPNGdir,indigoDir
 	global myPID, msgCount, logHandle, quitNOW
 	global plotSizeNames, plotTimeNames, timeDataNumbers, dataVersion, parameterVersion,debugEnable
 	global xtimeCol, columnDataToPlot,  countTimeBinsMax, countTimeBinsWithDataMax, zeroYColumn
@@ -648,6 +609,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 	try:
 		if  plotN["PlotType"] != "dataFromTimeSeries" and tType>0: return
+
 
 		if  plotN["PlotType"] == "dataFromTimeSeries":
 			if 	plotN["MHDDays"][tType] ==0: return
@@ -732,7 +694,6 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 							dataCol         = colToPlot[col][0]
 							XT              = []
 							countTimeBinsWithData=0
-							#sendToLog(plotN["DeviceNamePlot"]+ " dataCol: "+ str(dataCol)+ " lcol: "+ str(lCol)+" col: "+ str(col)+"  colToPlot: "+str(colToPlot[col]), level=1) 
 							if  plotN["PlotType"] == "dataFromTimeSeries" and str(dataCol) in eventIndex:
 									evD = eventData[str(dataCol)]
 									resetType = eventType[str(dataCol)].split("-")[1] ##reset = day/week/month/year/bin
@@ -740,7 +701,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 									evType    = eventType[str(dataCol)].split("-")[0] 
 									nData     = eventIndex[str(dataCol)]
 									dataToPlot=[]
-									#sendToLog("count  eventType:"+unicode(eventType[str(dataCol)]),level=1)
+									#logger.log(10,"count  eventType:"+unicode(eventType[str(dataCol)]))
 									#XisDate =True
 									if   evType == "down":
 										for nn in range(nData):
@@ -755,7 +716,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 													dataToPlot.append(copy.deepcopy(evD[nn]))  
 													XT.append(datetime.datetime.strptime(evD[nn][0], "%Y%m%d%H%M%S"))
 											except:
-												sendToLog(str(nn) + " "+unicode(evD),level=1)
+												logger.log(10,str(nn) + " "+unicode(evD))
 												break
 										nBins =len(XT)
 									elif evType == "change":
@@ -777,7 +738,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 										lastBinDateSTR    = currentBinDateSTR
 										lasteventData     = evD[0]
 										firstEventInRange = False
-										#sendToLog("count  firstBinDate:"+firstBinDateSTR+"  "+evType+" "+resetType+" "+unicode(showZero)+" nData:"+unicode(nData),level=1)
+										#logger.log(10,"count  firstBinDate:"+firstBinDateSTR+"  "+evType+" "+resetType+" "+unicode(showZero)+" nData:"+unicode(nData))
 										for nn in range(nData):
 											lasteventData = copy.deepcopy(evD[max(0,nn-1)])
 											currdateINSTR = copy.deepcopy(evD[nn][0])
@@ -785,7 +746,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 											if currdateINSTR < firstBinDateSTR: continue
 											if not firstEventInRange:
-												sendToLog("count  firstBinDate found :"+unicode(lasteventData)+"  "+ str(nn),level=1)
+												logger.log(10,"count  firstBinDate found :"+unicode(lasteventData)+"  "+ str(nn))
 												dataToPlot.append([currentBinDateSTR,1,0,0,0,0,1,0])
 												XT.append(currentBinDate)
 											firstEventInRange = True
@@ -847,22 +808,20 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 													 
 											#print currdateIN, currentBinDate, dataToPlot[-1], evD[-1], XT[-1]
 										nBins =len(XT)
-										#sendToLog("count nBins "+unicode(nBins),level=1)
-										#sendToLog("count dataToPlot "+unicode(dataToPlot[0:100]),level=1)
-										#sendToLog("count XT  "+unicode(XT[0:100]),level=1)
+										#logger.log(10,"count nBins "+unicode(nBins))
+										#logger.log(10,"count dataToPlot "+unicode(dataToPlot[0:100]))
+										#logger.log(10,"count XT  "+unicode(XT[0:100]))
 
 									else:
 										dataToPlot = copy.deepcopy(evD)
 										nBins =eventIndex[str(dataCol)]
 										for nn in range(nBins): 
 											XT.append(datetime.datetime.strptime(evD[nn][0], "%Y%m%d%H%M%S"))
-									#sendToLog("count "+unicode(nBins) +"  "+unicode(len(dataToPlot))+"  "+unicode(len(XT)),level=1)
+									#logger.log(10,"count "+unicode(nBins) +"  "+unicode(len(dataToPlot))+"  "+unicode(len(XT)))
 									
 									colToPlot[col][0]   = 1
 									colToPlotB[col][0]  = 0
 									colToPlotB[col][1]  = 0
-									#sendToLog(" lcol: "+ str(lCol)+   " XT: " + str(XT)[0:100], level=1) 
-									#if tType ==2: print firstBinDateSTR,nBins,len(dataToPlot),len(xTime), col,"\n", XT[0],XT[-10:-1],"\n", dataToPlot[0], dataToPlot[-10:-1]
 							else:
 								XT = xTime
 								dataToPlot = plotDatastore
@@ -872,39 +831,38 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 									nBins = min(numberofNonTimeBins, len(XT))
 
 							lR = plotN["lines"][lCol]["lineEveryRepeat"]
+							lT = plotN["lines"][lCol]["lineType"]
 							try:
 								lRi=int(lR)
 							except:
 								lRi=""
 								
-							#sendToLog(" col "+ str(lCol) + " lCol " + str(lCol)+  "  nBins" + str(nBins), level=1) 
 							for jj in range(nBins):
 										yIsText=False
 										shiftedTime = XT[jj]
 										if plotN["PlotType"] == "dataFromTimeSeries" or XisDate:
-												if lineShift > 0: shiftedTime += datetime.timedelta(lineShift)
+												if lineShift != 0: shiftedTime += datetime.timedelta(lineShift)
 												try:
 													if shiftedTime  < firstDaytoPlot: continue
 												except:
-													sendToLog("shiftedTime: "+ str(shiftedTime) +"  firstDaytoPlot:"+ str(firstDaytoPlot)  )
+													#logger.log(10,"shiftedTime: "+ str(shiftedTime) +"  firstDaytoPlot:"+ str(firstDaytoPlot)  )
 													continue
 												if shiftedTime  > lastDaytoPlot : continue
 												shifttimeString = shiftedTime.strftime("%Y%m%d%H%M%S")
 												if fromTo.find(":") >0:
 														fT=fromTo.split(":")
 														shifttimeString1= shifttimeString[0:len(fT[0])]
-														##sendToLog("shift: "+ unicode(shiftedTime)+ " "+ unicode(shifttimeString1)+"  "+ unicode(fT))
+														##logger.log(10,"shift: "+ unicode(shiftedTime)+ " "+ unicode(shifttimeString1)+"  "+ unicode(fT))
 														if shifttimeString1  < fT[0]: continue
 														if shifttimeString1  > fT[1]: continue
 										else:
 											try:
 												if float(firstDaytoPlot) - float(shiftedTime) > 0.: continue
 											except:
-												sendToLog(" error at  col "+ str(col) +"  XisDate "+str(XisDate)+"  PlotType "+str(plotN["PlotType"])+"  firstDaytoPlot "+str(firstDaytoPlot)+"  shiftedTime "+str(shiftedTime), level=1) 
+												logger.log(10," error at  col "+ str(col) +"  XisDate "+str(XisDate)+"  PlotType "+str(plotN["PlotType"])+"  firstDaytoPlot "+str(firstDaytoPlot)+"  shiftedTime "+str(shiftedTime)) 
 												continue        
 
 										if dataToPlot[jj][0].find("#") ==0: continue# skip comment lines
-										#sendToLog("step1 "+ unicode(dataToPlot[jj][1])+ " "+unicode(dataToPlot[jj][colToPlot[col][0]+colOffset]),level=1)
 
 										countTimeBins+=1
 										if plotN["PlotType"] == "dataFromTimeSeries" and colToPlot[col][0] < 0:
@@ -967,14 +925,17 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 																suppressPoint = 1
 														except:
 															pass
-													##sendToLog(lR + "  "+ str(shifttimeString)+ " "+ str(suppressPoint) )
+													##logger.log(10,lR + "  "+ str(shifttimeString)+ " "+ str(suppressPoint) )
 												
 											
 											
-												#sendToLog(lR + " 8: "+ str(dataToPlot[jj][8])+"  9:"+ str(dataToPlot[jj][9]),level=1)
-												#sendToLog(lR + " ok "+ str(dataToPlot[jj][colToPlot[col][0]+colOffset]))
+												#logger.log(10,lR + " 8: "+ str(dataToPlot[jj][8])+"  9:"+ str(dataToPlot[jj][9]))
+												#logger.log(10,lR + " ok "+ str(dataToPlot[jj][colToPlot[col][0]+colOffset]))
 											if suppressPoint ==2:  
-												yy = None ; theValue = None 
+												if  lT.find("Histogram") >-1:
+													yy = 0; theValue = 0
+												else:
+													yy = None ; theValue = None 
 											elif  suppressPoint ==1:
 												continue   
 											else: 
@@ -984,6 +945,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 													if plotN["PlotType"] == "dataFromTimeSeries":                                                                            
 														continue
 													yy = dataToPlot[jj][colToPlot[col][0]+colOffset]
+													if  lT.find("Histogram") >-1: yy = 0
 													yIsText=True   
 											
 											if  plotN["PlotType"] == "dataFromTimeSeries":
@@ -994,7 +956,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 											elif yy != None:      
 												theValue= yy*mul+off
 											countTimeBinsWithData+=1
-											#sendToLog("step3",level=1)
+											#logger.log(10,"step3")
 
 											if colToPlotB[col][1] !=0:
 												if not yIsText:
@@ -1041,7 +1003,6 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 											theColumnValues.append(theValue)
 											xtimeForOneCol.append(shiftedTime)
 							#if lR =="oddHours" or lR =="evenHours":
-							#    sendToLog(lR+ " theColumnValues "+ str(theColumnValues) + " xtimeForOneCol " + str(xtimeForOneCol), level=1) 
 						
 							countTimeBinsMax=max(countTimeBinsMax, countTimeBins)
 							countTimeBinsWithDataMax=max(countTimeBinsWithDataMax, countTimeBinsWithData)
@@ -1051,12 +1012,13 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 									theColumnValues[ii]= theColumnValues[ii]/max(1.,float(countTimeBinsWithData))+off
 
 							if len(theColumnValues) ==0:
-									sendToLog("theColumnValues ==[] = no data for tType "+str(tType)+ ";    column: " +str(col),level=1 )
-									out =""
-									start= max(len(dataToPlot) -10,0)
-									for ii in range(start,len(dataToPlot)):
-										out += str(dataToPlot[ii][0])+"-"+str(dataToPlot[ii][colToPlot[col][0]+colOffset])+"\n"
-									sendToLog("last 10 records:\n"+out,level=1)
+									logger.log(10,"theColumnValues ==[] = no data for tType "+str(tType)+ ";    column: " +str(col) )
+									if False:
+										out =""
+										start= max(len(dataToPlot) -10,0)
+										for ii in range(start,len(dataToPlot)):
+											out += str(dataToPlot[ii][0])+"-"+str(dataToPlot[ii][colToPlot[col][0]+colOffset])+"\n"
+										logger.log(10,"last 10 records:\n"+out)
 									continue
 
 							smooth= plotN["lines"][lCol]["lineSmooth"]
@@ -1067,7 +1029,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 											try:
 												ave =(theColumnValues[min(nX-1,mm-2)]+theColumnValues[min(nX-1,mm-1)]+theColumnValues[min(nX-1,mm)])/3
 											except:
-												sendToLog( u" error "+ str(theColumnValues[min(nX-1,mm-2)])+"--"+str(theColumnValues[min(nX-1,mm-1)])+"--"+str(theColumnValues[min(nX-1,mm)])+"--", 1)
+												logger.log(10, u" error "+ str(theColumnValues[min(nX-1,mm-2)])+"--"+str(theColumnValues[min(nX-1,mm-1)])+"--"+str(theColumnValues[min(nX-1,mm)])+"--", 1)
 												ave =(theColumnValues[min(nX-1,mm)])
 											if len(numbersToPlotY) < nX: numbersToPlotY.append(ave)
 											if len(numbersToPlotY) < nX: numbersToPlotY.append(ave)
@@ -1165,8 +1127,8 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 							# line smoothing with cspline
 							#					if nPlot== "944299738":
-							#						sendToLog(str(theColumnValues),level=1)
-							#						sendToLog(str(xtimeForOneCol),level=1)
+							#						logger.log(10,str(theColumnValues))
+							#						logger.log(10,str(xtimeForOneCol))
 
 							#for smooth factor:
 							#s : float
@@ -1179,7 +1141,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 							# using:  spline  http://docs.scipy.org/doc/scipy-0.13.0/reference/generated/scipy.interpolate.splrep.html#scipy.interpolate.splrep
 							# not using:  spline  http://docs.scipy.org/doc/scipy/reference/tutorial/interpolate.html
 							#						makeSpline = scipy.interpolate.UnivariateSpline (xx, theColumnValues, s=200.0 )
-							#					sendToLog( u" xtimeForOneCol 0-10"+ str(xtimeForOneCol[:10]), 1)
+							#					logger.log(10, u" xtimeForOneCol 0-10"+ str(xtimeForOneCol[:10]), 1)
 
 
 							if  (  plotN["lines"][lCol]["lineSmooth"] =="soft"
@@ -1227,17 +1189,17 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 												xxT.append(tt)
 								try:
 									splineParams, fp,ier,msg= scipy.interpolate.splrep (xx1, theColumnValues, k=3, s=smooth , full_output=1)  #  smooth factor 50  least smoothing
-									sendToLog( u" smoothing plot: \""+ plotN["TitleText"]+"\" line# " + str(lCol)+", ierr:"+ str(ier)+", msg: "+str(msg), 1)
-									sendToLog( u" smoothing plot: fp "+ str(fp), 1)
+									logger.log(10, u" smoothing plot: \""+ plotN["TitleText"]+"\" line# " + str(lCol)+", ierr:"+ str(ier)+", msg: "+str(msg), 1)
+									logger.log(10, u" smoothing plot: fp "+ str(fp), 1)
 									yy = scipy.interpolate.splev(xx,splineParams)  # y values
 									yyL = len(yy)
 									yyNAM = str(yy).count("nan")
 								except  Exception, e:
-									sendToLog("interpolate '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),0)
+									logger.log(10,"interpolate '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),0)
 									yyL =0
 									yyNAM =5
 								if yyL<=yyNAM:
-									sendToLog( u" error smoothing plot: \""+ plotN["TitleText"]+"\" line# " + str(lCol)+" not suited for smoothing, either data not consecutive, or too steep, switched parameter to non-smooth" , 0)
+									logger.log(10, u" error smoothing plot: \""+ plotN["TitleText"]+"\" line# " + str(lCol)+" not suited for smoothing, either data not consecutive, or too steep, switched parameter to non-smooth" , 0)
 									plotN["lines"][lCol]["lineSmooth"] ="None"
 									xtimeCol[col]         = xtimeForOneCol
 									columnDataToPlot[col] = theColumnValues
@@ -1254,7 +1216,6 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 								xtimeCol[col]         = xtimeForOneCol
 								columnDataToPlot[col] = theColumnValues
 								weightDataToPlot[col] = weight
-
 
 
 		else:   # polar plot
@@ -1279,7 +1240,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 							for ii in range(nBins):
 										if  plotN["PlotType"] == "dataFromTimeSeries" and firstDaytoPlot >= float(plotDatastore[ii][0]): continue
 										countTimeBins+=1
-										if 	float(plotDatastore[ii][1]) > 0:
+										if  float(plotDatastore[ii][1]) > 0:
 											countTimeBinsWithData+=1
 											try:
 												yy = float(plotDatastore[ii][columnsToPlot[col][0]+colOffset])
@@ -1312,9 +1273,9 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 		########
 		for nn in xtimeCol:
 			anyData=max(anyData,len(nn))
-		sendToLog("type: "+str(tType)+", now graphing # of datapoints: "+str(anyData) + "; #ofBins "+str(countTimeBinsMax)+ "; Ymin/max L: "+str(yMinL)+" "+str(yMaxL)+" ..R: "+str(yMinR)+" "+str(yMaxR),level=1 )
+		logger.log(10,"type: "+str(tType)+", now graphing # of datapoints: "+str(anyData) + "; #ofBins "+str(countTimeBinsMax)+ "; Ymin/max L: "+str(yMinL)+" "+str(yMaxL)+" ..R: "+str(yMinR)+" "+str(yMaxR) )
 	except  Exception, e:
-				sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
 	return anyData
 
 
@@ -1331,9 +1292,9 @@ def getminMaxPerTimeperiod(minMax,timePeriod,xtimeForOneCol,theColumnValues,weig
 		wvals=[]
 		doW = len(weight) >0
 		dTime=-1
-		#sendToLog("getminMaxPerTimeperiod " +str(minMax)+"  "+ str(timePeriod) +"  "+ str(len(xtimeForOneCol)) )# +" "+ str(xtimeForOneCol)+"  " +str(theColumnValues))
+		#logger.log(10,"getminMaxPerTimeperiod " +str(minMax)+"  "+ str(timePeriod) +"  "+ str(len(xtimeForOneCol)) )# +" "+ str(xtimeForOneCol)+"  " +str(theColumnValues))
 		#if timePeriod.find("m") >-1: 
-		#     sendToLog("getminMaxPerTimeperiod  data "+ str(xtimeForOneCol)+"  " +str(theColumnValues))
+		#     logger.log(10,"getminMaxPerTimeperiod  data "+ str(xtimeForOneCol)+"  " +str(theColumnValues))
 		new = True
 		for mm in range(len(xtimeForOneCol)):
 			if timePeriod !="" and  dTime !=  xtimeForOneCol[mm].strftime(timePeriod):
@@ -1346,7 +1307,7 @@ def getminMaxPerTimeperiod(minMax,timePeriod,xtimeForOneCol,theColumnValues,weig
 				X=0
 				W=1
 				dTime= xtimeForOneCol[mm].strftime(timePeriod)
-				#sendToLog("getminMaxPerTimeperiod  dTime " +str(dTime) )
+				#logger.log(10,"getminMaxPerTimeperiod  dTime " +str(dTime) )
 				new = False
 			if (minMax > 0 and Y < theColumnValues[mm] ) or  (minMax < 0 and Y > theColumnValues[mm] ):   
 				X = xtimeForOneCol[mm]
@@ -1360,12 +1321,12 @@ def getminMaxPerTimeperiod(minMax,timePeriod,xtimeForOneCol,theColumnValues,weig
 			if doW:
 				wvals.append(W)
 						   
-		#sendToLog("getminMaxPerTimeperiod  return " +str(xvals)+"  "+ str(yvals) +"  "+ str(wvals) )
+		#logger.log(10,"getminMaxPerTimeperiod  return " +str(xvals)+"  "+ str(yvals) +"  "+ str(wvals) )
 		if timePeriod != "": return xvals, yvals, weight
 		else:                return [X], [Y], [W]
 
 	except  Exception, e:
-		sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
+		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
 	return [],[],[]
 
 
@@ -1373,7 +1334,7 @@ def do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColo
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
 	global newData, plotDatastore, weightDataToPlot
 	global numberOfPlots,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
-	global indigoPlotDataDir, parameterFile, indigoPNGdir,indigoPath
+	global  parameterFile, indigoPNGdir,indigoDir
 	global myPID, msgCount, logHandle, quitNOW
 	global plotSizeNames, plotTimeNames, timeDataNumbers, dataVersion, parameterVersion,debugEnable
 	global xtimeCol, columnDataToPlot,  countTimeBinsMax, countTimeBinsWithDataMax, zeroYColumn
@@ -1399,7 +1360,7 @@ def do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColo
 			mlp.rcParams["xtick.color"]		= plotN["TextColor"]
 			mlp.rcParams["ytick.color"]		= plotN["TextColor"]
 		except:
-			sendToLog(" error with textColor parameters " +str(plotN["TextColor"]),0)
+			logger.log(10," error with textColor parameters " +str(plotN["TextColor"]),0)
 
 
 		for ss in range(0,2):									# this is for s1 / s2 size names
@@ -1415,7 +1376,7 @@ def do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColo
 			try:
 				mlp.rcParams["font.size"]		= textSize
 			except:
-				sendToLog(" error with textSize parameters "+str(plotN["TextSize"]) ,0)
+				logger.log(10," error with textSize parameters "+str(plotN["TextSize"]) ,0)
 
 
 
@@ -1447,7 +1408,7 @@ def do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColo
 
 		
 	except  Exception, e:
-				sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
    #### end do plot              
 
 
@@ -1512,7 +1473,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 						dd,tx,tn = theList[nT].split('"')
 						tn = float(tn.strip(" "))
 					except:
-						sendToLog(" bad Yleft format string: "+ plotN["RightScaleTics"],level=1)
+						logger.log(10," bad Yleft format string: "+ plotN["RightScaleTics"])
 						tn = 0
 						tx = "bad format string"
 				elif theList[nT].count('"') ==0:
@@ -1520,7 +1481,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 						tn = float(theList[nT].strip(" "))
 						tx=str(tn)
 					except:
-						sendToLog(" bad Yleft format string: "+ plotN["RightScaleTics"],level=1)
+						logger.log(10," bad Yleft format string: "+ plotN["RightScaleTics"])
 						tn = 0
 						tx = "bad format string"
 				else:
@@ -1582,8 +1543,8 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 
 
 		# y2 axis
+		ax2 = ax.twinx()
 		if  y2 or len(plotN["RightScaleTics"]) >0 or len(plotN["RightScaleRange"]) > 2:
-			ax2 = ax.twinx()
 			ax.set_zorder(ax2.get_zorder()+1) # put ax in front of ax2
 			ax.patch.set_visible(False) # hide the 'canvas'
 			Yformat = True
@@ -1609,7 +1570,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 							dd,tx,tn = theList[nT].split('"')
 							tn = float(tn.strip(" "))
 						except:
-							sendToLog(" bad Yright format string: "+ plotN["RightScaleTics"],level=1)
+							logger.log(10," bad Yright format string: "+ plotN["RightScaleTics"])
 							tn = 0
 							tx = "bad format string"
 					elif theList[nT].count('"') ==0:
@@ -1617,7 +1578,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 							tn = float(theList[nT].strip(" "))
 							tx=str(tn)
 						except:
-							sendToLog(" bad Yright format string: "+ plotN["RightScaleTics"],level=1)
+							logger.log(10," bad Yright format string: "+ plotN["RightScaleTics"])
 							tn = 0
 							tx = "bad format string"
 					else:
@@ -1697,198 +1658,151 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 		ax.set_xlim(firstDaytoPlot,lastDaytoPlot)
 		if str(plotN["drawZeroLine"]).upper() =="TRUE": # plot "zero line for sparse data it is invisible, to make sure that all x axis is shown.
 			ax.plot( xTime,zeroYColumn,ls="", color=plotN["Background"],lw=1, label="", alpha=1.0)
-		sendToLog("line#; width;  color; Transp;   R/L;  Func; shift;       type;       smooth;      C-offset;              Nformat;EveryRepeat;   key------",level=1)
+		logger.log(10,"x limits: firstDay:{} .. lastDay:{} ".format(firstDaytoPlot,lastDaytoPlot))
+		logger.log(10,"line#; width;  color; Transp;   R/L;  Func; shift;       type;       smooth;      C-offset;              Nformat;EveryRepeat;   key------")
 		for ll0 in range(colsToPlot):
-			zorder = ll0 - 10
 			try:
-				ll =         columnsToPlot[ll0][1]
-				lF =         plotN["lines"][ll]["lineFunc"]
-				lc =         plotN["lines"][ll]["lineColor"]
-				lt =         plotN["lines"][ll]["lineType"]
-				lw =  float( plotN["lines"][ll]["lineWidth"])
-				lw2= lw/2
+				zorder = ll0 - 10
+				try:
+					ll =         columnsToPlot[ll0][1]
+					lF =         plotN["lines"][ll]["lineFunc"]
+					lc =         plotN["lines"][ll]["lineColor"]
+					lt =         plotN["lines"][ll]["lineType"]
+					lw =  float( plotN["lines"][ll]["lineWidth"])
+					lw2= lw/2
+				except  Exception, e:
+					logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+					logger.log(10,"colsToPlot "+ str(colsToPlot) +"  llo " +str(ll0)+" columnsToPlot "+str(columnsToPlot))
+					continue
+				if columnsToPlot[ll0][0] > 0:
+					lk =         plotN["lines"][ll]["lineKey"]
+				else:
+					lk = ""
+				lr =         plotN["lines"][ll]["lineLeftRight"]
+				sh =         plotN["lines"][ll]["lineShift"]
+				la =  float( plotN["TransparentBlocks"])
+				sm =         plotN["lines"][ll]["lineSmooth"]
+				nO =         plotN["lines"][ll]["lineNumbersOffset"]
+				nF =         plotN["lines"][ll]["lineNumbersFormat"]
+				nR =         plotN["lines"][ll]["lineEveryRepeat"]
+				logger.log(10, unicode(ll).rjust(5)+unicode(lw).rjust(7)+ unicode(lc).rjust(8)+ unicode(la).rjust(8)+ unicode(lr).rjust(7)+ unicode(lF).rjust(7)+ unicode(sh).rjust(7)+ unicode(lt).rjust(12)+sm.rjust(14)+nO.rjust(15)+nF.rjust(23)+nR.rjust(11)+";  "+unicode(lk))
+
+				if ll0 > len(xtimeCol)-1:  # this should not happen
+					logger.log(10, u"no x data(1) for line " +str(ll0+1)+"  # of xcolumns:"+ str(len(xtimeCol)))
+					continue
+				if len(xtimeCol[ll0])< 1:
+					logger.log(10, u"no x data(2) for line " +str(ll0+1))
+					continue # skip empty lines
+
+				######### right axis lines
+				if lr == "Right" and y2:
+					axx = ax2
+				if lr == "Left" and y1:
+					axx = ax
+
+
+				######### right axis lines
+				if True:
+					if lF=="C":  # colorbar
+						cb= axx.scatter(xtimeCol[ll0],columnDataToPlot[ll0],c=weightDataToPlot[ll0],edgecolor="none",lw=lw, label=lk)
+						if lr =="Right":
+							if y2 and plotN["RightLabel"] !="":
+								position=fig.add_axes([0.95,0.2,0.02,0.6])
+								cbT = fig.colorbar(cb,cax=position )
+							elif y2:
+								position=fig.add_axes([0.922,0.2,0.02,0.6])
+								cbT = fig.colorbar(cb,cax=position )
+							elif not y2:
+								position=fig.add_axes([0.91,0.2,0.02,0.6])
+								cbT = fig.colorbar(cb,cax=position )
+								cbT.set_label(plotN["RightLabel"], color =plotN["TextColor"])
+						else:
+							if plotN["RightLabel"] !="":
+								position=fig.add_axes([0.93,0.2,0.02,0.6])
+								cbT = fig.colorbar(cb,cax=position )
+							else:
+								position=fig.add_axes([0.92,0.2,0.02,0.6])
+								cbT = fig.colorbar(cb,cax=position )
+								cbT.set_label(plotN["RightLabel"], color =plotN["TextColor"])
+
+
+
+					elif lF=="S": # solid dots
+						axx.scatter(xtimeCol[ll0],columnDataToPlot[ll0],s=weightDataToPlot[ll0],color=lc,edgecolor=lc, label=lk)
+
+					elif lF=="E":  # empty dots
+						axx.scatter(xtimeCol[ll0],columnDataToPlot[ll0],s=weightDataToPlot[ll0],color=plotN["Background"],edgecolor=lc ,label=lk)
+
+					elif lt =="LineSolid":	axx.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls="-",zorder=zorder, color=lc,lw=lw2, label=lk)
+
+					elif lt =="LineDashed":	axx.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls=":",zorder=zorder, color=lc,lw=lw2, label=lk)
+
+					elif lt =="Impulses":
+						for ii in range(len(xtimeCol[ll0])):
+							if ii==0:
+								axx.vlines(xtimeCol[ll0][ii],0,columnDataToPlot[ll0][ii],zorder=zorder, color=lc,lw=lw, label=lk)
+							else:
+								axx.vlines(xtimeCol[ll0][ii],0,columnDataToPlot[ll0][ii],zorder=zorder, color=lc,lw=lw)
+					elif lt =="averageLeft":
+						npointToplot=int(max(1,len(xtimeCol[ll0]) *0.08))
+						toPlot   = firstDaytoPlot
+						fromPlot = firstDaytoPlot+ (lastDaytoPlot-firstDaytoPlot)/40
+						average= sum(columnDataToPlot[ll0])/max(1.0,len(xtimeCol[ll0]))
+						axx.hlines(average, fromPlot, toPlot,zorder=zorder, color=lc,lw=lw2)
+
+					elif lt =="averageRight":
+						average= sum(columnDataToPlot[ll0])/max(1.0,len(xtimeCol[ll0]))
+						toPlot   = lastDaytoPlot
+						fromPlot = lastDaytoPlot- (lastDaytoPlot-firstDaytoPlot)/40
+						axx.hlines(average, fromPlot, toPlot,zorder=zorder, color=lc,lw=lw2)
+
+
+					elif lt.find("DOT")==0:	
+						axx.scatter(xtimeCol[ll0],columnDataToPlot[ll0],marker=lt[3:],zorder=zorder, color=lc,edgecolor=lc,lw=lw2, label=lk)
+
+					elif lt =="FilledCurves":
+						yLimit = ax2.get_ylim()
+						axx.fill_between(xtimeCol[ll0],columnDataToPlot[ll0],yLimit[0],zorder=zorder,facecolor=lc,color=lc, alpha=la, lw=0.)
+						if len(lk) > 0:
+							ypp= 0.8 - ll0*0.05
+							fig.text(0.81,ypp,r"$\blacksquare $   "+lk,color=lc,size=textSize*0.9)
+							#fig.text(0.81,0.77,r"$\blacksquare $  "+lk,color=lc,size=textSize*0.9)
+
+					elif lt =="Numbers":
+						nOxy= nO.split(",")
+						if lw >0: fontSize= int((lw*2.5+4))
+						for i in range(len(xtimeCol[ll0])):
+							try: 
+								axx.annotate((nF%columnDataToPlot[ll0][i]), xy=(xtimeCol[ll0][i],columnDataToPlot[ll0][i]), xytext=(int(10*float(nOxy[0])),int(10*float(nOxy[1]))),textcoords='offset points',color=lc, fontsize=fontSize)
+							except:
+								pass
+					elif lt.find("Histogram")==0:
+
+			
+						if plotN["PlotType"] == "dataFromTimeSeries":
+							if  tType == 0:multW  = 0.0035 # = 1/24/12 (5 min bins )
+							if  tType == 1:multW  = 0.042 # = 1/24  1 hour bins
+							if  tType == 2:multW  = 1.0 # = 1 day
+						else: multW = 1.0
+						nbins = len(xtimeCol[ll0])
+						wid =  float(plotN["boxWidth"] )* multW
+
+						if   lt =="Histogram0"	:
+							axx.bar(xtimeCol[ll0], columnDataToPlot[ll0],zorder=zorder, width=wid, edgecolor=lc,lw=lw2, label=lk,facecolor='none',fill=False,alpha=la,align='center')
+						else:
+							bars=axx.bar(xtimeCol[ll0], columnDataToPlot[ll0],zorder=zorder, width=wid, facecolor=lc,lw=lw2, label=lk,alpha=la,align='center')
+							if   lt =="Histogram1":	[bar.set_hatch("x")  for bar in bars]
+							elif lt =="Histogram2":	[bar.set_hatch("*")  for bar in bars]
+							elif lt =="Histogram4":	[bar.set_hatch("\\") for bar in bars]
+							elif lt =="Histogram5":	[bar.set_hatch("/")  for bar in bars]
+		
 			except  Exception, e:
-				sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),level=1)
-				sendToLog("colsToPlot "+ str(colsToPlot) +"  llo " +str(ll0)+" columnsToPlot "+str(columnsToPlot),level=1)
-				continue
-			if columnsToPlot[ll0][0] > 0:
-				lk =         plotN["lines"][ll]["lineKey"]
-			else:
-				lk = ""
-			lr =         plotN["lines"][ll]["lineLeftRight"]
-			sh =         plotN["lines"][ll]["lineShift"]
-			la =  float( plotN["TransparentBlocks"])
-			sm =         plotN["lines"][ll]["lineSmooth"]
-			nO =         plotN["lines"][ll]["lineNumbersOffset"]
-			nF =         plotN["lines"][ll]["lineNumbersFormat"]
-			nR =         plotN["lines"][ll]["lineEveryRepeat"]
-			sendToLog( unicode(ll).rjust(5)+unicode(lw).rjust(7)+ unicode(lc).rjust(8)+ unicode(la).rjust(8)+ unicode(lr).rjust(7)+ unicode(lF).rjust(7)+ unicode(sh).rjust(7)+ unicode(lt).rjust(12)+sm.rjust(14)+nO.rjust(15)+nF.rjust(23)+nR.rjust(11)+";  "+unicode(lk),level=1)
-
-			if ll0 > len(xtimeCol)-1:  # this should not happen
-				sendToLog( u"no x data(1) for line " +str(ll0+1)+"  # of xcolumns:"+ str(len(xtimeCol)),level=1)
-				continue
-			if len(xtimeCol[ll0])< 1:
-				sendToLog( u"no x data(2) for line " +str(ll0+1),level=1)
-				continue # skip empty lines
-
-			######### right axis lines
-			if lr == "Right" and y2:
-				if lF=="C":  # colorbar
-					cb= ax2.scatter(xtimeCol[ll0],columnDataToPlot[ll0],c=weightDataToPlot[ll0],edgecolor="none",lw=lw, label=lk)
-					if plotN["RightLabel"] !="":
-						position=fig.add_axes([0.93,0.2,0.02,0.6])
-						cbT = fig.colorbar(cb,cax=position )
-					else:
-						position=fig.add_axes([0.92,0.2,0.02,0.6])
-						cbT = fig.colorbar(cb,cax=position )
-						cbT.set_label(plotN["RightLabel"], color =plotN["TextColor"])
-				elif lF=="S": # solid dots
-					ax2.scatter(xtimeCol[ll0],columnDataToPlot[ll0],s=weightDataToPlot[ll0],color=lc,edgecolor=lc, label=lk)
-				elif lF=="E":  # empty dots
-					ax2.scatter(xtimeCol[ll0],columnDataToPlot[ll0],s=weightDataToPlot[ll0],color=plotN["Background"],edgecolor=lc ,label=lk)
-				elif lt =="LineSolid":	ax2.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls="-",zorder=zorder, color=lc,lw=lw2, label=lk)
-				elif lt =="LineDashed":	ax2.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls=":",zorder=zorder, color=lc,lw=lw2, label=lk)
-
-				elif lt =="Impulses":
-					for ii in range(len(xtimeCol[ll0])):
-						if ii==0:
-							ax2.vlines(xtimeCol[ll0][ii],0,columnDataToPlot[ll0][ii],zorder=zorder, color=lc,lw=lw, label=lk)
-						else:
-							ax2.vlines(xtimeCol[ll0][ii],0,columnDataToPlot[ll0][ii],zorder=zorder, color=lc,lw=lw)
-				elif lt =="averageLeft":
-					npointToplot=int(max(1,len(xtimeCol[ll0]) *0.08))
-					toPlot   = firstDaytoPlot
-					fromPlot = firstDaytoPlot+ (lastDaytoPlot-firstDaytoPlot)/40
-					average= sum(columnDataToPlot[ll0])/max(1.0,len(xtimeCol[ll0]))
-					ax2.hlines(average, fromPlot, toPlot,zorder=zorder, color=lc,lw=lw2)
-				elif lt =="averageRight":
-					average= sum(columnDataToPlot[ll0])/max(1.0,len(xtimeCol[ll0]))
-					toPlot   = lastDaytoPlot
-					fromPlot = lastDaytoPlot- (lastDaytoPlot-firstDaytoPlot)/40
-					ax2.hlines(average, fromPlot, toPlot,zorder=zorder, color=lc,lw=lw2)
-
-
-				elif lt.find("DOT")==0:	ax2.scatter(xtimeCol[ll0],columnDataToPlot[ll0],marker=lt[3:],zorder=zorder, color=lc,edgecolor=lc,lw=lw2, label=lk)
-				elif lt =="FilledCurves":
-					yLimit = ax2.get_ylim()
-					ax2.fill_between(xtimeCol[ll0],columnDataToPlot[ll0],yLimit[0],zorder=zorder,facecolor=lc,color=lc, alpha=la, lw=0.)
-					if len(lk) > 0:
-						ypp= 0.8 - ll0*0.05
-						fig.text(0.81,ypp,r"$\blacksquare $   "+lk,color=lc,size=textSize*0.9)
-						#fig.text(0.81,0.77,r"$\blacksquare $  "+lk,color=lc,size=textSize*0.9)
-				elif lt =="Numbers":
-					nOxy= nO.split(",")
-					if lw >0: fontSize= int((lw*2.5+4))
-					for i in range(len(xtimeCol[ll0])):
-						try: 
-							ax2.annotate((nF%columnDataToPlot[ll0][i]), xy=(xtimeCol[ll0][i],columnDataToPlot[ll0][i]), xytext=(int(10*float(nOxy[0])),int(10*float(nOxy[1]))),textcoords='offset points',color=lc, fontsize=fontSize)
-						except:
-							pass
-				elif lt.find("Histogram")==0:
-
-					nbins = len(xtimeCol[ll0])
-					if  plotN["PlotType"] == "dataFromTimeSeries":
-						if tType ==0: wid = 5./60./60.*2.5
-						if tType ==1: wid = 60./60./60.*2.5
-						if tType ==2: wid = 24.*60./60./60.*2.5
-					elif  XisDate:
-							wid = 1
-					else:
-							wid =(xtimeCol[ll0][nbins-1]-xtimeCol[ll0][0])/max(nbins,0.0000000000001)/.8
-
-					if   lt =="Histogram0"	:
-						ax2.bar(xtimeCol[ll0], columnDataToPlot[ll0],zorder=zorder, width=wid, edgecolor=lc,lw=lw2, label=lk,facecolor='none',fill=False,alpha=la,align='center')
-					else:
-						bars=ax2.bar(xtimeCol[ll0], columnDataToPlot[ll0],zorder=zorder, width=wid, facecolor=lc,lw=lw2, label=lk,alpha=la,align='center')
-						if   lt =="Histogram1":	[bar.set_hatch("x")  for bar in bars]
-						elif lt =="Histogram2":	[bar.set_hatch("*")  for bar in bars]
-						elif lt =="Histogram4":	[bar.set_hatch("\\") for bar in bars]
-						elif lt =="Histogram5":	[bar.set_hatch("/")  for bar in bars]
-		
-		
-			######### left axis lines
-			if lr == "Left" and y1:
-				if lF=="C":  # colorbar
-					cb= ax.scatter(xtimeCol[ll0],columnDataToPlot[ll0],c=weightDataToPlot[ll0],edgecolor="face",lw=lw, label=lk)
-					if y2 and plotN["RightLabel"] !="":
-						position=fig.add_axes([0.95,0.2,0.02,0.6])
-						cbT = fig.colorbar(cb,cax=position )
-					elif y2:
-						position=fig.add_axes([0.922,0.2,0.02,0.6])
-						cbT = fig.colorbar(cb,cax=position )
-					elif not y2:
-						position=fig.add_axes([0.91,0.2,0.02,0.6])
-						cbT = fig.colorbar(cb,cax=position )
-						cbT.set_label(plotN["RightLabel"], color =plotN["TextColor"])
-				elif lF=="S":  # solid dots
-					ax.scatter(xtimeCol[ll0],columnDataToPlot[ll0],s=weightDataToPlot[ll0],color=lc,edgecolor=lc, label=lk)
-				elif lF=="E":  # empty dots
-					ax.scatter(xtimeCol[ll0],columnDataToPlot[ll0],s=weightDataToPlot[ll0],color=plotN["Background"],edgecolor=lc ,label=lk)
-				elif lt =="LineSolid":	 ax.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls="-",zorder=zorder, color=lc,lw=lw2, label=lk)
-
-				elif lt =="Impulses":
-					for ii in range(len(xtimeCol[ll0])):
-						if ii==0:
-							ax.vlines(xtimeCol[ll0][ii],0,columnDataToPlot[ll0][ii],zorder=zorder, color=lc,lw=lw, label=lk)
-						else:
-							ax.vlines(xtimeCol[ll0][ii],0,columnDataToPlot[ll0][ii],zorder=zorder, color=lc,lw=lw)
-
-				elif lt =="averageLeft":
-					npointToplot=int(max(1,len(xtimeCol[ll0]) *0.08))
-					average= sum(columnDataToPlot[ll0])/max(1.0,len(xtimeCol[ll0]))
-					fromPlot = firstDaytoPlot
-					toPlot   = firstDaytoPlot+ (lastDaytoPlot-firstDaytoPlot)/40
-					ax.hlines(average, fromPlot, toPlot,zorder=zorder, color=lc,lw=lw2)
-				elif lt =="averageRight":
-					nnl=len(xtimeCol[ll0])-1
-					average= sum(columnDataToPlot[ll0])/max(1.0,len(xtimeCol[ll0]))
-					toPlot   = lastDaytoPlot
-					fromPlot = lastDaytoPlot- (lastDaytoPlot-firstDaytoPlot)/40
-					ax.hlines(average, fromPlot, toPlot,zorder=zorder, color=lc,lw=lw2)## lastTime
-
-				elif lt =="LineDashed":	 ax.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls=":",zorder=zorder, color=lc,lw=lw2, label=lk)
-				elif lt.find("DOT")==0:	 ax.scatter(xtimeCol[ll0],columnDataToPlot[ll0],marker=lt[3:],zorder=zorder, color=lc,edgecolor=lc,lw=lw2, label=lk)
-				elif lt =="FilledCurves":
-					yLimit = ax.get_ylim()
-					ax.fill_between( xtimeCol[ll0], columnDataToPlot[ll0],yLimit[0],zorder=zorder,facecolor=lc,color=lc,edgecolor=lc, alpha=la, lw=0.)
-					if len(lk) > 0:
-						ypp= 0.8 - ll0*0.05
-						fig.text(0.14,ypp,r"$\blacksquare $   "+lk,color=lc,size=textSize*0.9)
-						##fig.text(0.14,0.77,r"$\blacksquare $   "+lk,color=lc,size=textSize*0.9)
-				elif lt =="Numbers":
-					nOxy= nO.split(",")
-					if lw >0: fontSize= int((lw*2.5+4))
-					for i in range(len(xtimeCol[ll0])):
-						try:
-							a=float(columnDataToPlot[ll0][i])
-							ax.annotate((nF%columnDataToPlot[ll0][i]), xy=(xtimeCol[ll0][i],columnDataToPlot[ll0][i]), xytext=(int(10*float(nOxy[0])),int(10*float(nOxy[1]))),textcoords='offset points',color=lc, fontsize=fontSize)
-						except:
-							ax.annotate("%s"%columnDataToPlot[ll0][i], xy=(xtimeCol[ll0][i],0.), xycoords='data',xytext=(0,-10),textcoords='offset points',color=lc, fontsize=fontSize)
-							
-				elif lt.find("Histogram")==0:
-					nbins = len(xtimeCol[ll0])
-					if  plotN["PlotType"] == "dataFromTimeSeries" :
-						if tType ==0: wid = 5./60./60.*2.5
-						if tType ==1: wid = 60./60./60.*2.5
-						if tType ==2: wid = 24.*60./60./60.*2.5
-					elif  XisDate:
-								wid = 1
-					else:
-								wid = (xtimeCol[ll0][nbins-1]-xtimeCol[ll0][0])/max(nbins,0.0000000000001)/.8
-					nbins = len(xtimeCol[ll0])
-					if   lt =="Histogram0"	:
-						ax.bar(xtimeCol[ll0], columnDataToPlot[ll0],zorder=zorder, width=wid, edgecolor=lc,lw=lw2, label=lk,facecolor='none',fill=False,alpha=la,align='center')
-					else:
-						bars=ax.bar(xtimeCol[ll0], columnDataToPlot[ll0],zorder=zorder, width=wid, facecolor=lc,lw=lw2, label=lk,alpha=la,align='center')
-						if   lt =="Histogram1":	[bar.set_hatch("x")  for bar in bars]
-						elif lt =="Histogram2":	[bar.set_hatch("*")  for bar in bars]
-						elif lt =="Histogram4":	[bar.set_hatch("\\") for bar in bars]
-						elif lt =="Histogram5":	[bar.set_hatch("/")  for bar in bars]
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
 
 		# not needed ,seems to work with out due to zorder
 		#					if str(plotN["TransparentBackground"]) == "0.0":		plt.savefig(DeviceNamePlotpng,transparent=True,              edgecolor='none')
 		#					else:													plt.savefig(DeviceNamePlotpng,facecolor=fig.get_facecolor(), edgecolor='none')
-		#						sendToLog("after 2 save: "+str(time.time()-t2),level=1)
+		#						logger.log(10,"after 2 save: "+str(time.time()-t2))
 
 
 
@@ -1967,7 +1881,12 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 							ax.xaxis.set_minor_locator(DayLocator(interval=int(4/ticksDensity), tz=None))
 
 					if tType == 2:
-						if countTimeBinsMax < 121 :
+						if countTimeBinsMax < 31 :
+							ax.xaxis.set_major_locator(WeekdayLocator(byweekday=(0), interval=int(1), tz=None))
+							ax.xaxis.set_major_formatter(DateFormatter("%b-%d"))
+							ax.xaxis.set_minor_locator(WeekdayLocator(byweekday=(1,2,3,4,5,6,7,0), interval=int(1), tz=None))
+							ax.xaxis.set_minor_formatter(DateFormatter("%a"))
+						elif countTimeBinsMax < 121 :
 							ax.xaxis.set_major_formatter(DateFormatter("%b"))
 							ax.xaxis.set_major_locator(MonthLocator())
 							ax.xaxis.set_minor_locator(WeekdayLocator(byweekday=0, interval=int(1/ticksDensity), tz=None))
@@ -1990,8 +1909,8 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 				if BordOff[0] =="0":
 					ax.set_xticklabels(emptyBlanks,color =BorderColor[0])
 				else:
-					#sendToLog(Xformat+"  "+str(Xformat.find("\\n")),level=1)
-					#sendToLog(str(Xfline1)+"-"+str(Xfline2)+"-",level=1)
+					#logger.log(10,Xformat+"  "+str(Xformat.find("\\n")))
+					#logger.log(10,str(Xfline1)+"-"+str(Xfline2)+"-")
 					ax.xaxis.set_major_formatter(DateFormatter(Xfline1))
 					ax.xaxis.set_major_locator(MonthLocator())
 
@@ -2072,13 +1991,13 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 		
 		if len(plotN["Raw"]) > 5:
 			try:
-				sendToLog("executing RAW command: "+plotN["Raw"],level=1)
+				logger.log(10,"executing RAW command: "+plotN["Raw"])
 				exec(plotN["Raw"])
 			except:
-				sendToLog("..... failed: "+plotN["Raw"],level=1)
+				logger.log(10,"..... failed: "+plotN["Raw"])
 
 		save_plot(DeviceNamePlotpng, fig, plt, plotN["TransparentBackground"], plotN["compressPNGfile"]) 
-		sendToLog("Done for "+MHD[tType]+" plot,  .. releasing memory .. cleanup.. ",level=1)
+		logger.log(10,"Done for "+MHD[tType]+" plot,  .. releasing memory .. cleanup.. ")
 
 		# CLEAN UP
 		try:
@@ -2092,7 +2011,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 
 
 	except  Exception, e:
-				sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
 	return
 
  
@@ -2224,7 +2143,7 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 		ax.xaxis.set_label_coords(1.05-lOffset,0.72)
 
 		save_plot(DeviceNamePlotpng, fig, plt, plotN["TransparentBackground"], plotN["compressPNGfile"])
-		sendToLog("Done for "+MHD[tType]+" plot,  .. releasing memory .. cleanup.. ",level=1)
+		logger.log(10,"Done for "+MHD[tType]+" plot,  .. releasing memory .. cleanup.. ")
 
 		# CLEAN UP
 		try:
@@ -2239,7 +2158,7 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 
 
 	except  Exception, e:
-				sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
 	return
 
 
@@ -2271,7 +2190,7 @@ def set_border(BordOff, ax, ax2=""):
 				ax2.tick_params( axis="y", which="both", right="off")
 				ax2.spines["right"].set_visible(False)
 	except  Exception, e:
-		sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
+		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
 
 
 
@@ -2280,12 +2199,12 @@ def save_plot(DeviceNamePlotpng, fig, plt, TransparentBackground, compressPNGfil
 
 	#### create / save  PLOT 
 	try:
-		sendToLog("Saving.." ,level=1)
+		logger.log(10,"Saving.." )
 		if str(TransparentBackground) == "0.0":		plt.savefig(DeviceNamePlotpng,transparent=True,              edgecolor='none')  # creates file with .png
 		else:										plt.savefig(DeviceNamePlotpng,facecolor=fig.get_facecolor(), edgecolor='none')  # creates file with .png not transparent
 
 		if compressPNGfile:
-			cmd = "'"+indigoPath+"Plugins/INDIGOplotD.indigoPlugin/Contents/Server Plugin/pngquant' --force --ext .xxx '"+DeviceNamePlotpng+"'"
+			cmd = "'"+indigoDir+"Plugins/INDIGOplotD.indigoPlugin/Contents/Server Plugin/pngquant' --force --ext .xxx '"+DeviceNamePlotpng+"'"
 			ppp = subprocess.Popen(cmd.encode('utf8'),shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()  ## creates a file with .xxx
 
 			if os.path.isfile((DeviceNamePlotpng).encode('utf8')): os.remove((DeviceNamePlotpng).encode('utf8'))
@@ -2294,8 +2213,8 @@ def save_plot(DeviceNamePlotpng, fig, plt, TransparentBackground, compressPNGfil
 
 
 	except  Exception, e:
-		sendToLog("Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),1)
-		sendToLog("savefig error some parameters are wrong for " +DeviceNamePlotpng,level=1)
+		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		logger.log(40,"savefig error some parameters are wrong for " +DeviceNamePlotpng)
 
 
 
@@ -2316,13 +2235,20 @@ def dump_garbage():
 	########################################	########################################	########################################	########################################	########################################
 
 global PLOT, oldPLOT
-global   noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
+global noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
 global plotSizeNames, plotTimeNames, timeDataNumbers, dataVersion, parameterVersion,debugEnable
-global indigoPlotDataDir, parameterFile, parameterFileD, indigoPNGdir, indigoPath
+global  parameterFile, parameterFileD, indigoPNGdir, indigoDir,prefsDir
 global myPID, msgCount, logHandle, quitNOW
 global noOfMinutesInTimeBins
 global eventData, eventIndex, DEVICE, dataColumnToDevice0Prop1Index
 
+
+
+data = json.loads(sys.argv[1])
+indigoDir	  		= data["indigoDir"]
+logfile				= data["logfile"]
+prefsDir			= data["prefsDir"]
+logLevel			= data["loglevel"]
 numberOfTimeTypes			=	3
 
 msgCount					= 	0
@@ -2335,58 +2261,52 @@ noOfMinutesInTimeBins		=	[5,60,24*60]
 
 userName					= pwd.getpwuid( os.getuid() )[ 0 ]
 MAChome                     = os.path.expanduser("~")
-indigoPlotDataDir			= MAChome+"/indigo/INDIGOPlotD/"  #  this is the data directory
 
-parameterFile				= indigoPlotDataDir+"matplot/matplot.cfg"			# this is the config file name + -plot.cfg and -device.cfg
-parameterFileD				= indigoPlotDataDir+"matplot/matplotD.cfg"			# this is the config file name + -plot.cfg and -device.cfg
-matplotcommand				= indigoPlotDataDir+"matplot/matplot.cmd"
-matplotlog					= indigoPlotDataDir+"matplot/matplot.log"
-matplotlog1					= indigoPlotDataDir+"matplot/matplot1.log"
+parameterFile				= prefsDir+"matplot/matplot.cfg"			# this is the config file name + -plot.cfg and -device.cfg
+parameterFileD				= prefsDir+"matplot/matplotD.cfg"			# this is the config file name + -plot.cfg and -device.cfg
+matplotcommand				= prefsDir+"matplot/matplot.cmd"
 myPID						= str(os.getpid())
-logHandle					= open( matplotlog , "a")
-if not os.path.isdir( indigoPlotDataDir ): 	quitNOW = True
+if not os.path.isdir( prefsDir+"data/" ): 	quitNOW = True
 
-sendToLog(" ",level=1)
-sendToLog("INDIGO matplot started Version 6.7",FULL= True,level=1)
+
+logging.basicConfig(level=logging.DEBUG, filename= logfile,format='%(module)-20s %(message)s', datefmt='%H:%M:%S')
+logger = logging.getLogger(__name__)
+
+#
+if not logLevel:
+	logger.setLevel(logging.INFO)
+else:
+	logger.setLevel(logging.DEBUG)
+
+
+
+
+logger.log(20,"INDIGO matplot started Version 6.8;  pid:{};    at: {}".format(myPID, datetime.datetime.now()))
 
 
 PLOT={}
 
 # kill old program if still running..
 try:
-	pidHandle= open( indigoPlotDataDir+"matplot/matplot.pid" , "r")
+	pidHandle= open( prefsDir+"matplot/matplot.pid" , "r")
 	oldPID = pidHandle.readline()
 	pidHandle.close()
 	if str(myPID) != oldPID:
-		sendToLog("killing old python matplot instance ,pid: "+str(oldPID),FULL=True,level=1)
+		logger.log(10,"killing old python matplot instance, pid:{} ".format(oldPID))
 		if int(oldPID) > 0:	os.kill(int(oldPID), signal.SIGKILL)
 except:
 	pass
 # register new pid for next time
-pidHandle= open( indigoPlotDataDir+"matplot/matplot.pid" , "w")
+pidHandle= open( prefsDir+"matplot/matplot.pid" , "w")
 pidHandle.write(str(myPID))
 pidHandle.close()
 
 
 fileData=[]
-fileData.append(indigoPlotDataDir+"data/"+plotTimeNames[0]+".dat") # data file names
-fileData.append(indigoPlotDataDir+"data/"+plotTimeNames[1]+".dat")
-fileData.append(indigoPlotDataDir+"data/"+plotTimeNames[2]+".dat")
+fileData.append(prefsDir+"data/"+plotTimeNames[0]+".dat") # data file names
+fileData.append(prefsDir+"data/"+plotTimeNames[1]+".dat")
+fileData.append(prefsDir+"data/"+plotTimeNames[2]+".dat")
 
-
-# find the latest indigo version number and path to indigo directories
-found=False
-indigoVersion = 0
-for indi in range(5,100):  # we are optimistic for the future of indigo, starting with V5
-	if found:
-		if os.path.isdir("/Library/Application Support/Perceptive Automation/Indigo "+str(indi)): continue
-		else:
-			indigoVersion = indi-1
-			break
-	else:
-		if os.path.isdir("/Library/Application Support/Perceptive Automation/Indigo "+str(indi)): found = True
-	
-indigoPath	=	"/Library/Application Support/Perceptive Automation/Indigo "+str(indigoVersion)+"/"
 
 
 
