@@ -205,7 +205,7 @@ stateNiceWords={								# these "nice words" are shown to the uuser not the acuc
 				,"speedIndex":			"Fan Speed [0-3]"
 				,"brightnessLevel":		"Brightness Level [%]" 	}
 
-supportedMeasurements = ["average","count","max","min","sum","integrate","delta","deltaNormHour"
+supportedMeasurements = ["average","count","max","min","sum","integrate","delta","deltaNormHour","deltaMax"
 						 ,"eConsumption","gConsumption","wConsumption","oConsumption"
 						 ,"Direction0toPiNorth","Direction0toPiEast","Direction0to360North","Direction0to360East"
 						 ,"event","eventUP","eventCHANGE","eventDOWN","eventANY","eventCOUNT"]
@@ -592,16 +592,17 @@ class Plugin(indigo.PluginBase):
 		self.listOfLinesForFileOrVari		=	[(0,"None")]
 
 # setup gnu paramters
-		self.createInstallGnuplotScpt()                      # create applescript file to install gnuplot
 		self.gnuPlotBinary						=	self.pluginPrefs.get(u"gnuPlotBin","")
-
+		self.gnuOffset= 0
 		if os.path.isfile('/opt/local/bin/gnuplot'): self.gnuPlotBinary = "/opt/local/bin/gnuplot"
 		if os.path.isfile('/usr/local/bin/gnuplot'): self.gnuPlotBinary = "/usr/local/bin/gnuplot"
 
-		if self.gnuPlotBinary !="":
-			if not os.path.isfile(self.gnuPlotBinary):
-				self.doInstallGnuplot()
-			self.testFonts()
+		if self.pluginPrefs.get(u"gnuORmat", "mat") == "gnu":
+			self.createInstallGnuplotScpt()                      # create applescript file to install gnuplot
+			if self.gnuPlotBinary != "":
+				if not os.path.isfile(self.gnuPlotBinary):
+					self.doInstallGnuplot()
+		self.testFonts()
 		self.gnuTime()
 
 		indigo.server.log(  "SQLMode: "+self.sqlDynamic +";  GNUPLOT/MATPLOT: "+str(self.pluginPrefs.get(u"gnuORmat", "mat"))+";  GNUplotVersion= "+str(self.gnuVersion)+";  PLOT-Directory= "+str(self.indigoPNGdir))
@@ -6638,7 +6639,7 @@ class Plugin(indigo.PluginBase):
 								parsedPeriods2.append("01")
 								parsedPeriods2.append("00")
 							if ll <2 or ll>4:
-								valuesDict["la"+str(stateNo)]= "bad format time for # "+str(nP)+": "+parsedPeriods1[np]
+								valuesDict["la"+str(stateNo)]= "bad format time for # "+str(np)+": "+parsedPeriods1[np]
 								return valuesDict
 							valuesDict["text1-2"]= "enter data then click CONFIRM"
 							try:
@@ -10213,6 +10214,16 @@ class Plugin(indigo.PluginBase):
 							VFItc[0]	= 0
 							VFItc[2]	= 0
 
+				
+					elif theMeasurement=="deltaMax":
+						if TBI != VFItc[4]:	# is this the next bin?
+							if (fillGaps =="1" and VFItc[2] >0) or (fillGaps =="0"):
+								VFItc[3]	= VFItc[2]
+								VFItc[1]	= VFItc[0]
+							VFItc[4]	= TBI
+							VFItc[0]	= 0
+							VFItc[2]	= 0
+
 
 
 
@@ -10404,6 +10415,16 @@ class Plugin(indigo.PluginBase):
 					VFItc[0] += vFI			# sum of measured values
 					VFItc[2] +=1.														# number of measurements
 					self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]/max(VFItc[2],1.) - VFItc[1]/max(VFItc[3],1) # this value - last value
+					continue
+				
+				
+				
+
+				if theMeasurement== "deltaMax":
+					if VFItc[0] =="": VFItc[0]=0.
+					VFItc[0] += vFI			# sum of measured values
+					VFItc[2] +=1.														# number of measurements
+					self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0] - VFItc[1] # this value - last value
 					continue
 				
 				
@@ -11587,6 +11608,19 @@ class Plugin(indigo.PluginBase):
 						continue
 
 
+					if theMeasurement=="deltaMax":
+						for TBI in range  (lastTBI , self.noOfTimeBins[TTI]):
+							try:
+								if sqlbin0 >=  (self.timeBinNumbers[TTI][TBI+1]): continue  # after this timebin
+							except:
+								if TBI  >= self.noOfTimeBins[TTI]:	break # this is tommorow bin we are at the end
+							tempCount[TBI] =1
+							tempData[TBI]  =sqlX
+							lastTBI = TBI
+							break
+						continue
+
+
 ########  integrate
 					if  theMeasurement =="integrate":
 						for TBI in range  (lastTBI , self.noOfTimeBins[TTI]):
@@ -11879,6 +11913,24 @@ class Plugin(indigo.PluginBase):
 
 
 				elif theMeasurement == "delta":
+					tN1	= tempCount[self.firstBinToFillFromSQL[TTI]]
+					tD1	= tempData[self.firstBinToFillFromSQL[TTI]]
+					for TBI in range  (self.firstBinToFillFromSQL[TTI],lastTimeBin):
+						tN	= tempCount[TBI]
+						tD	= tempData[TBI]
+						if fillGaps=="1" and tN ==0: tD = tD1;tN=tN1
+						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]	= tD/ max(tN,1) - tD1/max(tN1,1)
+						self.timeDataNumbers[TTI][TBI][0]		= max(tN,self.timeDataNumbers[TTI][TBI][0])
+						tD1	= tD
+						tN1 = tN
+					VFItc[0]	= tD
+					VFItc[1]	= tD1
+					VFItc[2]	= tN
+					VFItc[3]	= tN1
+					VFItc[4]	= TBI
+					continue
+
+				elif theMeasurement == "deltaMax":
 					tN1	= tempCount[self.firstBinToFillFromSQL[TTI]]
 					tD1	= tempData[self.firstBinToFillFromSQL[TTI]]
 					for TBI in range  (self.firstBinToFillFromSQL[TTI],lastTimeBin):

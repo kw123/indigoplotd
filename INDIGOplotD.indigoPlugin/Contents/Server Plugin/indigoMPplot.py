@@ -1000,7 +1000,8 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 														else:
 															theValue = None
 
-											theColumnValues.append(theValue)
+											try:theColumnValues.append(min(9999999.,theValue))
+											except: theColumnValues.append(0)
 											xtimeForOneCol.append(shiftedTime)
 							#if lR =="oddHours" or lR =="evenHours":
 						
@@ -1202,7 +1203,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 									logger.log(10, u" error smoothing plot: \""+ plotN["TitleText"]+"\" line# " + str(lCol)+" not suited for smoothing, either data not consecutive, or too steep, switched parameter to non-smooth" , 0)
 									plotN["lines"][lCol]["lineSmooth"] ="None"
 									xtimeCol[col]         = xtimeForOneCol
-									columnDataToPlot[col] = theColumnValues
+									columnDataToPlot[col] = heColumnValues
 								else:
 									columnDataToPlot[col] =yy  # y values
 									xtimeCol[col]=xxT  # x values

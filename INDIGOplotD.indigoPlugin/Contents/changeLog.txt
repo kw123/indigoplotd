@@ -1,3 +1,9 @@
+changes in v7.20.70  @ 2020-03-25
+==================  
+
+1. added measurement "delta Max" as compared to delta average of value this - last time bin"
+
+
 changes in v7.20.69  @ 2019-10-12
 ==================  
 

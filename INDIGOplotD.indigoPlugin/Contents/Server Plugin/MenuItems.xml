@@ -307,6 +307,7 @@
                     <Option value="wConsumption">Water Consumption (Cost)</Option>
                     <Option value="oConsumption">Other Consumption (Cost)</Option>
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaMax"         >DeltaMax: Max-Value of this timeBin  - Max-Value of previous timeBin</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)   eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
                     <Option value="first"  >first data in time bin</Option>
@@ -398,6 +399,7 @@
                     <Option value="wConsumption">Water Consumption (Cost)</Option>
                     <Option value="oConsumption">Other Consumption (Cost)</Option>
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaMax"         >DeltaMax: Max-Value of this timeBin  - Max-Value of previous timeBin</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
                     <Option value="first"  >first data in time bin</Option>
@@ -492,6 +494,7 @@
                     <Option value="wConsumption">Water Consumption (Cost)</Option>
                     <Option value="oConsumption">Other Consumption (Cost)</Option>
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaMax"         >DeltaMax: Max-Value of this timeBin  - Max-Value of previous timeBin</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
                     <Option value="first"  >first data in time bin</Option>
@@ -582,6 +585,7 @@
                     <Option value="wConsumption">Water Consumption (Cost)</Option>
                     <Option value="oConsumption">Other Consumption (Cost)</Option>
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaMax"         >DeltaMax: Max-Value of this timeBin  - Max-Value of previous timeBin</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
                     <Option value="first"  >first data in time bin</Option>
@@ -672,6 +676,7 @@
                     <Option value="wConsumption">Water Consumption (Cost)</Option>
                     <Option value="oConsumption">Other Consumption (Cost)</Option>
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaMax"         >DeltaMax: Max-Value of this timeBin  - Max-Value of previous timeBin</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
                     <Option value="first"  >first data in time bin</Option>
@@ -762,6 +767,7 @@
                     <Option value="wConsumption">Water Consumption (Cost)</Option>
                     <Option value="oConsumption">Other Consumption (Cost)</Option>
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaMax"         >DeltaMax: Max-Value of this timeBin  - Max-Value of previous timeBin</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
                     <Option value="first"  >first data in time bin</Option>
@@ -853,6 +859,7 @@
                     <Option value="wConsumption">Water Consumption (Cost)</Option>
                     <Option value="oConsumption">Other Consumption (Cost)</Option>
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaMax"         >DeltaMax: Max-Value of this timeBin  - Max-Value of previous timeBin</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
                     <Option value="first"  >first data in time bin</Option>
@@ -943,6 +950,7 @@
                     <Option value="wConsumption">Water Consumption (Cost)</Option>
                     <Option value="oConsumption">Other Consumption (Cost)</Option>
                     <Option value="delta"            >Delta:   Value of this timeBin  - Value of previous timeBin: Delta= (averageValue(n)-averageValue(n-1))</Option>
+                    <Option value="deltaMax"         >DeltaMax: Max-Value of this timeBin  - Max-Value of previous timeBin</Option>
                     <Option value="deltaNormHour"    >DeltaNormHour(of Bin n)= (FirstMeas(n+1)-LastMeas(n-1))/(FirstSeconds(n+1)-LastSeconds(n-1))*3600 (=seconds in 1 Hour)==> useFor Energy-->Power</Option>
                     <Option value="integrate"        >Integral over time ie: I= Measurement(n)*deltaTime + I(n-1)  eg Power = V*A or Watt --> Energy= Watt*Hour </Option>
                     <Option value="first"  >first data in time bin</Option>
