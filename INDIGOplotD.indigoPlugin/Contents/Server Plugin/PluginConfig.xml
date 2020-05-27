@@ -93,7 +93,7 @@
     </List>
     </Field>
 
-<Field id="liteOrPsqlString"    visibleBindingId="liteOrPsql" visibleBindingValue="psql"   type="textfield" defaultValue="/Library/PostgreSQL/bin/psql indigo_history postgres"     readonly="no">
+<Field id="liteOrPsqlString"    visibleBindingId="liteOrPsql" visibleBindingValue="psql"   type="textfield" defaultValue="/Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres"     readonly="no">
     <Label>postgre command string </Label>
     </Field>
 <Field id="sqlitepath"   visibleBindingId="liteOrPsql" visibleBindingValue="sqlite"   type="textfield" defaultValue="/Library/Application Support/Perceptive Automation/Indigo 7"     readonly="no">

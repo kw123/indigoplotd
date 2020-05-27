@@ -432,7 +432,13 @@ class Plugin(indigo.PluginBase):
 		self.newPREFS							=	False
 		self.newPLOTS							=	""
 		self.sqlDynamic							=	self.pluginPrefs.get(u"sqlDynamic", "batch2Days")
+		self.liteOrPsql							=	self.pluginPrefs.get("liteOrPsql","sqlite")
 		self.liteOrPsqlString					=	self.pluginPrefs.get("liteOrPsqlString","")
+		if self.liteOrPsql	 == "psql":
+			if len(self.liteOrPsqlString) < 15 or self.liteOrPsqlString.find("psql") ==-1:
+				self.indiLOG.log(40,u"postgres psl command string likely wrong, in config \"postgre command string\"\n setting to: /Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres")
+				self.liteOrPsqlString =  "/Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres"
+
 		self.originalCopySQL					=	self.pluginPrefs.get("originalCopySQL","original")
 		self.originalCopySQLActive				=	"-1"
 		self.liteOrPsql							=	self.pluginPrefs.get("liteOrPsql","sqlite")
@@ -5866,6 +5872,9 @@ class Plugin(indigo.PluginBase):
 
 		if  valuesDict["liteOrPsql"] =="psql":
 			self.liteOrPsqlString =valuesDict["liteOrPsqlString"]
+			if len(self.liteOrPsqlString) < 15 or self.liteOrPsqlString.find("psql") ==-1:
+				self.indiLOG.log(40,u"postgres psl command string likely wrong, in config \"postgre command string\"\n setting to: /Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres")
+				self.liteOrPsqlString =  "/Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres"
 		else:
 			self.liteOrPsqlString =""
 		
@@ -8129,7 +8138,9 @@ class Plugin(indigo.PluginBase):
 		valuesDict["liteOrPsqlString"]		= self.liteOrPsqlString
 		valuesDict["liteOrPsql"]			= self.liteOrPsql
 		valuesDict["originalCopySQL"]		= self.originalCopySQL
-
+		if self.liteOrPsql	 == "psql":
+			if len(self.liteOrPsqlString) < 15 or self.liteOrPsqlString.find("psql") ==-1:
+				valuesDict["liteOrPsqlString"] =  "/Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres"
 
 		for d in ["Restore","General","Initialize","Plotting","Matplot","SQL","Special","all"]:
 			if d in self.debugLevel : 	valuesDict["debug"+d]  = True
@@ -8156,6 +8167,10 @@ class Plugin(indigo.PluginBase):
 		self.gnuPlotBinary							= valuesDict["gnuPlotBin"]
 		self.liteOrPsqlString						= valuesDict["liteOrPsqlString"]
 		self.liteOrPsql								= valuesDict["liteOrPsql"]
+		if self.liteOrPsql	 == "psql":
+			if len(self.liteOrPsqlString) < 15 or self.liteOrPsqlString.find("psql") ==-1:
+				self.indiLOG.log(40,u"postgres psl command string likely wrong, in config \"postgre command string\"\n setting to: /Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres")
+				self.liteOrPsqlString =  "/Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres"
 		self.originalCopySQL                        = valuesDict["originalCopySQL"]
 		self.indigoSQLliteLogsPath				    = valuesDict["sqlitepath"]
 		if self.indigoSQLliteLogsPath[-1] !="/": self.indigoSQLliteLogsPath+="/"
