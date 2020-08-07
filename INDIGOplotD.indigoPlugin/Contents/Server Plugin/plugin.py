@@ -10673,10 +10673,16 @@ class Plugin(indigo.PluginBase):
 			if  DEV["devOrVar"] == "Dev-":
 				tableName = "device_history_"+theDeviceId
 				property = theState
+				if self.liteOrPsql == "sqlite":
+					propertySQL = '['+property.lower()+']'
+				else:
+					propertySQL = '\\"'+property.lower()+'\\"'
+
 			if  DEV["devOrVar"] == "Var-":
 				tableName = "variable_history_"+theDeviceId
 				property = "value"
 				theState = "value"
+				propertySQL = property
 			sqlID =0
 			if self.sqlColListStatus[theCol] != 50:# this is the force indicator if we submit a new device in config
 
@@ -10782,8 +10788,8 @@ class Plugin(indigo.PluginBase):
 				timestamp= "strftime('%Y%m%d%H%M%S',ts,'localtime') ,"
 			sqlCommandText =  "rm '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+property+".done' ;"
 			sqlCommandText+=  select1
-			sqlCommandText+=  "\" SELECT id, "+ timestamp +property+" from " + tableName
-			sqlCommandText+=  " WHERE "+property+" IS NOT NULL  AND  ID > "+str(sqlID) + orderby
+			sqlCommandText+=  "\" SELECT id, "+ timestamp +propertySQL+" from " + tableName
+			sqlCommandText+=  " WHERE "+propertySQL+" IS NOT NULL  AND  ID > "+str(sqlID) + orderby
 			sqlCommandText+=  " LIMIT " + str(maxNumberOfRecords)+";\""
 
 
