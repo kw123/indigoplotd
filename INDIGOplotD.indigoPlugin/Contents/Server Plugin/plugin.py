@@ -432,6 +432,10 @@ class Plugin(indigo.PluginBase):
 		self.newPREFS							=	False
 		self.newPLOTS							=	""
 		self.sqlDynamic							=	self.pluginPrefs.get(u"sqlDynamic", "batch2Days")
+		if self.sqlDynamic.find("-resetTo-") >-1:
+			self.sqlDynamic = "batch2Days" #set back to default mode
+			self.pluginPrefs["sqlDynamic"] = "batch2Days"
+
 		self.liteOrPsql							=	self.pluginPrefs.get("liteOrPsql","sqlite")
 		self.liteOrPsqlString					=	self.pluginPrefs.get("liteOrPsqlString","")
 		if self.liteOrPsql	 == "psql":
@@ -922,10 +926,10 @@ class Plugin(indigo.PluginBase):
 	def ReloadSQL2Days (self):
 		if self.dataColumnCount <1: return
 		if self.sqlDynamic.find("-resetTo-") >-1:
-			self.sqlDynamic = "batch2Days" # if messed
+			self.sqlDynamic = "batch2Days" # if messed up
 		else:
 			self.sqlDynamic					=	"batch2Days-resetTo-"+self.sqlDynamic
-		self.devicesAdded 				=	2
+		self.devicesAdded 					=	2
 		self.sqlColListStatus				=	[10  for i in range(0,self.dataColumnCount+1)]
 		self.sqlHistListStatus				=	[10  for i in range(0,self.dataColumnCount+1)]
 		self.sqlColListStatusRedo			=	[0  for i in range(0,self.dataColumnCount+1)]
@@ -8115,9 +8119,10 @@ class Plugin(indigo.PluginBase):
 
 
 	########################################
-#### to be designed later:
+####
 	def getPrefsConfigUiValues(self):
 
+		valuesDict = self.pluginPrefs
 
 		self.preSelectDevices()
 		
@@ -8126,14 +8131,17 @@ class Plugin(indigo.PluginBase):
 #			valuesDict= f.read()
 #			f.close()
 #		except:
-		valuesDict = indigo.Dict()   # must be initialize
 		valuesDict["expertONOFF"]			= self.expertONOFF
 		valuesDict["showExpertParameters"]	= self.showExpertParameters
 		valuesDict["indigoPNGdir"]			= self.indigoPNGdir
 		valuesDict["gnuORmat"]				= self.gnuORmat
 		valuesDict["gnuPlotBin"]			= self.gnuPlotBinary
+
 		valuesDict["samplingPeriod"]		= self.samplingPeriod
+		if self.sqlDynamic.find("-resetTo-") >-1:
+			self.sqlDynamic = "batch2Days" #set back to default mode
 		valuesDict["sqlDynamic"]			= self.sqlDynamic
+
 		valuesDict["noOfDays"]				= json.dumps(self.noOfDays)
 		valuesDict["liteOrPsqlString"]		= self.liteOrPsqlString
 		valuesDict["liteOrPsql"]			= self.liteOrPsql
@@ -8150,8 +8158,6 @@ class Plugin(indigo.PluginBase):
 		valuesDict[u"supressGnuWarnings"]   = self.supressGnuWarnings
 
 		valuesDict["sqlitepath"]		    = self.indigoSQLliteLogsPath
-
-		#self.indiLOG.log(10," getPrefsConfigUiValues valuesDict:{}".format(valuesDict))
 
 		return valuesDict
 
@@ -8173,6 +8179,8 @@ class Plugin(indigo.PluginBase):
 				self.liteOrPsqlString =  "/Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres"
 		self.originalCopySQL                        = valuesDict["originalCopySQL"]
 		self.indigoSQLliteLogsPath				    = valuesDict["sqlitepath"]
+		if len(valuesDict["sqlitepath"]) < 2:
+			self.indigoSQLliteLogsPath = self.indigoPath+"Logs/"
 		if self.indigoSQLliteLogsPath[-1] !="/": self.indigoSQLliteLogsPath+="/"
 
 		self.debugLevel             = []
