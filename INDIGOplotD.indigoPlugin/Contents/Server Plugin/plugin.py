@@ -8,8 +8,7 @@
 # please use as you see fit, no warrenty
 ## need to test in files arenot there or bad data read
 import linecache
-import os, sys, re, Queue, threading, subprocess, pwd, signal
-import simplejson as json
+import os, sys, re, threading, subprocess, pwd, signal
 import codecs
 import copy
 import datetime
@@ -21,9 +20,21 @@ import getNumber as GT
 import cProfile
 import pstats
 import logging
+import traceback
+try:
+	import json
+except:
+	import simplejson as json
+
+
+try:
+	unicode("x")
+except:
+	unicode = str
 
 
 
+import codecs
 
 ###hardwired constants:
 dataOffsetInTimeDataNumbers =   5
@@ -269,7 +280,7 @@ class Plugin(indigo.PluginBase):
 		self.indiLOG = logging.getLogger("Plugin")  
 		self.indiLOG.setLevel(logging.THREADDEBUG)
 
-		self.indigo_log_handler.setLevel(logging.ERROR)
+		self.indigo_log_handler.setLevel(logging.WARNING)
 		indigo.server.log("initializing	 ... ")
 
 		indigo.server.log(  u"path To files:        =================")
@@ -278,7 +289,7 @@ class Plugin(indigo.PluginBase):
 		indigo.server.log(  u"plugin.py             "+self.pathToPlugin)
 		indigo.server.log(  u"Plugin params         "+self.indigoPreferencesPluginDir)
 
-		indigo.server.log(  u"(testing logger; see >"+self.PluginLogFile +"<   for detailed logging")
+		indigo.server.log(  u"(testing logger;  ...  see >"+self.PluginLogFile +"<   for detailed logging")
 
 		self.indiLOG.log( 0, "!!!!INFO ONLY!!!!  logger  enabled for   0             !!!!INFO ONLY!!!!")
 		self.indiLOG.log( 5, "!!!!INFO ONLY!!!!  logger  enabled for   THREADDEBUG   !!!!INFO ONLY!!!!")
@@ -290,8 +301,8 @@ class Plugin(indigo.PluginBase):
 
 		indigo.server.log(  u"check                   {}  <<<<    for detailed logging".format(self.PluginLogFile))
 		indigo.server.log(  u"Plugin short Name     "+self.pluginShortName)
-		indigo.server.log(  u"my PID                "+str(self.myPID))	 
-		indigo.server.log(  u"set params 4 indigo V "+str(self.indigoVersion))	 
+		indigo.server.log(  u"my PID                {}".format(self.myPID))	 
+		indigo.server.log(  u"set params 4 indigo V {}".format(self.indigoVersion))	 
 
 
 
@@ -336,6 +347,8 @@ class Plugin(indigo.PluginBase):
 		self.msg2		=False
 		self.initBy		="reset"
 
+		self.DEVICE = {}
+		self.dataColumnCount = 0
 
 		self.myPID = os.getpid()
 		self.MACuserName = pwd.getpwuid(os.getuid())[0]
@@ -353,15 +366,15 @@ class Plugin(indigo.PluginBase):
 		self.debugLevel = []
 		for d in ["Restore","General","Initialize","Plotting","Matplot","SQL","Special","all"]:
 			if self.pluginPrefs.get(u"debug"+d, False): self.debugLevel.append(d)
-		self.setLogfile(unicode(self.pluginPrefs.get("logFileActive2", "standard")))
+		self.setLogfile(self.pluginPrefs.get("logFileActive2", "standard"))
 
 
 
 
 		try: 
 			a = GT.getNumber(1)
-		except  Exception, e:
-			if self.decideMyLog("Plotting"): self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			if self.decideMyLog("Plotting"): self.exceptionHandler(40, e)
 			self.sleep(1000)
 
 
@@ -374,8 +387,7 @@ class Plugin(indigo.PluginBase):
 			exit()
 
 
-		indigo.server.log(u"initializing  ... ;  debuglevel=" +str(self.debugLevel))
-		self.indiLOG.log(30,u"initializing  ... ;  debuglevel=" +str(self.debugLevel))
+		self.indiLOG.log(20,u"initializing  ... ;  debuglevel={}, apiversion:{}".format(self.debugLevel, indigo.server.apiVersion))
 
 
 
@@ -389,8 +401,8 @@ class Plugin(indigo.PluginBase):
 		try:
 			major, minor, release = map(int, indigo.server.version.split("."))
 			indigoVersion = major
-		except  Exception, e:
-			if self.decideMyLog("Plotting"): self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			if self.decideMyLog("Plotting"): self.exceptionHandler(40, e)
 			self.sleep(100)
 			return
 
@@ -407,9 +419,8 @@ class Plugin(indigo.PluginBase):
 		try:
 			ndays			=	json.loads(self.pluginPrefs.get(u"noOfDays", "[8,38,390]"))
 			self.noOfDays	=	ndays
-			indigo.server.log(" number of days per bin category are: "+str(self.noOfDays)+" for [days, hours, minutes] data ")
-			self.indiLOG.log(30," number of days per bin category are: "+str(self.noOfDays)+" for [days, hours, minutes] data ")
-			self.noOfTimeBins	=	[int((60*24*self.noOfDays[0])/noOfMinutesInTimeBins[0]), int((60*24*self.noOfDays[1])/noOfMinutesInTimeBins[1]), int((60*24*self.noOfDays[2])/noOfMinutesInTimeBins[2])]
+			self.indiLOG.log(20," number of days per bin category are: {}".format(self.noOfDays)+" for [days, hours, minutes] data ")
+			self.noOfTimeBins	=	[int((60*24*self.noOfDays[0])//noOfMinutesInTimeBins[0]), int((60*24*self.noOfDays[1])//noOfMinutesInTimeBins[1]), int((60*24*self.noOfDays[2])//noOfMinutesInTimeBins[2])]
 		except:
 			self.noOfDays	=	[8,38,390]
 			pass
@@ -567,15 +578,20 @@ class Plugin(indigo.PluginBase):
 			self.indiLOG.log(40,u" Fatal error could not create indigoplot sub-directories ")
 			self.quitNOW = "Fatal error could not create indigoplot sub-directories "
 			return
+
 			
-		if   os.path.isfile("/usr/bin/python2.8"): self.pythonPath="/usr/bin/python2.8"
-		elif os.path.isfile("/usr/bin/python2.7"): self.pythonPath="/usr/bin/python2.7"
-		elif os.path.isfile("/usr/bin/python2.6"): self.pythonPath="/usr/bin/python2.6"
+		if os.path.isfile(u"/Library/Frameworks/Python.framework/Versions/Current/bin/python3"):
+			self.pythonPath				= u"/Library/Frameworks/Python.framework/Versions/Current/bin/python3"
+		elif os.path.isfile(u"/usr/local/bin/python"):
+			self.pythonPath				= u"/usr/local/bin/python"
+		elif os.path.isfile(u"/usr/bin/python2.7"):
+			self.pythonPath				= u"/usr/bin/python2.7"
 		else:
-			self.indiLOG.log(40,u"FATAL error:  none of python versions 2.5 ..2.8 is installed  ==>  stooping INDIGOplotD")
-			self.quitNOW = "none of python versions 2.5 ..2.8 is installed "
+			self.indiLOG.log(40,u"FATAL error:  none of python versions 2.7 3.x is installed  ==>  stopping INDIGOplotD")
+			self.quitNOW = "none of python versions 2.7 3.x is installed "
 			return
-		indigo.server.log(  u"using '" +self.pythonPath +"' for utily programs")
+
+		self.pythonPath				= u"/usr/local/bin/python"
 		self.indiLOG.log(30,u"using '" +self.pythonPath +"' for utily programs")
 		
 		self.checkcProfile()
@@ -615,8 +631,7 @@ class Plugin(indigo.PluginBase):
 		self.testFonts()
 		self.gnuTime()
 
-		indigo.server.log(  "SQLMode: "+self.sqlDynamic +";  GNUPLOT/MATPLOT: "+str(self.pluginPrefs.get(u"gnuORmat", "mat"))+";  GNUplotVersion= "+str(self.gnuVersion)+";  PLOT-Directory= "+str(self.indigoPNGdir))
-		self.indiLOG.log(30,"SQLMode: "+self.sqlDynamic +";  GNUPLOT/MATPLOT: "+str(self.pluginPrefs.get(u"gnuORmat", "mat"))+";  GNUplotVersion= "+str(self.gnuVersion)+";  PLOT-Directory= "+str(self.indigoPNGdir))
+		self.indiLOG.log(20,"SQLMode: "+self.sqlDynamic +";  GNUPLOT/MATPLOT: {}".format(self.pluginPrefs.get(u"gnuORmat", "mat"))+";  GNUplotVersion= {}".format(self.gnuVersion)+";  PLOT-Directory= {}".format(self.indigoPNGdir))
 
 
 #		self.sleep(10)
@@ -641,11 +656,12 @@ class Plugin(indigo.PluginBase):
 		self.indigoCommand					=	[]
 
 		self.eventSQLjobState               = "" 
-#		self.myLog( text=" startup sqlLastID  after sync with plot"+str(self.sqlLastID))
+#		self.myLog( text=" startup sqlLastID  after sync with plot{}".format(self.sqlLastID))
 
 # clear memmory
 		self.resetDeviceParameters()
 		self.resetPlotParameters()
+
 
 
 # read history setting
@@ -673,8 +689,8 @@ class Plugin(indigo.PluginBase):
 			dataVersion = self.pluginPrefs.get(u"dataVersion", "0")
 			if str(dataVersion) == "0":
 				temp =0
-			self.myLog( text="dataversion "+ str(dataVersion) +"  dataOffsetInTimeDataNumbers:"+ str(dataOffsetInTimeDataNumbers))
-			self.indiLOG.log(30,"dataversion "+ str(dataVersion) +"  dataOffsetInTimeDataNumbers:"+ str(dataOffsetInTimeDataNumbers))
+			self.myLog( text="dataversion {}".format(dataVersion) +"  dataOffsetInTimeDataNumbers:{}".format(dataOffsetInTimeDataNumbers))
+			self.indiLOG.log(20,"dataversion {}".format(dataVersion) +"  dataOffsetInTimeDataNumbers:{}".format(dataOffsetInTimeDataNumbers))
 			self.getDiskData(0,temp)
 			self.getDiskData(1,temp)
 			self.getDiskData(2,temp)
@@ -693,7 +709,6 @@ class Plugin(indigo.PluginBase):
 			if self.redolineDataSource(calledfrom="startup") ==-1:
 				self.redolineDataSource(calledfrom="startup")
 
-#		self.indiLOG.log(30," startup sqlLastID  after redolineDataSource"+str(self.sqlLastID))
 # read SQL data if available
 		if self.sqlDynamic.find("batch")==0:
 			if self.sqlDynamic.find("batch2Days")==0:
@@ -708,7 +723,7 @@ class Plugin(indigo.PluginBase):
 			
 			sqlUPTIME0  = self.procUPtime("SQL Logger.indigoPlugin")
 			if sqlUPTIME0 < 10:
-				self.indiLOG.log(30," wait for SQL logger to finish start up -- before retrieving SQL data ")
+				self.indiLOG.log(20," wait for SQL logger to finish start up -- before retrieving SQL data ")
 				for ii in range(10):
 					self.sleep(10) # wait till sql logger is finished
 					sqlUPTIME1 = self.procUPtime("SQL Logger.indigoPlugin") 
@@ -716,7 +731,6 @@ class Plugin(indigo.PluginBase):
 					sqlUPTIME0 = sqlUPTIME1
 				self.indiLOG.log(30," wait for SQL logger ended")    
 					
-#			self.indiLOG.log(30," startup sqlLastID  bf  setupSQLDataBatch"+str(self.sqlLastID))
 
 			while True:
 				self.setupSQLDataBatch(calledfrom="startup")
@@ -778,7 +792,7 @@ class Plugin(indigo.PluginBase):
 		self.checkMinMaxFiles()
 
 
-		self.indiLOG.log(30,u"initializing  ...2 ")
+		self.indiLOG.log(20,u"initializing  ...2 ")
 		self.putDiskData(0)
 		self.putDiskData(1)
 		self.putDiskData(2)
@@ -807,8 +821,8 @@ class Plugin(indigo.PluginBase):
 
 			self.fillWithTimeIndicators()
 			
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 		return
 		
 	########################################
@@ -831,9 +845,8 @@ class Plugin(indigo.PluginBase):
 								if x[-10:] == "0101000000":  # last bin  in year
 										#      mmddHHMSS
 									self.timeDataNumbers[TTI][timeIndex-1][3] = 1
-						##self.indiLOG.log(30,unicode(TTI)+ "  "+ unicode(timeIndex)+"  "+ unicode(self.timeDataNumbers[TTI][timeIndex-1]) )
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 		return
 		
 	########################################
@@ -852,13 +865,13 @@ class Plugin(indigo.PluginBase):
 			nPlot= str(dev.id)
 			self.PLOT[nPlot]["NumberIsUsed"]=0 # stop plotting until restart
 			self.writePlotParameters()
-			if self.decideMyLog("Initialize"): self.indiLOG.log(20,u"deviceStopComm  ... id:"+str(dev.id)+"  name:"+dev.name)
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+			if self.decideMyLog("Initialize"): self.indiLOG.log(20,u"deviceStopComm  ... id:{}".format(dev.id)+"  name:"+dev.name)
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 		return
 	########################################
 	def deviceCreated(self,dev):
-		if self.decideMyLog("Initialize"): self.indiLOG.log(20,u"deviceCreated  .. . id:"+str(dev.id)+"  name:"+dev.name)
+		if self.decideMyLog("Initialize"): self.indiLOG.log(20,u"deviceCreated  .. . id:{}".format(dev.id)+"  name:"+dev.name)
 		self.syncPlotsWithIndigo()
 		return
 	########################################
@@ -869,22 +882,6 @@ class Plugin(indigo.PluginBase):
 		if nPlot in self.PLOT: del self.PLOT[nPlot]
 		self.writePlotParameters()
 		return
-	########################################
-#	def deviceupdatesd(self,devold,devnew):
-#		newDev= devnew.id
-#		oldDev= devold.id
-#		self.indiLOG.log(30,"deviceupdatesd  old... "+str(devold.id)+" old"+str(devold.name))
-#		self.indiLOG.log(30,"deviceupdatesd  new... "+str(devnew.id)+" old"+str(devnew.name))
-#		if devold.id == devnew.id:
-#			if devold.name != devnew.name:
-#				for nPlot in self.PLOT:
-#					if nPlot == str(devnew.id): break
-#				self.PLOT[nPlot]["DeviceNamePlot"]= devnew.name
-#				localPropsCopy = devnew.pluginProps
-#				localPropsCopy.updates({"text2-1":"Configuring "+self.PLOT[nPlot]["DeviceNamePlot"]})
-#				devnew.replacePluginPropsOnServer(localPropsCopy)
-#		return
-	####################################################################################################################################################################################################
 
 
 
@@ -912,15 +909,14 @@ class Plugin(indigo.PluginBase):
 		for theCol in range(1,self.dataColumnCount+1):
 			devNo= self.dataColumnToDevice0Prop1Index[theCol][0]																			# for shorter typing
 			stateNo=self.dataColumnToDevice0Prop1Index[theCol][1]
-			if self.DEVICE[str(devNo)]["measurement"][stateNo].find("Consumption") >-1:
+			if self.DEVICE[u"{}".format(devNo)]["measurement"][stateNo].find("Consumption") >-1:
 				self.sqlHistListStatus[theCol]=50
-			theDeviceId		= unicode(self.DEVICE[str(devNo)]["Id"])
-			theState	= self.DEVICE[str(devNo)]["state"][stateNo]
+			theDeviceId		= u"{}".format(self.DEVICE[u"{}".format(devNo)]["Id"])
+			theState	= self.DEVICE[u"{}".format(devNo)]["state"][stateNo]
 			if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState):	os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)
 	
 		self.startColumnData()
-		indigo.server.log(  u"command: reLoad SQL started")
-		self.indiLOG.log(30,u"command: reLoad SQL started")
+		self.indiLOG.log(20,u"command: reLoad SQL started")
 		return
 	########################################
 	def ReloadSQL2Days (self):
@@ -939,11 +935,10 @@ class Plugin(indigo.PluginBase):
 		for theCol in range(1,self.dataColumnCount+1):
 			devNo= self.dataColumnToDevice0Prop1Index[theCol][0]																			# for shorter typing
 			stateNo=self.dataColumnToDevice0Prop1Index[theCol][1]
-			if self.DEVICE[str(devNo)]["measurement"][stateNo].find("Consumption") >-1:
+			if self.DEVICE[u"{}".format(devNo)]["measurement"][stateNo].find("Consumption") >-1:
 				self.sqlHistListStatus[theCol]=50
 		self.startColumnData()
-		indigo.server.log(  u"command: reLoad data from SQL for last 2 days started")
-		self.indiLOG.log(30,"command: reLoad data from SQL for last 2 days started")
+		self.indiLOG.log(20,"command: reLoad data from SQL for last 2 days started")
 		return
 
 
@@ -981,7 +976,7 @@ class Plugin(indigo.PluginBase):
 			if os.path.isfile('/usr/local/bin/gnuplot'):
 				self.gnuPlotBinary = "/usr/local/bin/gnuplot"
 			if len(self.gnuPlotBinary) > 0:
-				self.indiLOG.log(30,u"command: InstallGnuplot done")
+				self.indiLOG.log(20,u"command: InstallGnuplot done")
 				return True
 		self.indiLOG.log(30,u"command: InstallGnuplot not finshed, GNUplot is not (yet) installed  ...  if finshed later, reload INDIGOplotD to set all parameters properly")
 		return False
@@ -991,7 +986,6 @@ class Plugin(indigo.PluginBase):
 	
 		cmd=self.pythonPath+" '"+self.indigoPath+"Plugins/"+self.pluginName+".indigoPlugin/Contents/Server Plugin/fixpy.py'  "+self.userIndigoPluginDir+"py/ > /dev/null 2>&1 &"
 		subprocess.Popen( cmd, shell=True)
-		indigo.server.log(  u"checking py-restore files")
 		self.indiLOG.log(30,u"checking py-restore files")
 		return
 
@@ -1234,8 +1228,7 @@ class Plugin(indigo.PluginBase):
 			f=open(self.userIndigoPluginDir+"data/consumedDuringPeriod","r")
 			self.consumedDuringPeriod =json.loads(f.read())
 			f.close()
-		except  Exception, e:
-#			self.indiLOG.log(40,"in Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
 			self.consumedDuringPeriod ={}
 			self.indiLOG.log(30,"..../data/consumedDuringPeriod  file not available, resetting consumption data to 0")
 
@@ -1254,8 +1247,8 @@ class Plugin(indigo.PluginBase):
 			self.valuesFromIndigo  =json.loads(f.read())
 			f.close()
 			self.initBy		="file"
-		except  Exception, e:
-			self.indiLOG.log(40," Line '%s' msg:'%s'" % (sys.exc_traceback.tb_lineno, e)+" resetting valuesFromIndigo to 0)")
+		except  Exception as e:
+			self.indiLOG.log(40," Line '%s' msg:'%s'" % (sys.exc_info()[2].tb_lineno, e)+" resetting valuesFromIndigo to 0)")
 			self.valuesFromIndigo 	=[[[0 for l in range(noOfValuesMeasured)] for i in range(self.dataColumnCount+1)] for k in range(noOfTimeTypes)]
 
 
@@ -1279,21 +1272,21 @@ class Plugin(indigo.PluginBase):
 					try:
 						theCol= self.DEVICE[devNo]["stateToIndex"][stateNo]
 					except:
-						self.indiLOG.log(40," device is malformed, fixing: "+unicode(self.DEVICE[devNo]))
+						self.indiLOG.log(40," device is malformed, fixing: {}".format(self.DEVICE[devNo]))
 						self.DEVICE[devNo]["stateToIndex"]=[0,0,0,0,0,0,0,0,0]
 						return -1
 					if theCol ==0: continue
 					if self.DEVICE[devNo]["measurement"][stateNo].find("Consumption")==-1 and  self.DEVICE[devNo]["measurement"][stateNo] != "integrate"  and  self.DEVICE[devNo]["measurement"][stateNo] != "eventCOUNT":
 						self.DEVICE[devNo]["resetType"][stateNo]="0"
 						if str(theCol) in self.consumedDuringPeriod:
-							del self.consumedDuringPeriod[str(theCol)]
+							del self.consumedDuringPeriod[u"{}".format(theCol)]
 					else:
 						if not str(theCol) in self.consumedDuringPeriod:
-							self.consumedDuringPeriod[str(theCol)] = copy.deepcopy(emptyconsumedDuringPeriod)
+							self.consumedDuringPeriod[u"{}".format(theCol)] = copy.deepcopy(emptyconsumedDuringPeriod)
 
-		except  Exception, e:
-			self.indiLOG.log(40,"in Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-			self.indiLOG.log(40," device data: "+unicode(self.DEVICE))
+		except  Exception as e:
+			self.indiLOG.log(40,"in Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
+			self.indiLOG.log(40," device data: {}".format(self.DEVICE))
 
 
 		self.putconsumedDuringPeriod()
@@ -1313,8 +1306,8 @@ class Plugin(indigo.PluginBase):
 			f=open(self.userIndigoPluginDir+"data/valuesFromIndigo","w")
 			f.write(json.dumps(self.valuesFromIndigo))
 			f.close()
-		except  Exception, e:
-			self.indiLOG.log(40,"in Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(40,"in Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 			pass
 
 		return
@@ -1324,8 +1317,8 @@ class Plugin(indigo.PluginBase):
 			f=open(self.userIndigoPluginDir+"data/consumptionCost","w")
 			f.write(json.dumps(self.consumptionCostData))
 			f.close()
-		except  Exception, e:
-			self.indiLOG.log(40,"'%s' in Line '%s' has error='%s'" % (timeString, sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(40,"in Line '%s' has error='%s'" % ( sys.exc_info()[2].tb_lineno, e))
 			pass
 		return
 	
@@ -1392,27 +1385,25 @@ class Plugin(indigo.PluginBase):
 								break
 						break
 
-		except  Exception, e:
-			self.indiLOG.log(40,"bad time string supplied.. '%s' in Line '%s' has error='%s'" % (timeString, sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(40,"bad time string supplied.. '%s' in Line '%s' has error='%s'" % (timeString, sys.exc_info()[2].tb_lineno, e))
 		return currCostTimeBin, lastCostBinWithValues
 	########################################
-	def getCurrentResetPeriod(self, timeString,resetPeriods,lastRbin):
+	def getCurrentResetPeriod(self, timeString, resetPeriods, lastRbin):
 
 		try:
 			if timeString=="0":	x = time.strftime("%Y%m%d%H",time.localtime())
 			else:				x = timeString[:10]
 			
 			nOfPeriods=len(resetPeriods)
-#			self.indiLOG.log(30,"x :"+str(x)+"   resetPeriods: "+str(resetPeriods)+"   lastRbin: "+ str(lastRbin))
 			for nn in range(max(lastRbin,0), nOfPeriods):
 #			for nn in range(0, nOfPeriods):
 				Tbin= str(resetPeriods[nn])
 				if x >= resetPeriods[nn]: continue
-#				if nn != lastRbin:  self.indiLOG.log(30,"x :"+str(x)+"   Tbin: "+Tbin+"   n: "+ str(nn))
 				return nn-1
 			return nOfPeriods-1
-		except  Exception, e:
-			self.indiLOG.log(40,"bad time string supplied.. '%s' in Line '%s' has error='%s'" % (timeString, sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(40,"bad time string supplied.. '%s' in Line '%s' has error='%s'" % (timeString, sys.exc_info()[2].tb_lineno, e))
 		return
 		
 	########################################
@@ -1422,10 +1413,10 @@ class Plugin(indigo.PluginBase):
 			cCD=self.consumptionCostData[consumptionType][currentCostTimeBin]  # get cost bin / period
 			measuredValue		-=valueAtStartOfCostBin		#17				# current measuredValue - measuredValue of beginning of cost bin.. we have to start at 0 consumed at beginning of cost period
 			lastmeasuredValue	-=valueAtStartOfCostBin		#17
-			if doPrint: self.indiLOG.log(30,"measuredValue "+str(measuredValue)+";lastmeasuredValue "+str(lastmeasuredValue)+ "; cCD "+str(cCD))
+			if doPrint: self.indiLOG.log(30,"measuredValue {}".format(measuredValue)+";lastmeasuredValue {}".format(lastmeasuredValue)+ "; cCD {}".format(cCD))
 			for cB in range(lastCostBinWithData,-1,-1):						# start at highest (existing) cost bin , work down.
 				delta=measuredValue -cCD["consumed"][cB]					# is this in this cost/consumed bracket?
-				if doPrint: self.indiLOG.log(30,"cb: "+str(cb)+ " cost "+str(cCD["cost"][cB])+"; delta "+str(delta))
+				if doPrint: self.indiLOG.log(30,"cb: {}".format(cb)+ " cost {}".format(cCD["cost"][cB])+"; delta {}".format(delta))
 				if delta >=0:
 					if cB ==0:
 						return (delta)*cCD["cost"][cB],0.					# if yes return  consumed in this bracket * cost of this bracket
@@ -1437,12 +1428,11 @@ class Plugin(indigo.PluginBase):
 		
 		
 			return 0,0																	# nothing found, return 0  should not happen or first consumed energy number is forced to be 0.0
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 	
 	########################################
 	def  getDeviceParametersFromFile(self,calledfrom=""):
-#		if self.decideMyLog("Initialize"): self.indiLOG.log(20,u"getDeviceParametersFromFile 1")
 		self.dataColumnToDevice0Prop1Index=[[0,0]]
 		self.DEVICE={}
 		self.DEVICE["0"] =copy.deepcopy(emptyDEVICE)
@@ -1453,7 +1443,6 @@ class Plugin(indigo.PluginBase):
 			line = f.readline()
 			f.close()
 			if len(line)>2:
-#				self.indiLOG.log(30,str(line))
 				self.dataColumnToDevice0Prop1Index	= json.loads(line.strip("\n"))
 				self.dataColumnCount				= len(self.dataColumnToDevice0Prop1Index)-1
 		except:
@@ -1488,7 +1477,6 @@ class Plugin(indigo.PluginBase):
 					if self.dataColumnCount >0:
 						self.DEVICE						= json.loads(self.pluginPrefs["DEVICE"])
 					self.pluginPrefs["DEVICE"]=""
-#					if self.decideMyLog("Initialize"): self.indiLOG.log(20,"dataColumnCount "+str(self.dataColumnCount) )
 				except:
 					pass
 
@@ -1502,8 +1490,6 @@ class Plugin(indigo.PluginBase):
 				self.dataColumnToDevice0Prop1Index=[[0,0]]
 				self.DEVICE={}
 				self.DEVICE["0"] =copy.deepcopy(emptyDEVICE)
-
-#		self.indiLOG.log(30,"dataColumnCount "+str(self.dataColumnCount))
 
 
 		self.sqlLastID =["0" for i in range(self.dataColumnCount+1)]
@@ -1522,10 +1508,10 @@ class Plugin(indigo.PluginBase):
 				if ix == "None": devsToDelete.append(n)
 			except:
 				devsToDelete.append(nDev)
-		if len(devsToDelete)>0: self.indiLOG.log(30,"getDeviceParametersFromFile devsToDelete  "+str(devsToDelete))
+		if len(devsToDelete)>0: self.indiLOG.log(30,"getDeviceParametersFromFile devsToDelete  {}".format(devsToDelete))
 
 		for nDev in devsToDelete:
-			self.indiLOG.log(30,u" deleting empty device" + str(nDev))
+			self.indiLOG.log(30,u" deleting empty device{}".format(nDev))
 			del self.DEVICE[nDev]
 
 
@@ -1536,11 +1522,11 @@ class Plugin(indigo.PluginBase):
 			try:#                                                      device
 				stateNo =self.dataColumnToDevice0Prop1Index[n,1]
 				devNo =self.dataColumnToDevice0Prop1Index[n,0]
-				ix = self.DEVICE[str(devNo)]["state"][stateNo]
+				ix = self.DEVICE[u"{}".format(devNo)]["state"][stateNo]
 				if ix == "None": indToDelete.append(n)
 			except:
 				indToDelete.append(n)
-		if len(indToDelete)>0: self.indiLOG.log(30,"getDeviceParametersFromFile indToDelete "+str(indToDelete))
+		if len(indToDelete)>0: self.indiLOG.log(30,"getDeviceParametersFromFile indToDelete {}".format(indToDelete))
 			
 		for n in indToDelete:
 			del self.dataColumnToDevice0Prop1Index[n]
@@ -1591,7 +1577,7 @@ class Plugin(indigo.PluginBase):
 				try:
 					theCol= DEV["stateToIndex"][stateNo]
 				except:
-					self.indiLOG.log(40," device is malformed, deleting: "+unicode(DEV))
+					self.indiLOG.log(40," device is malformed, deleting: {}".format(DEV))
 					DEV["stateToIndex"]=[0,0,0,0,0,0,0,0,0]
 			DEV["resetType"][0]="0"
 			for stateNo in range(1,noOfStatesPerDeviceG+1):
@@ -1599,7 +1585,7 @@ class Plugin(indigo.PluginBase):
 					if DEV["resetType"][stateNo]=="Period":
 						DEV["resetType"][stateNo]="0"
 				except:
-					self.indiLOG.log(40,"DEV period failure  "+str(DEV["resetType"][stateNo]))
+					self.indiLOG.log(40,"DEV period failure  {}".format(DEV["resetType"][stateNo]))
 
 		try:
 			self.DEVICE["0"] =copy.deepcopy(emptyDEVICE)
@@ -1607,9 +1593,6 @@ class Plugin(indigo.PluginBase):
 			self.indiLOG.log(40,"getDeviceParametersFromFile error adding empty dev  calledfrom="+calledfrom)
 
 		self.putDeviceParametersToFile(calledfrom="getDeviceParametersFromFile")
-#		if self.decideMyLog("Initialize"): self.indiLOG.log(20,"getDeviceParametersFromFile device after  "+str(self.DEVICE)+" calledfrom="+calledfrom)
-#		if self.decideMyLog("Initialize"): self.indiLOG.log(20,"Device data: "+json.dumps(self.DEVICE,sort_keys=True, indent=5))
-
 
 		return
 		
@@ -1654,8 +1637,7 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def inpPrintPlotData(self,valuesDict, menuId):
-		self.indigoCommand.append("PrintPlotData:"+str(valuesDict["selPrintToPlot"]))
-		#self.indiLOG.log(30,u"command: PrintPlotData")
+		self.indigoCommand.append("PrintPlotData:{}".format(valuesDict["selPrintToPlot"]))
 		return valuesDict
 	########################################
 	def inpPrintDeviceData(self):
@@ -1676,12 +1658,12 @@ class Plugin(indigo.PluginBase):
 			self.indiLOG.log(30,u"command: ReloadSQL 2 DAYS  ignored, FIRST SWITCH SQL ON in Configuration ")
 			return
 		self.indigoCommand.append("ReloadSQL2Days")
-		self.indiLOG.log(30,u"command: Reload last 2 days from SQL")
+		self.indiLOG.log(20,u"command: Reload last 2 days from SQL")
 		return
 	########################################
 	def inpSavePy(self):
 		self.indigoCommand.append("inpSavePy")
-		self.indiLOG.log(30,u"command: create Python code for PLOTs in "+self.userIndigoPluginDir+"py/ManualSavedConfig.....py")
+		self.indiLOG.log(20,u"command: create Python code for PLOTs in "+self.userIndigoPluginDir+"py/ManualSavedConfig.....py")
 		return
 	########################################
 	def inpInstallGnuplot(self):
@@ -1768,7 +1750,7 @@ class Plugin(indigo.PluginBase):
 			for key in keylist:
 				if key =="lines": 		continue
 				if key =="errorCount":	continue
-				self.indiLOG.log(20,("..."+key).ljust(25)+u">>"+unicode(self.PLOT[nPlot][key])+u"<<")
+				self.indiLOG.log(20,("..."+key).ljust(25)+u">>{}".format(self.PLOT[nPlot][key])+u"<<")
 			
 			for nLine in range(1,50):
 				line = str(nLine)
@@ -1779,9 +1761,9 @@ class Plugin(indigo.PluginBase):
 					for k in keylist:
 						if k=="lineKey": continue
 						if k.find("line")==0:
-							out+="; "+unicode(k[4:])+">"+unicode(self.PLOT[nPlot]["lines"][line][k])+"<"
+							out+="; {}".format(k[4:])+">{}".format(self.PLOT[nPlot]["lines"][line][k])+"<"
 						else:
-							out+="; "+unicode(k)+">"+unicode(self.PLOT[nPlot]["lines"][line][k])+"<"
+							out+="; {}".format(k)+">{}".format(self.PLOT[nPlot]["lines"][line][k])+"<"
 					self.indiLOG.log(20,("-l# "+line+ "/"+self.PLOT[nPlot]["lines"][line]["lineKey"]).ljust(25) +out.strip("; "))
 		self.indiLOG.log(20,u" ")
 
@@ -1795,14 +1777,12 @@ class Plugin(indigo.PluginBase):
 				devNo  =str(nn)
 				if devNo not in self.DEVICE: continue
 				DEV = self.DEVICE[devNo]
-				self.indiLOG.log(20,(devNo+" "+unicode(DEV["Id"])).ljust(25) + unicode(DEV["devOrVar"])+" "+DEV["Name"]+"  ok: "+unicode(DEV["deviceNumberIsUsed"]))
+				self.indiLOG.log(20,u"{}  {:<25} {} {}  ok:{}".format(devNo, DEV["Id"], DEV["devOrVar"], DEV["Name"], DEV["deviceNumberIsUsed"]))
 				out = ""
-				first1 = "" 
 				for i in range(1,noOfStatesPerDeviceG+1):
 					if DEV["state"][i] =="None": continue
-					out =unicode(DEV["state"][i]).ljust(22)+unicode(DEV["measurement"][i]).ljust(22) + unicode(DEV["offset"][i]).rjust(10)+unicode(DEV["multiplier"][i]).rjust(10)+unicode(DEV["minValue"][i]).rjust(10).rjust(10)+unicode(DEV["maxValue"][i]).rjust(10)+unicode(DEV["stateToIndex"][i]).rjust(5)+unicode(DEV["fillGaps"][i]).rjust(6)+unicode(DEV["resetType"][i]).strip("{u").rjust(12)+unicode(DEV["nickName"][i]).rjust(50)
-					self.indiLOG.log(20,(u"  # "+str(i)+first1).ljust(25) +out)
-					first1=""
+					out = u"{:<22}{:<22}{:>10}{:>10}{:>10}{:>10}{:>5}{:>6}{:>12}{:>50}".format(DEV["state"][i], DEV["measurement"][i], DEV["offset"][i], DEV["multiplier"][i], DEV["minValue"][i], DEV["maxValue"][i], DEV["stateToIndex"][i], DEV["fillGaps"][i], DEV["resetType"][i].strip("{u"), DEV["nickName"][i] )
+					self.indiLOG.log(20,u"  # {:<25} {}".format(i, out))
 				
 
 			self.indiLOG.log(20,u" ")
@@ -1811,23 +1791,22 @@ class Plugin(indigo.PluginBase):
 			for jCol in range(1,self.dataColumnCount+1,5):
 				out=""
 				for theCol in range( jCol,min(jCol+5,self.dataColumnCount+1),1):
-					out+= str(theCol).rjust(6) + u"="+ unicode(self.dataColumnToDevice0Prop1Index[theCol][0]).rjust(4)+u"/"+unicode(self.dataColumnToDevice0Prop1Index[theCol][1]).rjust(3)+"    "
+					out+= u"{:>6d}={:}{>4}/{:>3}  ".format( theCol, self.dataColumnToDevice0Prop1Index[theCol][0], self.dataColumnToDevice0Prop1Index[theCol][1])
 				self.indiLOG.log(20,out)
 
 			self.indiLOG.log(20,u" ")
-#			self.indiLOG.log(20,json.dumps(self.consumptionCostData,sort_keys=True, indent=2))
 			self.indiLOG.log(20,u" ")
 			mapDayNumerToDayName=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday","EveryDay"]
 			for consumptionType in self.consumptionCostData:
 				try:
 					len(consumptionType)
 				except:
-					self.indiLOG.log(40,"error, consumption type malformed: "+str(consumptionType))
+					self.indiLOG.log(40,"error, consumption type malformed: {}".format(consumptionType))
 					continue
 				try:
-					self.indiLOG.log(20,u"Consumption Cost data;    type "+str(consumptionType)+" "+str(self.periodTypeForConsumptionType[consumptionType]))
-				except  Exception, e:
-					self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+					self.indiLOG.log(20,u"Consumption Cost data;    type {}".format(consumptionType)+" {}".format(self.periodTypeForConsumptionType[consumptionType]))
+				except  Exception as e:
+					self.exceptionHandler(40, e)
 				oneline=False
 				for n in range(1,noOfCostTimePeriods+1) :
 					cCD=self.consumptionCostData[consumptionType][n]
@@ -1835,18 +1814,18 @@ class Plugin(indigo.PluginBase):
 					if self.periodTypeForConsumptionType[consumptionType] =="Period":
 						try:
 							if str(cCD["Period"]).find("2999")==-1:
-								outStr+= "    Period Schedule="+ str(n)
-								outStr+= ":  YEAR: "	+str(cCD["Period"])[0:4]
-								outStr+= ";  MONTH: "	+str(cCD["Period"])[4:6]
-								outStr+= ";  DAY: "		+str(cCD["Period"])[6:8]
-								outStr+= ";  HOUR: "	+str(cCD["Period"])[8:10]
+								outStr+= "    Period Schedule={}".format(n)
+								outStr+= ":  YEAR: {}".format(cCD["Period"])[0:4]
+								outStr+= ";  MONTH: {}".format(cCD["Period"])[4:6]
+								outStr+= ";  DAY:  {}".format(cCD["Period"])[6:8]
+								outStr+= ";  HOUR: {}".format(cCD["Period"])[8:10]
 								outStr+= "; Cost@consumed=  "
 								for i in range(noOfCosts):
 									if cCD["cost"][i] != 0:
-										outStr+= "Cost= "+str(cCD["cost"][i]).rjust(5)+", starting @ "+str(cCD["consumed"][i]).rjust(5) +" Units;  "
+										outStr+= "Cost= {}".format(cCD["cost"][i]).rjust(5)+", starting @ {}".format(cCD["consumed"][i]).rjust(5) +" Units;  "
 										oneline=True
-						except  Exception, e:
-							self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+						except  Exception as e:
+							self.exceptionHandler(40, e)
 					else:
 						try:
 							if cCD["day"] <9 :
@@ -1854,23 +1833,23 @@ class Plugin(indigo.PluginBase):
 									day = mapDayNumerToDayName[cCD["day"]].ljust(8)
 								except:
 									day = mapDayNumerToDayName[7]
-								outStr+= "    WeekDay Schedule="+ str(n)
+								outStr+= "    WeekDay Schedule={}".format(n)
 								outStr+= ":  day= "	+day
-								outStr+= ";  hour= "+str(cCD["hour"]).ljust(2)+"; "
+								outStr+= ";  hour= {}".format(cCD["hour"]).ljust(2)+"; "
 								for i in range(noOfCosts):
 									if cCD["cost"][i] != 0:
-										outStr+= "Cost= "+str(cCD["cost"][i]).rjust(5)+", starting @ "+str(cCD["consumed"][i]).rjust(5) +" Units;  "
+										outStr+= "Cost= {}".format(cCD["cost"][i]).rjust(5)+", starting @ {}".format(cCD["consumed"][i]).rjust(5) +" Units;  "
 										oneline=True
-						except  Exception, e:
-							self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+						except  Exception as e:
+							self.exceptionHandler(40, e)
 
 					if len(outStr) > 0:
 						self.indiLOG.log(20,outStr)
 
 				
 				if not oneline:	self.indiLOG.log(30," ...not defined")
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 
 		return
 	########################################
@@ -1916,14 +1895,14 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def PrintData(self):
-		if self.decideMyLog("General"): self.indiLOG.log(30," printing data to formatted file")
+		if self.decideMyLog("General"): self.indiLOG.log(20," printing data to formatted file")
 		try:
 			for TTI in range(noOfTimeTypes):
 				f=open(self.fileData[TTI]+".formatted", "w")
-				out=""
+				out = ""
 				for theCol in range(1,self.dataColumnCount+1):
 					out += str(theCol).rjust(7)+";"
-				f.write("Date           #dat;W;M;Y;-;   n;"+out+"\n")
+				f.write("Date           #dat;W;M;Y;-;   n;{}\n".format(out))
 				goodLines=0
 				for j in range(self.noOfTimeBins[TTI]):
 					out=""
@@ -1980,11 +1959,11 @@ class Plugin(indigo.PluginBase):
 				colList= []
 				for col in self.consumedDuringPeriod:
 					colList.append(col)
-				f.write(" comsuption  columns "+str(colList)+"\n")
-				for val in emptyconsumedDuringPeriod[i]:
+				f.write(" comsuption  columns {}".format(colList)+"\n")
+				for val in emptyconsumedDuringPeriod[TTI]:
 					out=str(val).ljust(32)+":"
 					for col in range(1,self.dataColumnCount+1):
-						if str(col) in colList:	out+="%7d;"%float(self.consumedDuringPeriod[str(col)][TTI][val])
+						if str(col) in colList:	out+="%7d;"%float(self.consumedDuringPeriod[u"{}".format(col)][TTI][val])
 						else:					out+=" ".rjust(7)+";"
 					f.write( out+"\n")
 				out=""
@@ -1994,8 +1973,8 @@ class Plugin(indigo.PluginBase):
 
 
 				f.close()
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			try:
 				f.close()
 			except:
@@ -2073,12 +2052,11 @@ class Plugin(indigo.PluginBase):
 			if theCol  > 0:
 				devNo= self.dataColumnToDevice0Prop1Index[theCol][0]
 				stateNo=self.dataColumnToDevice0Prop1Index[theCol][1]
-				state = self.DEVICE[str(devNo)]["state"][stateNo]
-				devID = self.DEVICE[str(devNo)]["Id"]
+				state = self.DEVICE[u"{}".format(devNo)]["state"][stateNo]
+				devID = self.DEVICE[u"{}".format(devNo)]["Id"]
 			valuesDict["selectedDeviceIDMFP"] = devID
 			self.currentDeviceId = devID
 			valuesDict["selDeviceStateMFP"] = state
-			#self.indiLOG.log(20,"plotNameSelectedCALLBACK valuesDict: "+ str(valuesDict))
 
 		return valuesDict
 
@@ -2119,7 +2097,7 @@ class Plugin(indigo.PluginBase):
 			,"LeftLog"				: u'linear'
 			,"LeftScaleDecPoints"	: u'0'
 			,"RightLabel"           : u''
-			,"LeftScale"            : u''
+			,"RightScale"            : u''
 			,"RightScaleRange"		: u''
 			,"RightScaleTics"		: u''
 			,"RightLog"				: u'linear'
@@ -2190,15 +2168,11 @@ class Plugin(indigo.PluginBase):
 		try:
 			self.plotNow(createNow=self.currentPlotName,showNow=self.currentPlotName)
 		except:
-		   self.indiLOG.log(20,"showPlotMFPCALLBACK:  plot not confirmed ") 
+			self.indiLOG.log(20,"showPlotMFPCALLBACK:  plot not confirmed ")
 		return valuesDict
 
 	########################################
 	def filterselDeviceStatesMFP (self, filter="",  valuesDict="",typeId=""):
-		#self.indiLOG.log(20,"filterselDeviceStatesMFP currentDevNo: "+ str(self.currentDevNo))
-		#self.indiLOG.log(20,"filterselDeviceStatesMFP currentDeviceId: "+ str(self.DEVICE[str(self.currentDevNo)]["Id"]))
-		#self.indiLOG.log(20,"filterselDeviceStatesMFP currentDeviceId: "+ str(self.currentDeviceId))
-		#self.indiLOG.log(20,"filterselDeviceStatesMFP valuesDict: "+ str(valuesDict))
 		devID= int(self.currentDeviceId)
 		if devID !=0:
 			try:
@@ -2212,7 +2186,6 @@ class Plugin(indigo.PluginBase):
 
 		try:
 			retList= self.preSelectStates(devID)
-			#self.indiLOG.log(20,"filterselDeviceStatesMFP retList: "+ str(retList))
 			return retList
 		except:
 			return [(0,0)]
@@ -2230,7 +2203,6 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterselSQLdevState(self,  filter, valuesDict, xxx, ID=""):
-#		self.indiLOG.log(20,str(self.listOfSelectedDataColumnsAndDevPropNameSORTED))
 		retList=[]
 		for n in range(len(self.listOfSelectedDataColumnsAndDevPropNameSORTED)):
 			if self.listOfSelectedDataColumnsAndDevPropNameSORTED[n][0]==0: continue
@@ -2241,7 +2213,6 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterColumns(self,  filter, valuesDict,xxx):
-#		self.indiLOG.log(20,str(self.listOfSelectedDataColumnsAndDevPropNameSORTED))
 		retList=[]
 		for n in range(len(self.listOfSelectedDataColumnsAndDevPropNameSORTED)):
 			if self.listOfSelectedDataColumnsAndDevPropNameSORTED[n][0]==0: continue
@@ -2265,24 +2236,24 @@ class Plugin(indigo.PluginBase):
 				theCol = int(tc)
 				devNo= self.dataColumnToDevice0Prop1Index[theCol][0]																			# for shorter typing
 				stateNo=self.dataColumnToDevice0Prop1Index[theCol][1]
-				theDeviceId		= unicode(self.DEVICE[str(devNo)]["Id"])
-				theState	    = self.DEVICE[str(devNo)]["state"][stateNo]
+				theDeviceId		= u"{}".format(self.DEVICE[u"{}".format(devNo)]["Id"])
+				theState	    = self.DEVICE[u"{}".format(devNo)]["state"][stateNo]
 				devstateList += tc+"/"+theDeviceId+"/"+theState+";"
 				self.sqlColListStatus[theCol] 	= 10
 				if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done"):	os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")
 				self.devicesAdded = 5
 				self.eventSQLjobState = "requested"
-			if self.decideMyLog("SQL"): self.indiLOG.log(20,"started sql job for EVENT data: "+unicode(devstateList) )    
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-			self.indiLOG.log(20,"theCol:"+ str(tc) +"  len(dataCo...):"+ unicode(len(self.dataColumnToDevice0Prop1Index))+"  dataColumnToDevice0Prop1Index:"+ unicode(self.dataColumnToDevice0Prop1Index))
+			if self.decideMyLog("SQL"): self.indiLOG.log(20,"started sql job for EVENT data: {}".format(devstateList) )    
+		except  Exception as e:
+			self.exceptionHandler(40, e)
+			self.indiLOG.log(20,"theCol:{}  len(dataCo...):{}  dataColumnToDevice0Prop1Index:{}".format(tc, len(self.dataColumnToDevice0Prop1Index), self.dataColumnToDevice0Prop1Index))
 
 
 
 
 	########################################
 	def buttonConfirmSQLDevStateCALLBACKaction(self, action1, typeId=""):
-		 self.buttonConfirmSQLDevStateCALLBACK(valuesDict=action1.props, typeId="")
+		self.buttonConfirmSQLDevStateCALLBACK(valuesDict=action1.props, typeId="")
 
 	########################################
 	def buttonConfirmSQLDevStateCALLBACK(self, valuesDict, typeId=""):
@@ -2290,19 +2261,19 @@ class Plugin(indigo.PluginBase):
 
 		for n in range(len(self.listOfSelectedDataColumnsAndDevPropNameSORTED)):
 			if self.listOfSelectedDataColumnsAndDevPropNameSORTED[n][0] == theCol:
-				self.indiLOG.log(30,u" DevStateSelected to re-read:  # "+ str(theCol) +" : "+self.listOfSelectedDataColumnsAndDevPropNameSORTED[n][1])
+				self.indiLOG.log(20,u" DevStateSelected to re-read:  # {}".format(theCol) +" : "+self.listOfSelectedDataColumnsAndDevPropNameSORTED[n][1])
 				break
 		
 		
 		devNo= self.dataColumnToDevice0Prop1Index[theCol][0]																			# for shorter typing
 		stateNo=self.dataColumnToDevice0Prop1Index[theCol][1]
-		theDeviceId		= unicode(self.DEVICE[str(devNo)]["Id"])
-		theState	= self.DEVICE[str(devNo)]["state"][stateNo]
+		theDeviceId		= u"{}".format(self.DEVICE[u"{}".format(devNo)]["Id"])
+		theState	= self.DEVICE[u"{}".format(devNo)]["state"][stateNo]
 		if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState):			
 			os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)
 			try:    os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")
 			except: pass
-			if self.decideMyLog("SQL"): self.indiLOG.log(30,u" delete: sql/"+theDeviceId+"-"+theState)
+			if self.decideMyLog("SQL"): self.indiLOG.log(20,u" delete: sql/"+theDeviceId+"-"+theState)
 		self.FirstBinDate					="0000"+"00"+"00"+"00"+"00"+"00"  # yyyy mm DD HH
 		self.sqlColListStatus[theCol]  = 10
 		self.sqlHistListStatus[theCol] = 50
@@ -2318,9 +2289,6 @@ class Plugin(indigo.PluginBase):
 		pyFiles = os.listdir(self.userIndigoPluginDir+'py')
 		pyFiles.sort()
 
-		#		self.indiLOG.log(30,u" pyFiles "+str(pyFiles))
-		#		self.indiLOG.log(30,u" pyFiles "+str(pyFiles.sort()))
-		
 		for pyFile in pyFiles:
 			if pyFile.find(".py") >-1:	# use only fy files
 				retList.append((pyFile,pyFile))
@@ -2329,12 +2297,18 @@ class Plugin(indigo.PluginBase):
 	
 	########################################
 	def buttonConfirmBackUpFileCALLBACK(self, valuesDict=None, typeId=""):
-		self.BackupFileSelected= valuesDict["selBackUpFile"]
-		self.indiLOG.log(30,u" BackupFileSelected "+ self.BackupFileSelected)
+		self.BackupFileSelected = valuesDict["selBackUpFile"]
 		nn=0
-		f=open(self.userIndigoPluginDir+'py/'+self.BackupFileSelected,"r")
-		pyCommands=""
+		ff = u"{}py/{}".format(self.userIndigoPluginDir, self.BackupFileSelected)
+		self.indiLOG.log(30,u" BackupFileSelected {}".format(ff))
+		if sys.version_info[0]  > 2:
+			f = open( ff ,"r", encoding="utf-8")
+		else:
+			f = codecs.open( ff ,"r", "utf-8")
+
+		pyCommands = ""
 		for line in f.readlines():
+			self.indiLOG.log(30,u" backup line executing: {}".format(line))
 			xxx= copy.deepcopy(line)
 			if line.find("#") ==0: continue
 			if line =="": continue
@@ -2351,9 +2325,8 @@ class Plugin(indigo.PluginBase):
 				line2	 = line[position+1:]
 				line	 = "self."+line2.replace('"','(',1).replace(',','',1).replace('props','action',1)
 			nn+=1
-			line = line.decode('utf8')
 			
-			if self.decideMyLog("Plotting"): self.indiLOG.log(20,unicode(nn)+u" "+line.strip("\n"))
+			if self.decideMyLog("Plotting"): self.indiLOG.log(20,u"{}  {}".format(nn, line.strip("\n")))
 			pyCommands+=line
 		self.waitWithSQL =True
 		f.close()
@@ -2366,8 +2339,7 @@ class Plugin(indigo.PluginBase):
 			filename = f.f_code.co_filename
 			linecache.checkcache(filename)
 			line = linecache.getline(filename, lineno, f.f_globals)
-			self.indiLOG.log(40,"Error importing old configuration, statement  in  restore file is bad:\n                             "+ unicode(exc_obj))
-			##self.indiLOG.log(40,"bad py restore file, syntax error in  Line '%s' ;  error='%s'" % (sys.exc_traceback.tb_lineno, e))
+			self.indiLOG.log(40,"Error importing old configuration, statement  in  restore file is bad:\n                             {}".format(exc_obj))
 		self.waitWithSQL =False
 		
 
@@ -2380,7 +2352,7 @@ class Plugin(indigo.PluginBase):
 		columnToRemove = int(valuesDict["columnToRemove"])
 		devNo   = self.dataColumnToDevice0Prop1Index[columnToRemove][0]
 		stateNo = self.dataColumnToDevice0Prop1Index[columnToRemove][1]
-		self.indiLOG.log(30, "removing column:"+ str(columnToRemove)+"  devNo:"+str(devNo)+"  stateNo:"+ str(stateNo)  )
+		self.indiLOG.log(30, "removing column:{}".format(columnToRemove)+"  devNo:{}".format(devNo)+"  stateNo:{}".format(stateNo)  )
 		self.removePropFromDevice(devNo,stateNo,writeD=True,reDo=True)
 		return valuesDict
 
@@ -2424,8 +2396,10 @@ class Plugin(indigo.PluginBase):
 	#		if os.path.isfile(self.userIndigoPluginDir+"py/examplesToCreateAndManagePlots.py"):
 	#			os.rename(self.userIndigoPluginDir+"py/examplesToCreateAndManagePlots.py", self.userIndigoPluginDir+"py/examplesToCreateAndManagePlots-"+d0+"-.py")
 				
-			f = open(self.userIndigoPluginDir+fName , "w")
-
+			if sys.version_info[0]  > 2:
+				f = open(self.userIndigoPluginDir+fName , "w", encoding="utf-8")
+			else:
+				f = codecs.open(self.userIndigoPluginDir+fName , "w", "utf-8")
 
 			if aType=="exportMini":
 				kk = 0
@@ -2433,106 +2407,106 @@ class Plugin(indigo.PluginBase):
 					kk+=1
 					PL =self.PLOT[nPlot]
 					if PL["dataSource"] !="mini": continue
-					f.write(PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+":{")
-					f.write('"deviceNameOfPlot":"'+PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+'"')
-					f.write(',"PlotType":"'+PL["PlotType"]+'"')
-					f.write(',"XYvPolar":"'+PL["XYvPolar"]+'"')
-					f.write(',"Grid":"'+PL["Grid"]+'"')
-					f.write(',"Border":"'+PL["Border"]+'"')
-					f.write(',"PlotFileOrVariName":"'+PL["PlotFileOrVariName"].encode('utf8')+'"')
-					f.write(',"TitleText":"'+PL["TitleText"].encode('utf8').replace("'","\'")+'"')
-					f.write(',"TextSize":"'+PL["TextSize"]+'"')
-					f.write(',"TextMATFont":"'+PL["TextMATFont"]+'"')
-					f.write(',"TextFont":"'+str(PL["TextFont"])+'"')  ## could be 0, need to fix
-					f.write(',"TextColor":"'+PL["TextColor"]+'"')
-					f.write(',"LeftScaleRange":"'+PL["LeftScaleRange"]+'"')
-					f.write(',"LeftScaleTics":"'+PL["LeftScaleTics"]+'"')
-					f.write(',"LeftLog":"'+PL["LeftLog"]+'"')
-					f.write(',"LeftScaleDecPoints":"'+PL["LeftScaleDecPoints"]+'"')
-					f.write(',"LeftLabel":"'+PL["LeftLabel"].encode('utf8').replace("'","\'")+'"')
-					f.write(',"resxy0":"'+PL["resxy"][0]+'"')
-					f.write(',"resxy1":"'+PL["resxy"][1]+'"')
-					f.write(',"MinuteBinNoOfDays":"'+str(PL["MHDDays"][0])+'"')
-					f.write(',"HourBinNoOfDays":"'+str(PL["MHDDays"][1])+'"')
-					f.write(',"DayBinNoOfDays":"'+str(PL["MHDDays"][2])+'"')
-					f.write(',"MinuteBinShift":"'+str(PL["MHDShift"][0])+'"')
-					f.write(',"HourBinShift":"'+str(PL["MHDShift"][1])+'"')
-					f.write(',"DayBinShift":"'+str(PL["MHDShift"][2])+'"')
-					f.write(',"MinuteXScaleFormat":"'+str(PL["MHDFormat"][0])+'"')
-					f.write(',"HourXScaleFormat":"'+str(PL["MHDFormat"][1])+'"')
-					f.write(',"DayXScaleFormat":"'+str(PL["MHDFormat"][2])+'"')
-					f.write(',"Background":"'+PL["Background"]+'"')
-					f.write(',"TransparentBlocks":"'+PL["TransparentBlocks"]+'"')
-					f.write(',"TransparentBackground":"'+PL["TransparentBackground"]+'"')
-					f.write(',"dataSource":"'+PL["dataSource"]+'"')
-					f.write(',"drawZeroLine":"'+str(PL["drawZeroLine"])+'"')
-					f.write(',"compressPNGfile":"'+str(PL["compressPNGfile"])+'"')
-					f.write(',"enabled":"'+str(PL["enabled"])+'"')
+					f.write(u'{}'.format(PL["DeviceNamePlot"]).replace("'","\'")+":{")
+					f.write(u'"deviceNameOfPlot":"{}'.format(PL["DeviceNamePlot"]).replace("'","\'")+'"')
+					f.write(u',"PlotType":"{}'.format(PL["PlotType"])+'"')
+					f.write(u',"XYvPolar":"{}'.format(PL["XYvPolar"])+'"')
+					f.write(u',"Grid":"{}'.format(PL["Grid"])+'"')
+					f.write(u',"Border":"{}'.format(PL["Border"])+'"')
+					f.write(u',"PlotFileOrVariName":"{}'.format(PL["PlotFileOrVariName"])+'"')
+					f.write(u',"TitleText":"{}'.format(PL["TitleText"]).replace("'","\'")+'"')
+					f.write(u',"TextSize":"{}'.format(PL["TextSize"])+'"')
+					f.write(u',"TextMATFont":"{}'.format(PL["TextMATFont"])+'"')
+					f.write(u',"TextFont":"{}'.format(PL["TextFont"])+'"')  ## could be 0, need to fix
+					f.write(u',"TextColor":"{}'.format(PL["TextColor"])+'"')
+					f.write(u',"LeftScaleRange":"{}'.format(PL["LeftScaleRange"])+'"')
+					f.write(u',"LeftScaleTics":"{}'.format(PL["LeftScaleTics"])+'"')
+					f.write(u',"LeftLog":"{}'.format(PL["LeftLog"])+'"')
+					f.write(u',"LeftScaleDecPoints":"{}'.format(PL["LeftScaleDecPoints"])+'"')
+					f.write(u',"LeftLabel":"{}'.format(PL["LeftLabel"]).replace("'","\'")+'"')
+					f.write(u',"resxy0":"{}'.format(PL["resxy"][0])+'"')
+					f.write(u',"resxy1":"{}'.format(PL["resxy"][1])+'"')
+					f.write(u',"MinuteBinNoOfDays":"{}'.format(PL["MHDDays"][0])+'"')
+					f.write(u',"HourBinNoOfDays":"{}'.format(PL["MHDDays"][1])+'"')
+					f.write(u',"DayBinNoOfDays":"{}'.format(PL["MHDDays"][2])+'"')
+					f.write(u',"MinuteBinShift":"{}'.format(PL["MHDShift"][0])+'"')
+					f.write(u',"HourBinShift":"{}'.format(PL["MHDShift"][1])+'"')
+					f.write(u',"DayBinShift":"{}'.format(PL["MHDShift"][2])+'"')
+					f.write(u',"MinuteXScaleFormat":"{}'.format(PL["MHDFormat"][0])+'"')
+					f.write(u',"HourXScaleFormat":"{}'.format(PL["MHDFormat"][1])+'"')
+					f.write(u',"DayXScaleFormat":"{}'.format(PL["MHDFormat"][2])+'"')
+					f.write(u',"Background":"{}'.format(PL["Background"])+'"')
+					f.write(u',"TransparentBlocks":"{}'.format(PL["TransparentBlocks"])+'"')
+					f.write(u',"TransparentBackground":"{}'.format(PL["TransparentBackground"])+'"')
+					f.write(u',"dataSource":"{}'.format(PL["dataSource"])+'"')
+					f.write(u',"drawZeroLine":"{}'.format(PL["drawZeroLine"])+'"')
+					f.write(u',"compressPNGfile":"{}'.format(PL["compressPNGfile"])+'"')
+					f.write(u',"enabled":"{}'.format(PL["enabled"])+'"')
 					nLine = "1"
 					if nLine in PL["lines"]:
-						f.write(',"lines":{')
-						f.write( '"lineNumber":"'+nLine+'"')
-						f.write(',"lineType":"'+PL["lines"][nLine]["lineType"]+'"')
-						f.write(',"lineKey":"'+PL["lines"][nLine]["lineKey"].encode('utf8')+'"')
-						f.write(',"lineShift":"'+str(PL["lines"][nLine]["lineShift"])+'"')
-						f.write(',"lineWidth":"'+PL["lines"][nLine]["lineWidth"]+'"')
-						f.write(',"lineColor":"'+PL["lines"][nLine]["lineColor"]+'"')
-						f.write(',"lineMultiplier":"'+str(PL["lines"][nLine]["lineMultiplier"])+'"')
-						f.write(',"lineOffset":"'+str(PL["lines"][nLine]["lineOffset"])+'"')
-						f.write(',"lineLeftRight":"'+PL["lines"][nLine]["lineLeftRight"]+'"')
-						f.write(',"lineEveryRepeat":"'+PL["lines"][nLine]["lineEveryRepeat"]+'"')
-						f.write(',"lineFromTo":"'+PL["lines"][nLine]["lineFromTo"]+'\'     ## if not 0 use as x range for THIS line  format= from:to \n')
-						f.write(',"lineNumbersFormat":"'+PL["lines"][nLine]["lineNumbersFormat"]+'"')
-						f.write(',"lineNumbersOffset":"'+PL["lines"][nLine]["lineNumbersOffset"]+'"')
-						f.write(',"lineSmooth":"'+PL["lines"][nLine]["lineSmooth"]+'"')
+						f.write(u',"lines":{')
+						f.write(u'"lineNumber":"{}'.format(nLine)+'"')
+						f.write(u',"lineType":"{}'.format(PL["lines"][nLine]["lineType"])+'"')
+						f.write(u',"lineKey":"{}'.format(PL["lines"][nLine]["lineKey"])+'"')
+						f.write(u',"lineShift":"{}'.format(PL["lines"][nLine]["lineShift"])+'"')
+						f.write(u',"lineWidth":"{}'.format(PL["lines"][nLine]["lineWidth"])+'"')
+						f.write(u',"lineColor":"{}'.format(PL["lines"][nLine]["lineColor"])+'"')
+						f.write(u',"lineMultiplier":"{}'.format(PL["lines"][nLine]["lineMultiplier"])+'"')
+						f.write(u',"lineOffset":"{}'.format(PL["lines"][nLine]["lineOffset"])+'"')
+						f.write(u',"lineLeftRight":"{}'.format(PL["lines"][nLine]["lineLeftRight"])+'"')
+						f.write(u',"lineEveryRepeat":"{}'.format(PL["lines"][nLine]["lineEveryRepeat"])+'"')
+						f.write(u',"lineFromTo":"{}'.format(PL["lines"][nLine]["lineFromTo"])+'\'     ## if not 0 use as x range for THIS line  format= from:to \n')
+						f.write(u',"lineNumbersFormat":"{}'.format(PL["lines"][nLine]["lineNumbersFormat"])+'"')
+						f.write(u',"lineNumbersOffset":"{}'.format(PL["lines"][nLine]["lineNumbersOffset"])+'"')
+						f.write(u',"lineSmooth":"{}'.format(PL["lines"][nLine]["lineSmooth"])+'"')
 						
 						if PL["PlotType"] == "dataFromTimeSeries":
 							if self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexAfile"] =="":
 								index =int(PL["lines"][nLine]["lineToColumnIndexA"])
 								devNo = int(self.dataColumnToDevice0Prop1Index[index][0])
-								DEV		=	self.DEVICE[str(devNo)]
+								DEV		=	self.DEVICE[u"{}".format(devNo)]
 								stateNo = int(self.dataColumnToDevice0Prop1Index[index][1])
 								if DEV["Name"].find("Var-") ==-1:
-									f.write(',"deviceOrVariableToBePlottedLineA":"'+DEV["Name"].encode('utf8').replace("'","\'")+'"')
+									f.write(u',"deviceOrVariableToBePlottedLineA":"{}'.format(DEV["Name"]).replace("'","\'")+'"')
 								else:
-									f.write(',"deviceOrVariableToBePlottedLineA":"'+DEV["Name"][4:].encode('utf8')+'"')
-								f.write(',"devOrVarA":"'+DEV["devOrVar"].encode('utf8')+'"')
-								f.write(',"StateToBePlottedLineA":"'+DEV["state"][stateNo].encode('utf8')+'"')
-								f.write(',"MeasurementLineA":"'+DEV["measurement"][stateNo]+'"')
-								f.write(',"multiplierA":"'+str(DEV["multiplier"][stateNo])+'"')
-								f.write(',"offsetA":"'+str(DEV["offset"][stateNo])+'"')
-								f.write(',"minValueA":"'+str(DEV["minValue"][stateNo])+'"')
-								f.write(',"maxValueA":"'+str(DEV["maxValue"][stateNo])+'"')
-								f.write(',"fillGapsA":'+unicode(DEV["fillGaps"][stateNo]))
-								f.write(',"resetTypeA":"'+json.dumps(DEV["resetType"][stateNo])+'"')
-							f.write(',"lineFunc":"'+PL["lines"][nLine]["lineFunc"]+'"')
-						f.write('}')
-					f.write('}\n')
+									f.write(u',"deviceOrVariableToBePlottedLineA":"{}'.format(DEV["Name"][4:])+'"')
+								f.write(u',"devOrVarA":"{}'.format(DEV["devOrVar"])+'"')
+								f.write(u',"StateToBePlottedLineA":"{}'.format(DEV["state"][stateNo])+'"')
+								f.write(u',"MeasurementLineA":"{}'.format(DEV["measurement"][stateNo])+'"')
+								f.write(u',"multiplierA":"{}'.format(DEV["multiplier"][stateNo])+'"')
+								f.write(u',"offsetA":"{}'.format(DEV["offset"][stateNo])+'"')
+								f.write(u',"minValueA":"{}'.format(DEV["minValue"][stateNo])+'"')
+								f.write(u',"maxValueA":"{}'.format(DEV["maxValue"][stateNo])+'"')
+								f.write(u',"fillGapsA":{}'.format(DEV["fillGaps"][stateNo]))
+								f.write(u',"resetTypeA":"'+json.dumps(DEV["resetType"][stateNo])+'"')
+							f.write(u',"lineFunc":"{}'.format(PL["lines"][nLine]["lineFunc"])+'"')
+						f.write(u'}')
+					f.write(u'}\n')
 
 
-			if aType!="exportMini":
-				f.write('#########  python file you can use to create YOUR existing plots.\n')
-				f.write('#########   They can be used in action groups or your plugins, use them as examples.\n')
-				f.write('#########  In addtions examples are shown how to delete plots, devices .. \n')
-				f.write('#########     and how to add device/states to the tracking list for plots  \n')
-				f.write('\n')
-				f.write('\n')
-				f.write('plug = indigo.server.getPlugin("'+self.pluginId+'")\n')
-				f.write('if not plug.isEnabled(): return   #### INDIGOplotD must be enabled, otherwise nothing here works\n')
+			if aType != "exportMini":
+				f.write(u'#########  python file you can use to create YOUR existing plots.\n')
+				f.write(u'#########   They can be used in action groups or your plugins, use them as examples.\n')
+				f.write(u'#########  In addtions examples are shown how to delete plots, devices .. \n')
+				f.write(u'#########     and how to add device/states to the tracking list for plots  \n')
+				f.write(u'\n')
+				f.write(u'\n')
+				f.write(u'plug = indigo.server.getPlugin("'+self.pluginId+'")\n')
+				f.write(u'if not plug.isEnabled(): return   #### INDIGOplotD must be enabled, otherwise nothing here works\n')
 
-				f.write('\n')
-				f.write('######### \n')
-				f.write('######### section to change general configuration parameters these are YOUR current config paramaters\n')
-				f.write('#########  comment out the parameters you dont like to change with a # in the begining of the line\n')
-				f.write('######### \n')
-				f.write('\n')
-				f.write('ppp ={\n')
-				f.write('     "debugLevel":               u\''+json.dumps(self.debugLevel)+'\'           ### All,Restore,SQL,Initial, ...\n')
-				f.write('    ,"gnuPlotBin":               u\''+str(self.gnuPlotBinary)+'\'               ### path to GNUplot binary  could be eg /usr/local/bin/gnuplot\n')
-				f.write('    ,"gnuORmat":                 u\''+str(self.gnuORmat)+'\'                    ### mat or gnu\n')
-				f.write('    ,"sqlDynamic":               u\''+str(self.sqlDynamic)+'\'                  ###  batch or batch2Days or None \n')
-				f.write('    ,"indigoPNGdir":             u\''+str(self.indigoPNGdir)+'\'                ### psetConfigParametersath to plotdirectory  \n')
-				f.write('    ,"logFileActive":            u\''+str(self.logFileActive)+'\'            ### logFileActive   \n')
+				f.write(u'\n')
+				f.write(u'######### \n')
+				f.write(u'######### section to change general configuration parameters these are YOUR current config paramaters\n')
+				f.write(u'#########  comment out the parameters you dont like to change with a # in the begining of the line\n')
+				f.write(u'######### \n')
+				f.write(u'\n')
+				f.write(u'ppp ={\n')
+				f.write(u'     "debugLevel":               u\''+json.dumps(self.debugLevel)+'\'           ### All,Restore,SQL,Initial, ...\n')
+				f.write(u'    ,"gnuPlotBin":               u\'{}'.format(self.gnuPlotBinary)+'\'               ### path to GNUplot binary  could be eg /usr/local/bin/gnuplot\n')
+				f.write(u'    ,"gnuORmat":                 u\'{}'.format(self.gnuORmat)+'\'                    ### mat or gnu\n')
+				f.write(u'    ,"sqlDynamic":               u\'{}'.format(self.sqlDynamic)+'\'                  ###  batch or batch2Days or None \n')
+				f.write(u'    ,"indigoPNGdir":             u\'{}'.format(self.indigoPNGdir)+'\'                ### psetConfigParametersath to plotdirectory  \n')
+				f.write(u'    ,"logFileActive":            u\'{}'.format(self.logFileActive)+'\'            ### logFileActive   \n')
 
 
 				for consumptionType in self.consumptionCostData:
@@ -2541,60 +2515,60 @@ class Plugin(indigo.PluginBase):
 						xstring='    ,"'+consumptionType+str(n)+'":             u\''
 						if self.consumptionCostData[consumptionType][n]["Period"] =="Period":
 							if EE["Period"].find("2999")>-1: 	continue
-							xstring+='{"Period":'+str(EE["Period"])
-							xstring+=',"day":'+str(EE["day"])
-							xstring+=',"hour":'+str(EE["hour"])
+							xstring+='{"Period":{}'.format(EE["Period"])
+							xstring+=',"day":{}'.format(EE["day"])
+							xstring+=',"hour":{}'.format(EE["hour"])
 						else:
 							if EE["day"]	>=9: continue
-							xstring+='{"day":'+str(EE["day"])
-							xstring+=',"hour":'+str(EE["hour"])
-							xstring+=',"Period":'+str(EE["Period"])
+							xstring+='{"day":{}'.format(EE["day"])
+							xstring+=',"hour":{}'.format(EE["hour"])
+							xstring+=',"Period":{}'.format(EE["Period"])
 
-						xstring+=',"cost":'+str(EE["cost"])
-						xstring+=',"consumed":'+str(EE["consumed"])+'}'
+						xstring+=',"cost":{}'.format(EE["cost"])
+						xstring+=',"consumed":{}'.format(EE["consumed"])+'}'
 						f.write(xstring+'\' \n')
-				f.write('    ,"logLevel":                 u\'1\'}\n')
-				f.write('plug.executeAction("setConfigParameters"      , props =ppp)\n')
+				f.write(u'    ,"logLevel":                 u\'1\'}\n')
+				f.write(u'plug.executeAction("setConfigParameters"      , props =ppp)\n')
 
 
-				f.write('######### \n')
-				f.write('#########------------------------------------------------------------------------------------------------------------------------\n')
-				f.write('######### \n')
-				f.write('######### section with examples how to create/delete devices-states-measurement  to start/stop data tracking for use in plots/lines \n')
-				f.write('#########       this is the same function as the device/state/measurement selection in the configmenue \n')
-				f.write('######### \n')
+				f.write(u'######### \n')
+				f.write(u'#########------------------------------------------------------------------------------------------------------------------------\n')
+				f.write(u'######### \n')
+				f.write(u'######### section with examples how to create/delete devices-states-measurement  to start/stop data tracking for use in plots/lines \n')
+				f.write(u'#########       this is the same function as the device/state/measurement selection in the configmenue \n')
+				f.write(u'######### \n')
 			
 
 				for devNo in self.DEVICE:
-					f.write('\n')
-					f.write('\n')
-					DEV= self.DEVICE[str(devNo)]
-					if DEV["Name"]=="":		continue
-					if DEV["Name"]=="None":		continue
-					f.write('## section for '+self.DEVICE[devNo]["Name"].encode('utf8')+'\n')
+					f.write(u'\n')
+					f.write(u'\n')
+					DEV= self.DEVICE[u"{}".format(devNo)]
+					if DEV["Name"] == "":		continue
+					if DEV["Name"] == "None":		continue
+					f.write(u'## section for {}\n'.format(self.DEVICE[devNo]["Name"]))
 					for stateNo in range(1,noOfStatesPerDeviceG+1):
-						if DEV["state"][stateNo] =="":		continue
-						if DEV["state"][stateNo] =="None": 	continue
-						f.write('\n')
+						if DEV["state"][stateNo] == "":		continue
+						if DEV["state"][stateNo] == "None": 	continue
+						f.write(u'\n')
 						if DEV["Name"].find("Var-") ==-1:
-							f.write('ppp ={"deviceOrVariableName":u\''+DEV["Name"].encode('utf8').replace("'","\'")+'\' # name of device or variable to be tracked \n')
+							f.write(u'ppp ={{"deviceOrVariableName":u\'{}\' # name of device or variable to be tracked \n'.format(DEV["Name"]))
 						else:
-							f.write('ppp ={"deviceOrVariableName":u\''+DEV["Name"][4:].encode('utf8')+'\' # name of device or variable to be tracked \n')
-						f.write('     ,"devOrVar":         u\''+DEV["devOrVar"].encode('utf8')+'\' #  Dev- or Var- \n')
-						f.write('     ,"state":            u\''+DEV["state"][stateNo].encode('utf8')+'\'  #  state that should be tracked \n')
-						f.write('     ,"measurement":      u\''+DEV["measurement"][stateNo].encode('utf8')+'\' #  measurement that should be recored average,min,max,..,eConsumption... \n')
-						f.write('     ,"multiplier":       u\''+str(DEV["multiplier"][stateNo])+'\'  # optional data is multiplied with this value\n')
-						f.write('     ,"offset":           u\''+str(DEV["offset"][stateNo])+'\'  # optional data is added with this value\n')
-						f.write('     ,"minValue":         u\''+str(DEV["minValue"][stateNo])+'\'  # optional lower cutoff value\n')
-						f.write('     ,"maxValue":         u\''+str(DEV["maxValue"][stateNo])+'\'  # optional high cutoff value\n')
-						f.write('     ,"fillGaps":         u\''+unicode(DEV["fillGaps"][stateNo])+'\'  # optional fill data gaps if no info available with last data point\n')
-						f.write('     ,"resetType":        u\''+json.dumps(DEV["resetType"][stateNo])+'\'  # options: 0 Period day week month bin PeriodNoCost dayNoCost weekNoCost monthNoCost binNoCost  only for consumption data\n')
-						f.write('     ,"nickName":         u\''+json.dumps(DEV["nickName"][stateNo])+'\' \n')
-						f.write('     ,"logLevel":         u\'1\'          ###  values:  blank =off  if debug mode on , 0 = error 1 = regular logging\n')
-						f.write('     }\n')
-						f.write('plug.executeAction("addDeviceAndStateToSelectionList" , props =ppp)\n')
-						f.write('#plug.executeAction("deleteDeviceAndStateFromSelectionList" , props =ppp)\n')
-						f.write('#plug.executeAction("deleteDeviceFromSelectionList"         , props ={"deviceOrVariableName": u\''+DEV["Name"].encode('utf8').replace("'","\'")+'\'}\n')
+							f.write(u'ppp ={{"deviceOrVariableName":u\'{}\' # name of device or variable to be tracked \n'.format(DEV["Name"]))
+						f.write(u'     ,"devOrVar":         u\'{}'.format(DEV["devOrVar"])+'\' #  Dev- or Var- \n')
+						f.write(u'     ,"state":            u\'{}'.format(DEV["state"][stateNo])+'\'  #  state that should be tracked \n')
+						f.write(u'     ,"measurement":      u\'{}'.format(DEV["measurement"][stateNo])+'\' #  measurement that should be recored average,min,max,..,eConsumption... \n')
+						f.write(u'     ,"multiplier":       u\'{}'.format(DEV["multiplier"][stateNo])+'\'  # optional data is multiplied with this value\n')
+						f.write(u'     ,"offset":           u\'{}'.format(DEV["offset"][stateNo])+'\'  # optional data is added with this value\n')
+						f.write(u'     ,"minValue":         u\'{}'.format(DEV["minValue"][stateNo])+'\'  # optional lower cutoff value\n')
+						f.write(u'     ,"maxValue":         u\'{}'.format(DEV["maxValue"][stateNo])+'\'  # optional high cutoff value\n')
+						f.write(u'     ,"fillGaps":         u\'{}'.format(DEV["fillGaps"][stateNo])+'\'  # optional fill data gaps if no info available with last data point\n')
+						f.write(u'     ,"resetType":        u\''+json.dumps(DEV["resetType"][stateNo])+'\'  # options: 0 Period day week month bin PeriodNoCost dayNoCost weekNoCost monthNoCost binNoCost  only for consumption data\n')
+						f.write(u'     ,"nickName":         u\''+json.dumps(DEV["nickName"][stateNo])+'\' \n')
+						f.write(u'     ,"logLevel":         u\'1\'          ###  values:  blank =off  if debug mode on , 0 = error 1 = regular logging\n')
+						f.write(u'     }\n')
+						f.write(u'plug.executeAction("addDeviceAndStateToSelectionList" , props =ppp)\n')
+						f.write(u'#plug.executeAction("deleteDeviceAndStateFromSelectionList" , props =ppp)\n')
+						f.write(u'#plug.executeAction("deleteDeviceFromSelectionList"         , props ={{"deviceOrVariableName": u\'{}'.format(DEV["Name"])+'\'}\n')
 			
 
 
@@ -2603,208 +2577,208 @@ class Plugin(indigo.PluginBase):
 				for nPlot in self.PLOT:
 					kk+=1
 					PL =self.PLOT[nPlot]
-					#				self.indiLOG.log(20,u" dataSource"+PL["dataSource"]+u" type"+aType)
-					f.write('\n')
-					f.write('\n')
-					f.write('######### \n')
-					f.write('######### section for '+PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+' ID="'+str(nPlot)+'"   start-----------------------------------------------------\n')
-					f.write('######### \n')
-					f.write('\n')
-					f.write('plot'+str(kk)+'={\n')
-					f.write('  "deviceNameOfPlot"     : u\''+PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+'\'\n')
-					f.write(' ,"PlotType"             : u\''+PL["PlotType"]+'\'  ### dataFromTimeSeries  dataFromFile  dataFromVariable\n')
-					f.write(' ,"XYvPolar"             : u\''+PL["XYvPolar"]+'\'  ### xy plot or polar plot\n')
-					f.write(' ,"Grid"                 : u\''+PL["Grid"]+'\'                 ### options:  0=no 1=dashedBack 2=solidBack 3=thickSolidBack -1=thinFront -2... -3... \n')
-					f.write(' ,"Border"               : u\''+PL["Border"]+'\'              ### options:  1+2+4+8  0+0+0+0   on off for x,y,xTop,yRight border lines \n')
-					f.write(' ,"PlotFileOrVariName"   : u\''+PL["PlotFileOrVariName"].encode('utf8')+'\'       ### Name of variable of filename if PlotType = dataFromFile or dataFromVariable  \n')
-					f.write(' ,"TitleText"            : u\''+PL["TitleText"].encode('utf8').replace("'","\'")+'\'     ### text that goes on the top of the plot\n')
-					f.write(' ,"ExtraText"            : u\''+PL["ExtraText"].encode('utf8').replace("'","\'")+'\'     ### Extra text \n')
-					f.write(' ,"ExtraTextXPos"        : u\''+PL["ExtraTextXPos"]+'\'     ### x-pos of extra text \n')
-					f.write(' ,"ExtraTextYPos"        : u\''+PL["ExtraTextYPos"]+'\'     ### y-pos of extra text \n')
-					f.write(' ,"ExtraTextRotate"      : u\''+PL["ExtraTextRotate"]+'\'     ### rotate extra text counter clockwise 0..360  \n')
-					f.write(' ,"ExtraTextFrontBack"   : u\''+PL["ExtraTextFrontBack"]+'\'     ### put extra text in "front" or "back" ground  \n')
-					f.write(' ,"ExtraTextSize"        : u\''+PL["ExtraTextSize"]+'\'     ### put extra text Size in points  \n')
-					f.write(' ,"ExtraTextColorRGB"    : u\''+PL["ExtraTextColorRGB"]+'\'     ### extra text color #RRGGBB format  \n')
-					f.write(' ,"TextSize"             : u\''+PL["TextSize"]+'\'                       ### font size  \n')
-					f.write(' ,"TextMATFont"          : u\''+PL["TextMATFont"]+'\'             ### if MATPLOT font name:  sans-serif  serif  cursive  fantasy  monospace \n')
-					f.write(' ,"TextFont"             : u\''+str(PL["TextFont"])+'\'         ### if GNUPLOT name of font from  /Library/Fonts/  eg Arial Unicode.ttf \n')
-					f.write(' ,"TextColor"            : u\''+PL["TextColor"]+'\'              ## #FFFFFF ... #000000 or 255,255,255 format for RGB color intensities\n')
-					f.write(' ,"enabled"              : u\''+str(PL["enabled"])+'\'              ## enable / disable plot\n')
+					f.write(u'\n')
+					f.write(u'\n')
+					f.write(u'######### \n')
+					f.write(u'######### section for {}'.format(PL["DeviceNamePlot"])+' ID="{}'.format(nPlot)+'"   start-----------------------------------------------------\n')
+					f.write(u'######### \n')
+					f.write(u'\n')
+					f.write(u'plot{}'.format(kk)+'={\n')
+					f.write(u'  "deviceNameOfPlot"     : u\'{}'.format(PL["DeviceNamePlot"])+'\'\n')
+					f.write(u' ,"PlotType"             : u\'{}'.format(PL["PlotType"])+'\'  ### dataFromTimeSeries  dataFromFile  dataFromVariable\n')
+					f.write(u' ,"XYvPolar"             : u\'{}'.format(PL["XYvPolar"])+'\'  ### xy plot or polar plot\n')
+					f.write(u' ,"Grid"                 : u\'{}'.format(PL["Grid"])+'\'                 ### options:  0=no 1=dashedBack 2=solidBack 3=thickSolidBack -1=thinFront -2... -3... \n')
+					f.write(u' ,"Border"               : u\'{}'.format(PL["Border"])+'\'              ### options:  1+2+4+8  0+0+0+0   on off for x,y,xTop,yRight border lines \n')
+					f.write(u' ,"PlotFileOrVariName"   : u\'{}'.format(PL["PlotFileOrVariName"])+'\'       ### Name of variable of filename if PlotType = dataFromFile or dataFromVariable  \n')
+					f.write(u' ,"TitleText"            : u\'{}'.format(PL["TitleText"])+'\'     ### text that goes on the top of the plot\n')
+					f.write(u' ,"ExtraText"            : u\'{}'.format(PL["ExtraText"])+'\'     ### Extra text \n')
+					f.write(u' ,"ExtraTextXPos"        : u\'{}'.format(PL["ExtraTextXPos"])+'\'     ### x-pos of extra text \n')
+					f.write(u' ,"ExtraTextYPos"        : u\'{}'.format(PL["ExtraTextYPos"])+'\'     ### y-pos of extra text \n')
+					f.write(u' ,"ExtraTextRotate"      : u\'{}'.format(PL["ExtraTextRotate"])+'\'     ### rotate extra text counter clockwise 0..360  \n')
+					f.write(u' ,"ExtraTextFrontBack"   : u\'{}'.format(PL["ExtraTextFrontBack"])+'\'     ### put extra text in "front" or "back" ground  \n')
+					f.write(u' ,"ExtraTextSize"        : u\'{}'.format(PL["ExtraTextSize"])+'\'     ### put extra text Size in points  \n')
+					f.write(u' ,"ExtraTextColorRGB"    : u\'{}'.format(PL["ExtraTextColorRGB"])+'\'     ### extra text color #RRGGBB format  \n')
+					f.write(u' ,"TextSize"             : u\'{}'.format(PL["TextSize"])+'\'                       ### font size  \n')
+					f.write(u' ,"TextMATFont"          : u\'{}'.format(PL["TextMATFont"])+'\'             ### if MATPLOT font name:  sans-serif  serif  cursive  fantasy  monospace \n')
+					f.write(u' ,"TextFont"             : u\'{}'.format(PL["TextFont"])+'\'         ### if GNUPLOT name of font from  /Library/Fonts/  eg Arial Unicode.ttf \n')
+					f.write(u' ,"TextColor"            : u\'{}'.format(PL["TextColor"])+'\'              ## #FFFFFF ... #000000 or 255,255,255 format for RGB color intensities\n')
+					f.write(u' ,"enabled"              : u\'{}'.format(PL["enabled"])+'\'              ## enable / disable plot\n')
 					if PL["XYvPolar"] =="xy":
-						f.write(' ,"LeftScaleRange"       : u\''+PL["LeftScaleRange"]+'\'             ### min:max \n')
-						f.write(' ,"LeftScaleTics"        : u\''+PL["LeftScaleTics"]+'\'                ### eg 10,20,30,100 \n')
-						f.write(' ,"LeftLog"              : u\''+PL["LeftLog"]+'\'          # linear or log \n')
-						f.write(' ,"LeftScaleDecPoints"   : u\''+PL["LeftScaleDecPoints"]+'\'                  ### number of 00 after . \n')
-						f.write(' ,"LeftLabel"            : u\''+PL["LeftLabel"].encode('utf8').replace("'","\'")+'\'          ### text on left Y axis\n')
+						f.write(u' ,"LeftScaleRange"       : u\'{}'.format(PL["LeftScaleRange"])+'\'             ### min:max \n')
+						f.write(u' ,"LeftScaleTics"        : u\'{}'.format(PL["LeftScaleTics"])+'\'                ### eg 10,20,30,100 \n')
+						f.write(u' ,"LeftLog"              : u\'{}'.format(PL["LeftLog"])+'\'          # linear or log \n')
+						f.write(u' ,"LeftScaleDecPoints"   : u\'{}'.format(PL["LeftScaleDecPoints"])+'\'                  ### number of 00 after . \n')
+						f.write(u' ,"LeftLabel"            : u\'{}'.format(PL["LeftLabel"])+'\'          ### text on left Y axis\n')
 					else:
-						f.write(' ,"LeftLabel"            : u\''+PL["LeftLabel"].encode('utf8').replace("'","\'")+'\'          ### text onring aour the polar aixs eg N,E,S,W  or North-0,30,90,E,120,150,S,210,240,W,300,330 \n')
+						f.write(u' ,"LeftLabel"            : u\'{}'.format(PL["LeftLabel"])+'\'          ### text onring aour the polar aixs eg N,E,S,W  or North-0,30,90,E,120,150,S,210,240,W,300,330 \n')
 
 					if PL["XYvPolar"] =="xy":
-						f.write(' ,"RightScaleRange"      : u\''+PL["RightScaleRange"]+'\'\n')
-						f.write(' ,"RightScaleTics"       : u\''+PL["RightScaleTics"]+'\'\n')
-						f.write(' ,"RightLog"             : u\''+PL["RightLog"]+'\'\n')
-						f.write(' ,"RightLabel"           : u\''+PL["RightLabel"].encode('utf8').replace("'","\'")+'\'\n')
-						f.write(' ,"RightScaleDecPoints"  : u\''+PL["RightScaleDecPoints"]+'\'\n')
+						f.write(u' ,"RightScaleRange"      : u\'{}'.format(PL["RightScaleRange"])+'\'\n')
+						f.write(u' ,"RightScaleTics"       : u\'{}'.format(PL["RightScaleTics"])+'\'\n')
+						f.write(u' ,"RightLog"             : u\'{}'.format(PL["RightLog"])+'\'\n')
+						f.write(u' ,"RightLabel"           : u\'{}'.format(PL["RightLabel"])+'\'\n')
+						f.write(u' ,"RightScaleDecPoints"  : u\'{}'.format(PL["RightScaleDecPoints"])+'\'\n')
 
-					f.write(' ,"XScaleRange"          : u\''+PL["XScaleRange"]+'\'\n')
-					f.write(' ,"XScaleTics"           : u\''+PL["XScaleTics"]+'\'\n')
-					f.write(' ,"XLog"                 : u\''+PL["XLog"]+'\'\n')
-					f.write(' ,"XLabel"               : u\''+PL["XLabel"].encode('utf8').replace("'","\'")+'\'\n')
-					f.write(' ,"XScaleDecPoints"      : u\''+PL["XScaleDecPoints"]+'\'\n')
-					f.write(' ,"XScaleFormat"         : u\''+PL["XScaleFormat"]+'\'           ### python / c .. format string for x axis \n')
-					f.write(' ,"resxy0"               : u\''+PL["resxy"][0]+'\'            ### x,y  number of dots in x and y  for plotsize 1\n')
-					f.write(' ,"resxy1"               : u\''+PL["resxy"][1]+'\'            ### x,y  number of dots in x and y  for plotsize 2\n')
-					f.write(' ,"MinuteBinNoOfDays"    : u\''+str(PL["MHDDays"][0])+'\'         # number of days for MINUTE size bins 0-14\n')
-					f.write(' ,"HourBinNoOfDays"      : u\''+str(PL["MHDDays"][1])+'\'         ### number of days for HOUR size bins 0-39\n')
-					f.write(' ,"DayBinNoOfDays"       : u\''+str(PL["MHDDays"][2])+'\'      ### number of days for DAY size bins 0-390\n')
-					f.write(' ,"MinuteBinShift"       : u\''+str(PL["MHDShift"][0])+'\'         # number of days for MINUTE to shift left\n')
-					f.write(' ,"HourBinShift"         : u\''+str(PL["MHDShift"][1])+'\'      ### number of days for HOUR to shift left\n')
-					f.write(' ,"DayBinShift"          : u\''+str(PL["MHDShift"][2])+'\'      ### number of days for DAY to shift left\n')
-					f.write(' ,"MinuteXScaleFormat"   : u\''+str(PL["MHDFormat"][0])+'\'     ### xscale format for min \n')
-					f.write(' ,"HourXScaleFormat"     : u\''+str(PL["MHDFormat"][1])+'\'     ### xscale format for hour \n')
-					f.write(' ,"DayXScaleFormat"      : u\''+str(PL["MHDFormat"][2])+'\'     ### xscale format for day \n')
-					f.write(' ,"Background"           : u\''+PL["Background"]+'\'            ### #FFFFFF ... #000000 or 255,255,255 format for RGB color intentities\n')
-					f.write(' ,"TransparentBlocks"    : u\''+PL["TransparentBlocks"]+'\'          ###  for histogram, set 0= fully transparent ... 1 = not transparent \n')
-					f.write(' ,"TransparentBackground": u\''+PL["TransparentBackground"]+'\'           ### 1.0 = not transparent, 0.0 = transparent, No color is used for background; Default=1.0\n')
-					f.write(' ,"dataSource"           : u\''+PL["dataSource"]+'\'          ### who created this plot: interactive, import, mini \n')
-					f.write(' ,"ampm"                 : u\''+PL["ampm"]+'\'          # am pm  or 24 hour format \n')
-					f.write(' ,"boxWidth"             : u\''+PL["boxWidth"]+'\'      #    box width of histogram bars \n')
-					f.write(' ,"Raw"                  : u\''+PL["Raw"]+'\'          ### raw Gnuplot command \n')
-					f.write(' ,"drawZeroLine"         : u\''+str(PL["drawZeroLine"])+'\'     ### draw invisible zero line \n')
-					f.write(' ,"compressPNGfile"      : u\''+str(PL["compressPNGfile"])+'\'     ### compress png files futer  true/false\n')
-					f.write(' ,"logLevel"             : u\'1\'          ###  values: ""=of if debug mode on , 0 = error 1 = regular logging\n')
-					f.write(' }\n')
+					f.write(u' ,"XScaleRange"          : u\'{}'.format(PL["XScaleRange"])+'\'\n')
+					f.write(u' ,"XScaleTics"           : u\'{}'.format(PL["XScaleTics"])+'\'\n')
+					f.write(u' ,"XLog"                 : u\'{}'.format(PL["XLog"])+'\'\n')
+					f.write(u' ,"XLabel"               : u\'{}'.format(PL["XLabel"])+'\'\n')
+					f.write(u' ,"XScaleDecPoints"      : u\'{}'.format(PL["XScaleDecPoints"])+'\'\n')
+					f.write(u' ,"XScaleFormat"         : u\'{}'.format(PL["XScaleFormat"])+'\'           ### python / c .. format string for x axis \n')
+					f.write(u' ,"resxy0"               : u\'{}'.format(PL["resxy"][0])+'\'            ### x,y  number of dots in x and y  for plotsize 1\n')
+					f.write(u' ,"resxy1"               : u\'{}'.format(PL["resxy"][1])+'\'            ### x,y  number of dots in x and y  for plotsize 2\n')
+					f.write(u' ,"MinuteBinNoOfDays"    : u\'{}'.format(PL["MHDDays"][0])+'\'         # number of days for MINUTE size bins 0-14\n')
+					f.write(u' ,"HourBinNoOfDays"      : u\'{}'.format(PL["MHDDays"][1])+'\'         ### number of days for HOUR size bins 0-39\n')
+					f.write(u' ,"DayBinNoOfDays"       : u\'{}'.format(PL["MHDDays"][2])+'\'      ### number of days for DAY size bins 0-390\n')
+					f.write(u' ,"MinuteBinShift"       : u\'{}'.format(PL["MHDShift"][0])+'\'         # number of days for MINUTE to shift left\n')
+					f.write(u' ,"HourBinShift"         : u\'{}'.format(PL["MHDShift"][1])+'\'      ### number of days for HOUR to shift left\n')
+					f.write(u' ,"DayBinShift"          : u\'{}'.format(PL["MHDShift"][2])+'\'      ### number of days for DAY to shift left\n')
+					f.write(u' ,"MinuteXScaleFormat"   : u\'{}'.format(PL["MHDFormat"][0])+'\'     ### xscale format for min \n')
+					f.write(u' ,"HourXScaleFormat"     : u\'{}'.format(PL["MHDFormat"][1])+'\'     ### xscale format for hour \n')
+					f.write(u' ,"DayXScaleFormat"      : u\'{}'.format(PL["MHDFormat"][2])+'\'     ### xscale format for day \n')
+					f.write(u' ,"Background"           : u\'{}'.format(PL["Background"])+'\'            ### #FFFFFF ... #000000 or 255,255,255 format for RGB color intentities\n')
+					f.write(u' ,"TransparentBlocks"    : u\'{}'.format(PL["TransparentBlocks"])+'\'          ###  for histogram, set 0= fully transparent ... 1 = not transparent \n')
+					f.write(u' ,"TransparentBackground": u\'{}'.format(PL["TransparentBackground"])+'\'           ### 1.0 = not transparent, 0.0 = transparent, No color is used for background; Default=1.0\n')
+					f.write(u' ,"dataSource"           : u\'{}'.format(PL["dataSource"])+'\'          ### who created this plot: interactive, import, mini \n')
+					f.write(u' ,"ampm"                 : u\'{}'.format(PL["ampm"])+'\'          # am pm  or 24 hour format \n')
+					f.write(u' ,"boxWidth"             : u\'{}'.format(PL["boxWidth"])+'\'      #    box width of histogram bars \n')
+					f.write(u' ,"Raw"                  : u\'{}'.format(PL["Raw"])+'\'          ### raw Gnuplot command \n')
+					f.write(u' ,"drawZeroLine"         : u\'{}'.format(PL["drawZeroLine"])+'\'     ### draw invisible zero line \n')
+					f.write(u' ,"compressPNGfile"      : u\'{}'.format(PL["compressPNGfile"])+'\'     ### compress png files futer  true/false\n')
+					f.write(u' ,"logLevel"             : u\'1\'          ###  values: ""=of if debug mode on , 0 = error 1 = regular logging\n')
+					f.write(u' }\n')
 
-					f.write('plug.executeAction("createOrModifyPlot", props =plot'+str(kk)+')\n')
-					f.write('\n')
+					f.write(u'plug.executeAction("createOrModifyPlot", props =plot'+str(kk)+')\n')
+					f.write(u'\n')
 
 					for iLine in range(1,99): # do it in a sorted way, with simply "nLine in ..." its random
 						nLine = str(iLine)
 						if nLine not in PL["lines"]:continue
 						if str(PL["lines"][nLine]["lineToColumnIndexA"]) =="0": continue
-						f.write('line'+nLine+'P'+str(kk)+'={\n')
-						f.write('   "deviceNameOfPlot"                  : u\''+PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+'\'\n')
-						f.write('  ,"lineNumber"                        : u\''+nLine+'\'      ### 1 2 3 4 5 ...\n')
-						f.write('  ,"lineType"                          : u\''+PL["lines"][nLine]["lineType"]+'\'        ###  LineSolid LineDashed DOT(* + v ^ s o .)  Histogram\n')
-						f.write('  ,"lineKey"                           : u\''+PL["lines"][nLine]["lineKey"].encode('utf8')+'\'    ## text for line keys in plot \n')
-						f.write('  ,"lineShift"                         : u\''+str(PL["lines"][nLine]["lineShift"])+'\'    ## text for line keys in plot \n')
-						f.write('  ,"lineWidth"                         : u\''+PL["lines"][nLine]["lineWidth"]+'\'       ###  0 1 2 3 4 5 \n')
-						f.write('  ,"lineColor"                         : u\''+PL["lines"][nLine]["lineColor"]+'\'        ### #FFFFFF ... #000000 or 255,255,255 format for RGB color intentities\n')
-						f.write('  ,"lineMultiplier"                    : u\''+str(PL["lines"][nLine]["lineMultiplier"])+'\'         ### number to be multiplied with line\n')
-						f.write('  ,"lineOffset"                        : u\''+str(PL["lines"][nLine]["lineOffset"])+'\'        ###  off of data or shift line up or down\n')
-						f.write('  ,"lineLeftRight"                     : u\''+PL["lines"][nLine]["lineLeftRight"]+'\'        ### use left or right Y scale\n')
-						f.write('  ,"lineSmooth"                        : u\''+PL["lines"][nLine]["lineSmooth"]+'\'       ###  None strong medium week smmoth \n')
-						f.write('  ,"lineEveryRepeat"                   : u\''+PL["lines"][nLine]["lineEveryRepeat"]+'\'      \n')
-						f.write('  ,"lineFromTo"                        : u\''+PL["lines"][nLine]["lineFromTo"]+'\'     ## if not 0 use as x range for THIS line  format= from:to \n')
-						f.write('  ,"lineNumbersFormat"                 : u\''+PL["lines"][nLine]["lineNumbersFormat"]+'\'      \n')
-						f.write('  ,"lineNumbersOffset"                 : u\''+PL["lines"][nLine]["lineNumbersOffset"]+'\'    \n')
-						f.write('  ,"lineFunc"                          : u\''+PL["lines"][nLine]["lineFunc"]+'\'            # the operation to be applied between lineA and lineB   + - * / S E C None\n')
+						f.write(u'line{}'.format(nLine)+'P{}'.format(kk)+'={\n')
+						f.write(u'   "deviceNameOfPlot"                  : u\'{}'.format(PL["DeviceNamePlot"])+'\'\n')
+						f.write(u'  ,"lineNumber"                        : u\'{}'.format(nLine)+'\'      ### 1 2 3 4 5 ...\n')
+						f.write(u'  ,"lineType"                          : u\'{}'.format(PL["lines"][nLine]["lineType"])+'\'        ###  LineSolid LineDashed DOT(* + v ^ s o .)  Histogram\n')
+						f.write(u'  ,"lineKey"                           : u\'{}'.format(PL["lines"][nLine]["lineKey"])+'\'    ## text for line keys in plot \n')
+						f.write(u'  ,"lineShift"                         : u\'{}'.format(PL["lines"][nLine]["lineShift"])+'\'    ## text for line keys in plot \n')
+						f.write(u'  ,"lineWidth"                         : u\'{}'.format(PL["lines"][nLine]["lineWidth"])+'\'       ###  0 1 2 3 4 5 \n')
+						f.write(u'  ,"lineColor"                         : u\'{}'.format(PL["lines"][nLine]["lineColor"])+'\'        ### #FFFFFF ... #000000 or 255,255,255 format for RGB color intentities\n')
+						f.write(u'  ,"lineMultiplier"                    : u\'{}'.format(PL["lines"][nLine]["lineMultiplier"])+'\'         ### number to be multiplied with line\n')
+						f.write(u'  ,"lineOffset"                        : u\'{}'.format(PL["lines"][nLine]["lineOffset"])+'\'        ###  off of data or shift line up or down\n')
+						f.write(u'  ,"lineLeftRight"                     : u\'{}'.format(PL["lines"][nLine]["lineLeftRight"])+'\'        ### use left or right Y scale\n')
+						f.write(u'  ,"lineSmooth"                        : u\'{}'.format(PL["lines"][nLine]["lineSmooth"])+'\'       ###  None strong medium week smmoth \n')
+						f.write(u'  ,"lineEveryRepeat"                   : u\'{}'.format(PL["lines"][nLine]["lineEveryRepeat"])+'\'      \n')
+						f.write(u'  ,"lineFromTo"                        : u\'{}'.format(PL["lines"][nLine]["lineFromTo"])+'\'     ## if not 0 use as x range for THIS line  format= from:to \n')
+						f.write(u'  ,"lineNumbersFormat"                 : u\'{}'.format(PL["lines"][nLine]["lineNumbersFormat"])+'\'      \n')
+						f.write(u'  ,"lineNumbersOffset"                 : u\'{}'.format(PL["lines"][nLine]["lineNumbersOffset"])+'\'    \n')
+						f.write(u'  ,"lineFunc"                          : u\'{}'.format(PL["lines"][nLine]["lineFunc"])+'\'            # the operation to be applied between lineA and lineB   + - * / S E C None\n')
 						
 						if PL["PlotType"] == "dataFromTimeSeries":
 							index =int(PL["lines"][nLine]["lineToColumnIndexA"])
 							if index <0:
-								f.write('  ,"deviceOrVariableToBePlottedLineA"  : u\''+str(PL["lines"][nLine]["lineToColumnIndexA"])+'\'  # options: "-1" for straight line\n')
+								f.write(u'  ,"deviceOrVariableToBePlottedLineA"  : u\'{}'.format(PL["lines"][nLine]["lineToColumnIndexA"])+'\'  # options: "-1" for straight line\n')
 							elif index>0:
 								devNo   = int(self.dataColumnToDevice0Prop1Index[index][0])
-								DEV		=	self.DEVICE[str(devNo)]
+								DEV		=	self.DEVICE[u"{}".format(devNo)]
 
 								stateNo = int(self.dataColumnToDevice0Prop1Index[index][1])
 								if DEV["Name"].find("Var-") ==-1:
-									f.write('  ,"deviceOrVariableToBePlottedLineA"  : u\''+DEV["Name"].encode('utf8').replace("'","\'")+'\'  # device name of data source\n')
+									f.write(u'  ,"deviceOrVariableToBePlottedLineA"  : u\'{}'.format(DEV["Name"])+'\'  # device name of data source\n')
 								else:
-									f.write('  ,"deviceOrVariableToBePlottedLineA"  : u\''+DEV["Name"][4:].encode('utf8')+'\'  # device name of data source\n')
-								f.write('  ,"devOrVarA"                         : u\''+DEV["devOrVar"].encode('utf8')+'\'  # "Dev-" or "Var-" of data source\n')
-								f.write('  ,"StateToBePlottedLineA"             : u\''+DEV["state"][stateNo].encode('utf8')+'\'  # see "list available states" section to pick the right state\n')
-								f.write('  ,"MeasurementLineA"                  : u\''+DEV["measurement"][stateNo]+'\'  # options: average sum min max count eConsumption\n')
-								f.write('  ,"multiplierA"                       : u\''+str(DEV["multiplier"][stateNo])+'\'  # optional multiply data with value \n')
-								f.write('  ,"offsetA"                           : u\''+str(DEV["offset"][stateNo])+'\'  # optional add data with value\n')
-								f.write('  ,"minValueA"                         : u\''+str(DEV["minValue"][stateNo])+'\'  # optional lower cutoff value\n')
-								f.write('  ,"maxValueA"                         : u\''+str(DEV["maxValue"][stateNo])+'\'  # optional high cutoff value\n')
-								f.write('  ,"fillGapsA"                         : u\''+unicode(DEV["fillGaps"][stateNo])+'\'  # optional fill data gaps if no info available with last data point\n')
-								f.write('  ,"resetTypeA"                        : u\''+json.dumps(DEV["resetType"][stateNo])+'\'  #  options: 0 Period day week month bin PeriodNoCost dayNoCost weekNoCost monthNoCost binNoCost  only for consumption data\n')
+									f.write(u'  ,"deviceOrVariableToBePlottedLineA"  : u\'{}'.format(DEV["Name"][4:])+'\'  # device name of data source\n')
+								f.write(u'  ,"devOrVarA"                         : u\'{}'.format(DEV["devOrVar"])+'\'  # "Dev-" or "Var-" of data source\n')
+								f.write(u'  ,"StateToBePlottedLineA"             : u\'{}'.format(DEV["state"][stateNo])+'\'  # see "list available states" section to pick the right state\n')
+								f.write(u'  ,"MeasurementLineA"                  : u\'{}'.format(DEV["measurement"][stateNo])+'\'  # options: average sum min max count eConsumption\n')
+								f.write(u'  ,"multiplierA"                       : u\'{}'.format(DEV["multiplier"][stateNo])+'\'  # optional multiply data with value \n')
+								f.write(u'  ,"offsetA"                           : u\'{}'.format(DEV["offset"][stateNo])+'\'  # optional add data with value\n')
+								f.write(u'  ,"minValueA"                         : u\'{}'.format(DEV["minValue"][stateNo])+'\'  # optional lower cutoff value\n')
+								f.write(u'  ,"maxValueA"                         : u\'{}'.format(DEV["maxValue"][stateNo])+'\'  # optional high cutoff value\n')
+								f.write(u'  ,"fillGapsA"                         : u\'{}'.format(DEV["fillGaps"][stateNo])+'\'  # optional fill data gaps if no info available with last data point\n')
+								f.write(u'  ,"resetTypeA"                        : u\''+json.dumps(DEV["resetType"][stateNo])+'\'  #  options: 0 Period day week month bin PeriodNoCost dayNoCost weekNoCost monthNoCost binNoCost  only for consumption data\n')
 
 								index =int(PL["lines"][nLine]["lineToColumnIndexB"])
 								if index >0:
 									try:
 										devNo   = int(self.dataColumnToDevice0Prop1Index[index][0])  ########## check!!
-										DEV		=	self.DEVICE[str(devNo)]
+										DEV		=	self.DEVICE[u"{}".format(devNo)]
 										stateNo = int(self.dataColumnToDevice0Prop1Index[index][1])
 										if DEV["Name"].find("Var-") ==-1:
-											f.write('  ,"deviceOrVariableToBePlottedLineB"  : u\''+DEV["Name"].encode('utf8').replace("'","\'")+'\'  # device name of data source\n')
+											f.write(u'  ,"deviceOrVariableToBePlottedLineB"  : u\'{}'.format(DEV["Name"])+'\'  # device name of data source\n')
 										else:
-											f.write('  ,"deviceOrVariableToBePlottedLineB"  : u\''+DEV["Name"][4:].encode('utf8')+'\'  # device name of data source\n')
-										f.write('  ,"devOrVarB"  : u\''+DEV["devOrVar"].encode('utf8')+'\'  # "Dev-" or "Var-" of data source\n')
-										f.write('  ,"StateToBePlottedLineB"             : u\''+DEV["state"][stateNo].encode('utf8')+'\'  # see "list available states" section to pick the right state\n')
-										f.write('  ,"MeasurementLineB"                  : u\''+DEV["measurement"][stateNo]+'\'  # options: average sum min max count eConsumption\n')
-										f.write('  ,"multiplierB"                       : u\''+str(DEV["multiplier"][stateNo])+'\'  # optional multiply data with value \n')
-										f.write('  ,"offsetB"                           : u\''+str(DEV["offset"][stateNo])+'\'  # optional add data with value\n')
-										f.write('  ,"minValueB"                         : u\''+str(DEV["minValue"][stateNo])+'\'  # optional lower cutoff value\n')
-										f.write('  ,"maxValueB"                         : u\''+str(DEV["maxValue"][stateNo])+'\'  # optional high cutoff value\n')
-										f.write('  ,"fillGapsB"                         : u\''+unicode(DEV["fillGaps"][stateNo])+'\'  # optional fill data gaps if no info available with last data point\n')
-										f.write('  ,"resetTypeB"                        : u\''+json.dumps(DEV["resetType"][stateNo])+'\'  #options: 0 Period day week month bin PeriodNoCost dayNoCost weekNoCost monthNoCost binNoCost  only for consumption data\n')
+											f.write(u'  ,"deviceOrVariableToBePlottedLineB"  : u\'{}'.format(DEV["Name"][4:])+'\'  # device name of data source\n')
+										f.write(u'  ,"devOrVarB"  : u\'{}'.format(DEV["devOrVar"])+'\'  # "Dev-" or "Var-" of data source\n')
+										f.write(u'  ,"StateToBePlottedLineB"             : u\'{}'.format(DEV["state"][stateNo])+'\'  # see "list available states" section to pick the right state\n')
+										f.write(u'  ,"MeasurementLineB"                  : u\'{}'.format(DEV["measurement"][stateNo])+'\'  # options: average sum min max count eConsumption\n')
+										f.write(u'  ,"multiplierB"                       : u\'{}'.format(DEV["multiplier"][stateNo])+'\'  # optional multiply data with value \n')
+										f.write(u'  ,"offsetB"                           : u\'{}'.format(DEV["offset"][stateNo])+'\'  # optional add data with value\n')
+										f.write(u'  ,"minValueB"                         : u\'{}'.format(DEV["minValue"][stateNo])+'\'  # optional lower cutoff value\n')
+										f.write(u'  ,"maxValueB"                         : u\'{}'.format(DEV["maxValue"][stateNo])+'\'  # optional high cutoff value\n')
+										f.write(u'  ,"fillGapsB"                         : u\'{}'.format(DEV["fillGaps"][stateNo])+'\'  # optional fill data gaps if no info available with last data point\n')
+										f.write(u'  ,"resetTypeB"                        : u\''+json.dumps(DEV["resetType"][stateNo])+'\'  #options: 0 Period day week month bin PeriodNoCost dayNoCost weekNoCost monthNoCost binNoCost  only for consumption data\n')
 									except:
 										pass
 								else:
-									f.write('  ,"deviceOrVariableToBePlottedLineB"  : u\'\'\n')
-									f.write('  ,"StateToBePlottedLineB"             : u\'\'\n')
-									f.write('  ,"MeasurementLineB"                  : u\'\'\n')
+									f.write(u'  ,"deviceOrVariableToBePlottedLineB"  : u\'\'\n')
+									f.write(u'  ,"StateToBePlottedLineB"             : u\'\'\n')
+									f.write(u'  ,"MeasurementLineB"                  : u\'\'\n')
 						else:
 							if int(PL["lines"][nLine]["lineToColumnIndexA"]) >0:
-								f.write('  ,"dataColumnForFileOrVariableA"      : u\''+str(PL["lines"][nLine]["lineToColumnIndexA"])+'\'  # data column for data source A\n')
+								f.write(u'  ,"dataColumnForFileOrVariableA"      : u\'{}'.format(PL["lines"][nLine]["lineToColumnIndexA"])+'\'  # data column for data source A\n')
 								if PL["PlotType"] == "dataFromTimeSeries":
-									f.write('  ,"lineFunc"                          : u\''+PL["lines"][nLine]["lineFunc"]+'\'            # the operation to be applied between lineA and lineB   + - * / S E C None\n')
-								f.write('  ,"dataColumnForFileOrVariableB"      : u\''+str(PL["lines"][nLine]["lineToColumnIndexB"])+'\'  # data column for data source B\n')
+									f.write(u'  ,"lineFunc"                          : u\'{}'.format(PL["lines"][nLine]["lineFunc"])+'\'            # the operation to be applied between lineA and lineB   + - * / S E C None\n')
+								f.write(u'  ,"dataColumnForFileOrVariableB"      : u\'{}'.format(PL["lines"][nLine]["lineToColumnIndexB"])+'\'  # data column for data source B\n')
 						
-						f.write(' ,"logLevel"                           : u\'1\'          ###  values: ""=of if debug mode on , 0 = error 1 = regular logging\n')
-						f.write(' }\n')
-						f.write('plug.executeAction("createOrModifyLine", props =line'+nLine+'P'+str(kk)+')\n')
-						f.write('\n')
+						f.write(u' ,"logLevel"                           : u\'1\'          ###  values: ""=of if debug mode on , 0 = error 1 = regular logging\n')
+						f.write(u' }\n')
+						f.write(u'plug.executeAction("createOrModifyLine", props =line{}'.format(nLine)+'P{}'.format(kk)+')\n')
+						f.write(u'\n')
 						
 
-					f.write('#plug.executeAction("createPlotPNG"       , props ={"deviceNameOfPlot": u\''+PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+'\'})  ### call to immediately create the PNG file, no 5 minute waiting for next cycle\n')
-					f.write('#plug.executeAction("showPlotONLY"        , props ={"deviceNameOfPlot": u\''+PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+'\'})  ### call to immediately show the PNG file,\n')
-					f.write('\n')
-					f.write('\n')
+					f.write(u'#plug.executeAction("createPlotPNG"       , props ={{"deviceNameOfPlot": u\'{}'.format(PL["DeviceNamePlot"])+'\'})  ### call to immediately create the PNG file, no 5 minute waiting for next cycle\n')
+					f.write(u'#plug.executeAction("showPlotONLY"        , props ={{"deviceNameOfPlot": u\'{}'.format(PL["DeviceNamePlot"])+'\'})  ### call to immediately show the PNG file,\n')
+					f.write(u'\n')
+					f.write(u'\n')
 
-					f.write('##  and here how to delete the plot :\n')
-					f.write('#plug.executeAction("deletePlot"          , props ={"deviceNameOfPlot": u\''+PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+'\'})\n\n')
-					f.write('\n')
-					f.write('##  and here how to delete  lineNumber 1 in the plot :\n')
-					f.write('#plug.executeAction("deleteLine"          , props ={"deviceNameOfPlot": u\''+PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+'\', "lineNumber":"1"})\n\n')
-					f.write('\n')
-					f.write('######### section for '+PL["DeviceNamePlot"].encode('utf8').replace("'","\'")+'  end-------------------------------------------------------\n')
-					f.write('\n')
-					f.write('\n')
-					f.write('\n')
+					f.write(u'##  and here how to delete the plot :\n')
+					f.write(u'#plug.executeAction("deletePlot"          , props ={{"deviceNameOfPlot": u\'{}'.format(PL["DeviceNamePlot"])+'\'})\n\n')
+					f.write(u'\n')
+					f.write(u'##  and here how to delete  lineNumber 1 in the plot :\n')
+					f.write(u'#plug.executeAction("deleteLine"          , props ={{"deviceNameOfPlot": u\'{}'.format(PL["DeviceNamePlot"])+'\', "lineNumber":"1"})\n\n')
+					f.write(u'\n')
+					f.write(u'######### section for {}'.format(PL["DeviceNamePlot"])+'  end-------------------------------------------------------\n')
+					f.write(u'\n')
+					f.write(u'\n')
+					f.write(u'\n')
 
-				f.write('\n')
-				f.write('\n')
-				f.write('#########------------------------------------------------------------------------------------------------------------------------\n')
-				f.write('#########------------------------------------------------------------------------------------------------------------------------\n')
-				f.write('#########------------------------------------------------------------------------------------------------------------------------\n')
-				f.write('\n')
-				f.write('######### \n')
-				f.write('######### section with examples how to list available states of your devices / variables to be plotted (those that have numbers as states) \n')
-				f.write('######### \n')
-				f.write('\n')
+				f.write(u'\n')
+				f.write(u'\n')
+				f.write(u'#########------------------------------------------------------------------------------------------------------------------------\n')
+				f.write(u'#########------------------------------------------------------------------------------------------------------------------------\n')
+				f.write(u'#########------------------------------------------------------------------------------------------------------------------------\n')
+				f.write(u'\n')
+				f.write(u'######### \n')
+				f.write(u'######### section with examples how to list available states of your devices / variables to be plotted (those that have numbers as states) \n')
+				f.write(u'######### \n')
+				f.write(u'\n')
 				for devNo in self.DEVICE:
-					DEV= self.DEVICE[str(devNo)]
+					DEV= self.DEVICE[u"{}".format(devNo)]
 					if DEV["Name"] =="":		continue
 					if DEV["Name"] =="None":	continue
-					f.write('ppp ={"deviceOrVariableName": u\''+DEV["Name"].encode('utf8').replace("'","\'")+'\',"logLevel": u\'1\'}\n')
-					f.write('plug.executeAction("showDeviceStates"       , props =ppp)\n')
-				f.write('#plug.executeAction("showDeviceStates"       , props ={"deviceOrVariableName": u\'***\',"logLevel": u\'1\'})   ### use *** for all eligible devices \n')
+					f.write(u'ppp ={{"deviceOrVariableName": u\'{}'.format(DEV["Name"])+'\',"logLevel": u\'1\'}\n')
+					f.write(u'plug.executeAction("showDeviceStates"       , props =ppp)\n')
+				f.write(u'#plug.executeAction("showDeviceStates"       , props ={"deviceOrVariableName": u\'***\',"logLevel": u\'1\'})   ### use *** for all eligible devices \n')
 
-				f.write('\n')
-				f.write('\n')
-				f.write('#########------------------------------------------------------------------------------------------------------------------------\n')
-				f.write('#########------------------------------------------------------------------------------------------------------------------------\n')
-				f.write('#########------------------------------------------------------------------------------------------------------------------------\n')
+				f.write(u'\n')
+				f.write(u'\n')
+				f.write(u'#########------------------------------------------------------------------------------------------------------------------------\n')
+				f.write(u'#########------------------------------------------------------------------------------------------------------------------------\n')
+				f.write(u'#########------------------------------------------------------------------------------------------------------------------------\n')
 
 			f.close()
 			self.indiLOG.log(20,u"command: create Python code for PLOTs in "+self.userIndigoPluginDir+fName+"    DONE")
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
+			f.close()
 			#self.quitNOW = "x"
 
 		return
@@ -2857,7 +2831,7 @@ class Plugin(indigo.PluginBase):
 	def initializeData(self):
 		if self.dataColumnCount <0: self.dataColumnCount=0
 
-		self.noOfTimeBins				=	[int((60*24*self.noOfDays[0])/noOfMinutesInTimeBins[0]), int((60*24*self.noOfDays[1])/noOfMinutesInTimeBins[1]), int((60*24*self.noOfDays[2])/noOfMinutesInTimeBins[2])]
+		self.noOfTimeBins				=	[int((60*24*self.noOfDays[0])//noOfMinutesInTimeBins[0]), int((60*24*self.noOfDays[1])//noOfMinutesInTimeBins[1]), int((60*24*self.noOfDays[2])//noOfMinutesInTimeBins[2])]
 		self.timeDataNumbers			=	[[["" for i in range(self.dataColumnCount+1+dataOffsetInTimeDataNumbers)] for l in range(self.noOfTimeBins[j])]  for j in range(noOfTimeTypes)]
 		self.timeBinNumbers				=	[[0 for l in range(self.noOfTimeBins[j])]  for j in range(noOfTimeTypes)]
 		self.newVFromIndigo				=	[0.  for i in range(self.dataColumnCount+1+dataOffsetInTimeDataNumbers)]
@@ -2886,7 +2860,6 @@ class Plugin(indigo.PluginBase):
 	#########################################
 	def addColumnToData(self):
 		self.dataColumnCount+=1
-#		self.indiLOG.log(20,"addColumnToData ")
 		for TTI in range(0,noOfTimeTypes):
 			for TBI in range (0,self.noOfTimeBins[TTI]):
 				self.timeDataNumbers[TTI][TBI].append("")
@@ -2938,9 +2911,9 @@ class Plugin(indigo.PluginBase):
 				keep="no"
 				try:
 					for stateNo in range (1,noOfStatesPerDeviceG+1):
-						if int(self.DEVICE[str(devNo)]["stateToIndex"][stateNo]) > 0 : keep = "yes"
+						if int(self.DEVICE[u"{}".format(devNo)]["stateToIndex"][stateNo]) > 0 : keep = "yes"
 					if keep =="no":
-						del self.DEVICE[str(devNo)]
+						del self.DEVICE[u"{}".format(devNo)]
 				except:
 					pass
 
@@ -2949,16 +2922,14 @@ class Plugin(indigo.PluginBase):
 					if self.redolineDataSource(calledfrom="cleanData") ==-1:
 						if self.redolineDataSource(calledfrom="cleanData") ==-1:
 							self.redolineDataSource(calledfrom="cleanData")
-	#		if self.decideMyLog("General"): self.indiLOG.log(20, u"redolineDataSource " +str(datetime.datetime.now()-d0) , 1)
 			self.putDiskData(0)
 			self.putDiskData(1)
 			self.putDiskData(2)
 			self.putconsumedDuringPeriod()
-	#		self.indiLOG.log(20, u"putDiskData " +str(datetime.datetime.now()-d0) )
 
 
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW = "uknown error cleanData"
 
 		return
@@ -2993,8 +2964,8 @@ class Plugin(indigo.PluginBase):
 					theIndex +=1
 
 			self.initMinuteDataIndex()
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW = "error shiftMinuteData"
 
 		for theCol in range(1,self.dataColumnCount+1):
@@ -3013,7 +2984,6 @@ class Plugin(indigo.PluginBase):
 				for hh in range(0,24):
 					self.timeDataNumbers[1][theIndex] 	 = self.timeDataNumbers[1][theIndex+24][:]
 					self.timeBinNumbers[1][theIndex]		 = copy.deepcopy(self.timeBinNumbers[1][theIndex+24])
-	#				if self.decideMyLog("General"): self.indiLOG.log(20,u"day index index +24 " +str(days) + " " + str(theIndex) +" " +str(theIndex+24),"shiftHourData")
 					theIndex+=1
 
 			zeroNumbers =["" for i in range(0,self.dataColumnCount+1+dataOffsetInTimeDataNumbers)]
@@ -3025,8 +2995,8 @@ class Plugin(indigo.PluginBase):
 					theIndex +=1
 
 			self.initHourDataIndex()
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW = "error shiftHourData"
 		for theCol in range(1,self.dataColumnCount+1):
 			self.valuesFromIndigo[1][theCol][4]  -= 24
@@ -3049,8 +3019,8 @@ class Plugin(indigo.PluginBase):
 			self.timeBinNumbers[2][ii+1]	= todayString+"000000"
 
 			self.initDayDataIndex()
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW = "error shiftDayData"
 		for theCol in range(1,self.dataColumnCount+1):
 			self.valuesFromIndigo[2][theCol][4]  -= 1
@@ -3085,8 +3055,8 @@ class Plugin(indigo.PluginBase):
 						for jj in range(1+dataOffsetInTimeDataNumbers,self.dataColumnCount +1+dataOffsetInTimeDataNumbers):
 							self.timeDataNumbers[0][index][jj]= ""
 						index +=1
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW = "error initMinuteDataData"
 		return
 	########################################
@@ -3104,8 +3074,8 @@ class Plugin(indigo.PluginBase):
 					for jj in range(1+dataOffsetInTimeDataNumbers,self.dataColumnCount +1+dataOffsetInTimeDataNumbers):
 						self.timeDataNumbers[1][index][jj]= ""
 					index +=1
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW =  "error initHourDataData"
 		return
 	########################################
@@ -3123,8 +3093,8 @@ class Plugin(indigo.PluginBase):
 	#			for jj in range(2,self.maxColumns+2):
 					self.timeDataNumbers[2][index][jj]= ""
 				index +=1
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW = "error initDayDataData"
 		return
 	########################################
@@ -3145,8 +3115,8 @@ class Plugin(indigo.PluginBase):
 					for  mm in range(0,60,5):
 						self.timeDataIndex[0][dateString+hh0+self.padzero(mm)+"00"]=theIndex
 						theIndex+=1
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW = "error initMinuteDataIndex"
 		return
 	########################################
@@ -3163,8 +3133,8 @@ class Plugin(indigo.PluginBase):
 					hh00=self.padzero(hh)
 					self.timeDataIndex[1][dateString+hh00+"0000"]=theIndex
 					theIndex+=1
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW = "error initHourDataIndex"
 		return
 	########################################
@@ -3179,8 +3149,8 @@ class Plugin(indigo.PluginBase):
 				dateString = theDay.strftime("%Y%m%d")
 				self.timeDataIndex[2][dateString+"000000"]=theIndex
 				theIndex+=1
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.quitNOW = "error initDayDataIndex"
 		return
 
@@ -3217,10 +3187,6 @@ class Plugin(indigo.PluginBase):
 					self.indiLOG.log(40," read file "+self.fileData[TTI] +" bad data "+line)
 					return # junk data
 
-#				self.indiLOG.log(20,str(self.timeDataIndex[TTI]))
-
-
-
 				f= open( self.fileData[TTI] , "r")
 				theIndex=0
 				for line in f.readlines():
@@ -3241,11 +3207,11 @@ class Plugin(indigo.PluginBase):
 						except:
 							pass
 				f.close()
-				self.indiLOG.log(20," read file "+self.fileData[TTI] +" lines: "+str(theIndex)+"  ok")
+				self.indiLOG.log(20," read file "+self.fileData[TTI] +" lines: {}".format(theIndex)+"  ok")
 			else:
 				return
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s' bad datafile,  restarting indigoplotD " % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(40,"Line '%s' has error='%s' bad datafile,  restarting indigoplotD " % (sys.exc_info()[2].tb_lineno, e))
 			self.quitNOW = "error getDiskData"
 		return
 	########################################
@@ -3284,8 +3250,8 @@ class Plugin(indigo.PluginBase):
 				try: 
 					dev = indigo.devices[PLT["DeviceNamePlot"]]
 					if not dev.enabled: continue
-				except  Exception, e:
-					self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+				except  Exception as e:
+					self.exceptionHandler(40, e)
 				weight =[]
 				if self.decideMyLog("Plotting") and self.gnuORmat =="gnu": self.indiLOG.log(20,u"setup gnu plotfiles for PLOT {}:\n{}".format(PLT["DeviceNamePlot"], PLT) )
 				theType = ""					
@@ -3320,7 +3286,6 @@ class Plugin(indigo.PluginBase):
 					nLine = str(iLine)
 					if not nLine in PLT["lines"]: continue
 					PLTline=PLT["lines"][nLine]
-					###self.indiLOG.log(20,unicode(PLT))
 					try:    dataIndex   = int(PLTline["lineToColumnIndexA"])
 					except: dataIndex = 0
 					try:    dataIndexB  = int(PLTline["lineToColumnIndexB"])
@@ -3330,18 +3295,17 @@ class Plugin(indigo.PluginBase):
 						if PLT["PlotType"] =="dataFromTimeSeries":
 							devNo       = self.dataColumnToDevice0Prop1Index[dataIndex][0]			# for shorter typing
 							stateNo     = self.dataColumnToDevice0Prop1Index[dataIndex][1]
-							if self.DEVICE[str(devNo)]["measurement"][stateNo].find("event") >-1 and dataIndex > 0: # 
-								fn =  unicode(self.DEVICE[unicode(devNo)]["Id"]) + "-" + self.DEVICE[unicode(devNo)]["state"][stateNo]
+							if self.DEVICE[u"{}".format(devNo)]["measurement"][stateNo].find("event") >-1 and dataIndex > 0: # 
+								fn =  u"{}-{}".format(self.DEVICE[u"{}".format(devNo)]["Id"], self.DEVICE[u"{}".format(devNo)]["state"][stateNo])
 								eventIndex.append(fn)
-								#self.indiLOG.log(20,"FNAME FOR EVENT: "+str(dataIndex)+"  "+fn)
 								columns.append(3)		
 								columnsB.append(0)
 								multFunc.append(PLTline["lineFunc"])
 								colOffset.append(0)
-								eventType.append(self.DEVICE[str(devNo)]["measurement"][stateNo][5:])
+								eventType.append(self.DEVICE[u"{}".format(devNo)]["measurement"][stateNo][5:])
 								nLines.append(nLine)	
 								ncols+=1
-							if self.DEVICE[str(devNo)]["measurement"][stateNo].find("event") ==-1:
+							if self.DEVICE[u"{}".format(devNo)]["measurement"][stateNo].find("event") ==-1:
 								eventIndex.append("")
 								columns.append(dataIndex)				
 								columnsB.append(dataIndexB)					
@@ -3415,12 +3379,11 @@ class Plugin(indigo.PluginBase):
 									firstColumn= "1"
 									using =u",'"+Fnamedata+u"' using"
 								
-								#if self.decideMyLog("Plotting"): self.indiLOG.log(20,str(ii)+" us0: "+ using)
 								nCmds=0
 								cmd=""
 								fixedTime="";tShift="";timeCondition="";yCondition1="";yCondition2="";yValue1="";yValue3="";yValue2="";theVar="";repeat="";lineType=""; title=" notitle ";axis="";smooth="";condition=[]
-								lineWidth=u" lw "+str(float(PLTline["lineWidth"]))
-								lineColor=u" lc rgb \""+str(PLTline["lineColor"])+u"\" "
+								lineWidth=u" lw {}".format(float(PLTline["lineWidth"]))
+								lineColor=u" lc rgb \"{}".format(PLTline["lineColor"])+u"\" "
 								try:
 									ofs =str(self.convertVariableOrDeviceStateToText(PLTline["lineOffset"]))
 								except:
@@ -3451,7 +3414,7 @@ class Plugin(indigo.PluginBase):
 									if columns[ii] >0:
 
 										if eventType[ii] !="None":
-												colVar = u"(($"+str(columns[ii]+ colOffset[ii])+u")"
+												colVar = u"((${}".format(columns[ii]+ colOffset[ii])+u")"
 												if float(mult) !=1.: colVar+=u"*(" +mult+u")"
 												if float(ofs)  !=0.: colVar+=u"+(" +ofs+u")"
 												colVar+=")"
@@ -3467,7 +3430,7 @@ class Plugin(indigo.PluginBase):
 										else:
 											if multFunc[ii] =="None":
 												colVar = u"("
-												colVar+= "($"+str(columns[ii]+ colOffset[ii])+u")"
+												colVar+= "(${}".format(columns[ii]+ colOffset[ii])+u")"
 												if float(mult) !=1.: colVar+=u"*(" +mult+u")"
 												if float(ofs)  !=0.: colVar+=u"+(" +ofs+u")"
 												colVar+=")"
@@ -3478,7 +3441,7 @@ class Plugin(indigo.PluginBase):
 		
 		
 											elif multFunc[ii] =="E" : # blob ps variable
-												yValue1 = u"($"+str(columns[ii]+ colOffset[ii])+ u"*(" +mult+ u")+(" +ofs+ u"))"
+												yValue1 = u"(${}".format(columns[ii]+ colOffset[ii])+ u"*(" +mult+ u")+(" +ofs+ u"))"
 												colB = str(columnsB[ii]+colOffset[ii])
 												weight.append(colB)
 												yValue2 =u":($"+colB+u"/(max"+colB+u"-min"+colB+u")*10)"
@@ -3487,7 +3450,7 @@ class Plugin(indigo.PluginBase):
 												if len(PLTline["lineKey"]) >0:
 													title =u" title \""+PLTline["lineKey"]+u"\"  "
 											elif multFunc[ii] =="S": # blob ps variable
-												yValue1= u"($"+str(columns[ii]+ colOffset[ii])+ "*(" +mult+ ")+(" +ofs+ "))"
+												yValue1= u"(${}".format(columns[ii]+ colOffset[ii])+ "*(" +mult+ ")+(" +ofs+ "))"
 												colB = str(columnsB[ii]+colOffset[ii])
 												weight.append(colB)
 												yValue2 =":($"+colB+"/(max"+colB+"-min"+colB+")*10)"
@@ -3496,33 +3459,33 @@ class Plugin(indigo.PluginBase):
 												if len(PLTline["lineKey"]) >0:
 													title =" title \""+PLTline["lineKey"].encode('utf8')+"\"  "
 											elif multFunc[ii] =="C": # blob color plot
-												yValue1 = "($"+str(columns[ii]+ colOffset[ii])+ "*(" +mult+ ")+(" +ofs+ "))"
+												yValue1 = "(${}".format(columns[ii]+ colOffset[ii])+ "*(" +mult+ ")+(" +ofs+ "))"
 												colB = str(columnsB[ii]+colOffset[ii])
 												yValue2 =u":"+colB
-												lineType=u"  with  points pt 7 ps "+str(float(PLTline["lineWidth"]))+u" lt palette"
+												lineType=u"  with  points pt 7 ps {}".format(float(PLTline["lineWidth"]))+u" lt palette"
 												lineColor=u""
 												linewidth=u""
 												if len(PLTline["lineKey"]) >0:
 													title =u" title \""+PLTline["lineKey"]+u"\"  "
 												colorbar=True
 											else:
-												colVar = u"(($"+str(columns[ii]+ colOffset[ii])+u" " + str(multFunc[ii])+u" $"+str(columnsB[ii]+colOffset[ii])+")"
+												colVar = u"((${}".format(columns[ii]+ colOffset[ii])+u" {}".format(multFunc[ii])+u" ${}".format(columnsB[ii]+colOffset[ii])+")"
 												if float(mult) !=1.: colVar+=u"*(" +mult+u")"
 												if float(ofs)  !=0.: colVar+=u"+(" +ofs+u")"
 												colVar+=")"
 												condition.append(u"("+colVar+u" > ("+minY+u"))")
 												yValue1 = colVar
 														
-										if   lineShift>0: tShift+="+"+str(lineShift)+u"*60*60*24"
+										if   lineShift>0: tShift+="+{}".format(lineShift)+u"*60*60*24"
 										elif lineShift<0: tShift+=str(lineShift)+u"*60*60*24"
 								
 
 									elif columns[ii] <0 and PLT["PlotType"] == "dataFromTimeSeries": # straight line 
-										yValue1 = u"(($7-" +str(earliestBinsToPlot[TTI])+ u")*(" +str( (float(mult)-float(ofs))/max(10., float(noOfBinsToPlot[TTI])) )+ ")+(" +ofs+ ")) "
+										yValue1 = u"(($7-{}".format(earliestBinsToPlot[TTI])+ u")*({}".format( (float(mult)-float(ofs))/max(10., float(noOfBinsToPlot[TTI])) )+ ")+(" +ofs+ ")) "
 										condition =[]
-										if   lineShift>0: tShift+=u"+"+str(lineShift)+u"*60*60*24"
+										if   lineShift>0: tShift+=u"+{}".format(lineShift)+u"*60*60*24"
 										elif lineShift<0: tShift+=str(lineShift)+u"*60*60*24"
-		##using="using (timecolumn(1)+"+str(lineShift)+"*60*60*24):"
+		##using="using (timecolumn(1)+{}".format(lineShift)+"*60*60*24):"
 
 								else: # its polar coordinates, use colb for angle and col a for range
 						
@@ -3530,13 +3493,13 @@ class Plugin(indigo.PluginBase):
 									if PLT["PlotType"]==u"dataFromTimeSeries":
 										fixedTime= str(columnsB[ii]+colOffset[ii])
 										condition.append(u"($"+firstColumn+">="+earliestDay[TTI][:timeStrLength]+".)")
-										colVar = u"($"+str(columns[ii]+colOffset[ii])
+										colVar = u"(${}".format(columns[ii]+colOffset[ii])
 										if float(mult) !=1.: colVar+=u"*(" +mult+u")"
 										if float(ofs)  !=0.: colVar+=u"+(" +ofs+u")"
 										yValue1= colVar+")"
 										#yValue1 = "(($"+firstColumn+">="+earliestDay[TTI][:timeStrLength]+".?$"  +str(columns[ii]+colOffset[ii])+":1/0)*"  +mult+  "+"  +ofs+  ") "
 									else:
-										colVar = "(($"+str(columns[ii]+colOffset[ii])+u")"
+										colVar = "((${}".format(columns[ii]+colOffset[ii])+u")"
 										if float(mult) !=1.: colVar+=u"*(" +mult+u")"
 										if float(ofs)  !=0.: colVar+=u"+(" +ofs+u")"
 										yValue1= colVar+")"
@@ -3552,7 +3515,6 @@ class Plugin(indigo.PluginBase):
 											fromTo2+= u"000000000000"
 											fromTo2 = fromTo2[:timeStrLength]
 										condition.append(u"($"+firstColumn+" >= "+fromTo1+u".) && ($"+firstColumn+" <="+fromTo2+u".)")
-										##self.indiLOG.log(20," from to: "+ fromTo1+"  "+ fromTo2+"  "+ unicode(condition))
 								   
 
 								yval =False
@@ -3589,7 +3551,6 @@ class Plugin(indigo.PluginBase):
 										   lR =="maxDay" or
 										   lR =="maxMonth" or
 										   lR =="minMonth" ):
-										#if self.decideMyLog("Plotting"): self.indiLOG.log(20, lR+ "  "+str(TTI )   )
 										condition =[]
 										yValue2 = u""
 										yValue1 = u"2"
@@ -3609,7 +3570,7 @@ class Plugin(indigo.PluginBase):
 										try:
 											DD = lR[7:8]
 											int(DD)
-											condition.append("$3=="+str(dd))
+											condition.append("$3=={}".format(dd))
 										except:
 											pass    
 
@@ -3627,7 +3588,7 @@ class Plugin(indigo.PluginBase):
 									
 
 									elif lR==u"firstBin":
-										repeat= u" every 20000::"+str(max(1,earliestBinsToPlot[TTI]))+" "
+										repeat= u" every 20000::{}".format(max(1,earliestBinsToPlot[TTI]))+" "
 							
 									elif lR==u"lastBin":  # curr value at last bin
 										repeat=" "
@@ -3642,26 +3603,26 @@ class Plugin(indigo.PluginBase):
 										condition=[]
 
 									elif lR==u"max":
-										cmd=u"stats '" + Fnamedata+u"'  using  ($0>"+str(earliestBinsToPlot[TTI])+u" && $0 <"+str(int(earliestBinsToPlot[TTI])+ int(noOfBinsToPlot[TTI])+2)+")?"+yValue1+u":(1/0) nooutput \n"
+										cmd=u"stats '" + Fnamedata+u"'  using  ($0>{}".format(earliestBinsToPlot[TTI])+u" && $0 <{}".format(int(earliestBinsToPlot[TTI])+ int(noOfBinsToPlot[TTI])+2)+")?"+yValue1+u":(1/0) nooutput \n"
 										cmd+=u"xval"+nCmds+u" = STATS_index_max\n"
 										cmd+=u"yval"+nCmds+u" = STATS_max\n"
 										numberCommands.append(cmd)
-										repeat= " every 20000::(xval"+nCmds+"+1+"+str(earliestBinsToPlot[TTI])+")"  # only once
+										repeat= " every 20000::(xval"+nCmds+"+1+{}".format(earliestBinsToPlot[TTI])+")"  # only once
 										yval=True
 										condition=[]
 
 									elif lR=="min":
-										cmd=u"stats '" + Fnamedata+u"'  using  ($0>"+str(earliestBinsToPlot[TTI])+u" && $0 <"+str(int(earliestBinsToPlot[TTI])+ int(noOfBinsToPlot[TTI])+2)+u")?"+yValue1+u":(1/0) nooutput \n"
+										cmd=u"stats '" + Fnamedata+u"'  using  ($0>{}".format(earliestBinsToPlot[TTI])+u" && $0 <{}".format(int(earliestBinsToPlot[TTI])+ int(noOfBinsToPlot[TTI])+2)+u")?"+yValue1+u":(1/0) nooutput \n"
 										cmd+=u"xval"+nCmds+u" = STATS_index_min\n"
 										cmd+=u"yval"+nCmds+u" = STATS_min\n"
 										numberCommands.append(cmd)
-										repeat= " every 20000::(xval"+nCmds+"+1+"+str(earliestBinsToPlot[TTI])+")"  # only once
+										repeat= " every 20000::(xval"+nCmds+"+1+{}".format(earliestBinsToPlot[TTI])+")"  # only once
 										yval=True
 										condition=[]
 									else:
 										try: 
 											int(lR)
-											repeat= " every "+lR+"::"+str(earliestBinsToPlot[TTI])
+											repeat= " every "+lR+"::{}".format(earliestBinsToPlot[TTI])
 											condition=[]
 										except:
 											pass    
@@ -3672,14 +3633,13 @@ class Plugin(indigo.PluginBase):
 								elif multFunc[ii] ==u"C"				:	pass
 								elif PLTLtype ==u"Numbers"			:
 										lineWidth = ""
-										if PLTline["lineWidth"] != "0": lineWidth =u' font ",'+unicode(int(int(PLTline["lineWidth"])*2.5+5))+u'"'
+										if PLTline["lineWidth"] != "0": lineWidth = u' font ",{}"'.format(int(int(PLTline["lineWidth"])*2.5+5))
 										lineColor= u' textcolor rgb "'+PLTline["lineColor"]+u'"'
 
 										if yval:
-											yValue2 =u' (sprintf("'+PLTline["lineNumbersFormat"]+u'",yval'+unicode(nCmds)+u'))'
-											lineType =u' with labels left offset char '+PLTline["lineNumbersOffset"]
+											yValue2 =u' (sprintf("'+PLTline["lineNumbersFormat"]+u'",yval{}))'.format(nCmds)
+											lineType =u' with labels left offset char {}'.format(PLTline["lineNumbersOffset"])
 											title=u' notitle '
-											#lineType =': (sprintf("'+PLTline["lineNumbersFormat"]+'",yval'+str(nCmds)+')) '+repeat+' with labels left '+txs+txc+' offset char '+PLTline["lineNumbersOffset"] +' notitle'
 											condition=[]
 										else:
 											lineType =u' with labels left offset char '+PLTline["lineNumbersOffset"]
@@ -3687,11 +3647,10 @@ class Plugin(indigo.PluginBase):
 											title=u' notitle '
 											condition=[]
 
-		#								outl2 =': (sprintf("'+PLTline["lineNumbersFormat"]+'",$'+str(columns[ii]+colOffset[ii])+')) '+repeat+' with labels '+txs+txc+' offset char '+PLTline["lineNumbersOffset"] +' notitle'
 								else:
 						
 										if   PLTLtype.find("DOT")>-1:
-											lineWidth= " ps "+str(float(PLTline["lineWidth"]))
+											lineWidth= " ps {}".format(float(PLTline["lineWidth"]))
 										if   PLTLtype ==u"DOT."			:
 											if self.gnuVersion.find("4.") >-1:
 												lineType = u" with points pt 0"
@@ -3726,7 +3685,7 @@ class Plugin(indigo.PluginBase):
 											condition=[]
 											outl =u"#"
 											nCmds= str(len(numberCommands))
-											cmd=u"stats '" + Fnamedata+u"'  using  ($0>"+str(earliestBinsToPlot[TTI])+u" && $0 <"+str(int(earliestBinsToPlot[TTI])+ int(noOfBinsToPlot[TTI])+2)+u")?"+yValue1+u":(1/0) nooutput \n"
+											cmd=u"stats '" + Fnamedata+u"'  using  ($0>{}".format(earliestBinsToPlot[TTI])+u" && $0 <{}".format(int(earliestBinsToPlot[TTI])+ int(noOfBinsToPlot[TTI])+2)+u")?"+yValue1+u":(1/0) nooutput \n"
 											cmd+=u"aver"+nCmds+u" = STATS_mean\n"
 											#outl1 = "using 1:(+yval"+nCmds+") "
 											numberCommands.append(cmd)
@@ -3741,9 +3700,9 @@ class Plugin(indigo.PluginBase):
 												arrows.append(u'set arrow from '+firstSecond+u' secsFirstBin,aver'+str(nCmds)+u' to '+firstSecond+u' (secsFirstBin+'+str(nbinsForLine)+u'),aver'+str(nCmds)+u' nohead '+lineWidth +lineColor +u' front')  # average Left)
 												outLine.append("#")
 												continue
-												#repeat= " every ::"+str(earliestBinsToPlot[TTI])+"::"+str(int(earliestBinsToPlot[TTI])+nbinsForLine)+" "  # short line left
+												#repeat= " every ::{}".format(earliestBinsToPlot[TTI])+"::{}".format(int(earliestBinsToPlot[TTI])+nbinsForLine)+" "  # short line left
 											if PLTLtype =="averageRight"	:
-												#repeat= " every ::"+str(int(earliestBinsToPlot[TTI])+ int(noOfBinsToPlot[TTI])-nbinsForLine)+"::"+str(self.noOfTimeBins[TTI]+1)+" "  # short line right
+												#repeat= " every ::{}".format(int(earliestBinsToPlot[TTI])+ int(noOfBinsToPlot[TTI])-nbinsForLine)+"::{}".format(self.noOfTimeBins[TTI]+1)+" "  # short line right
 												arrows.append(u'set arrow from '+firstSecond+u' secsLastBin,aver'+str(nCmds)+u' to '+firstSecond+u' (secsLastBin-'+str(nbinsForLine)+u'),aver'+str(nCmds)+u' nohead '+lineWidth +lineColor +u' front') # average Left')
 												outLine.append("#")
 												continue
@@ -3764,8 +3723,8 @@ class Plugin(indigo.PluginBase):
 									elif PLTline["lineSmooth"].find("medium" ) >=0 : 			smooth = u" smooth csplines"
 									elif PLTline["lineSmooth"].find("strong" ) >=0 : 			smooth = u" smooth bezier"
 									elif PLTline["lineSmooth"].find("trailingAverage" ) >=0 :
-			#									cmd ="samples10(x) = $0 > 9 ? 10 : ($0-"+str(earliestBinsToPlot[TTI])+"+1)\n"
-			#									cmd+="avg10(x) = (shift10(x), (back1+back2+back3+back4+back5+back6+back7+back8+back9+back10)/samples10($0-"+str(earliestBinsToPlot[TTI])+"))\n"
+			#									cmd ="samples10(x) = $0 > 9 ? 10 : ($0-{}".format(earliestBinsToPlot[TTI])+"+1)\n"
+			#									cmd+="avg10(x) = (shift10(x), (back1+back2+back3+back4+back5+back6+back7+back8+back9+back10)/samples10($0-{}".format(earliestBinsToPlot[TTI])+"))\n"
 			#									cmd+="shift10(x) = (back10 = back9,back9 = back8,back8 = back7,back7 = back6,back6 = back5,back5 = back4, back4 = back3, back3 = back2, back2 = back1, back1 = x)\n"
 			#									cmd+="init10(x) = (back1 = back2 = back3 = back4 = back5 = back6 = back7 = back8 = back9 = back10 = 0)\n"
 												cmd+=u"b1 = b2 = b3 = b4 = b5 = 0\n"
@@ -3778,18 +3737,18 @@ class Plugin(indigo.PluginBase):
 											
 									elif PLTline["lineSmooth"].find("average3Bins" ) >=0 and PLT["PlotType"] == "dataFromTimeSeries":
 												numberCommands.append("Y2=Y1=Y=0\n")
-												tShift+=u"-"+str(noOfMinutesInTimeBins[TTI]*60)
+												tShift+=u"-{}".format(noOfMinutesInTimeBins[TTI]*60)
 												yValue1 = u"(  ( Y2 = Y1, Y1 = Y, Y = "+yValue1+u"), (Y+Y1+Y2)/3.  )"
 												cond1 = u""; cond2 = u""; condition=[]
 									elif PLTline["lineSmooth"].find("combine3Bins" ) >=0  and PLT["PlotType"] == "dataFromTimeSeries":
 												numberCommands.append(u"Y4=Y3=Y2=Y1=Y=0\n")
-												tShift+= u"-"+str(noOfMinutesInTimeBins[TTI]*60*2)
+												tShift+= u"-{}".format(noOfMinutesInTimeBins[TTI]*60*2)
 												yValue1 = u"(   (Y4=Y3,Y3=Y2,Y2=Y1,Y1=Y,Y="+yValue1+u"), int($0)%3==0 ? (Y2+Y1+Y)/3. :( int($0)%3==1 ?  (Y3+Y2+Y1)/3. : (Y4+Y3+Y2)/3. )   )"
 												condition=[]
 
 
 		#						if columns[ii] <0:
-		#							outl = outl+";;"+PLTline["lineKey"].encode('utf8') +";;"+str(columns[ii])       
+		#							outl = outl+";;"+PLTline["lineKey"].encode('utf8') +";;{}".format(columns[ii])       
  
 								outl=using
 								if fixedTime !="":
@@ -3815,7 +3774,6 @@ class Plugin(indigo.PluginBase):
 								outl+= title
 								outl+= axis 
 								outl+= smooth+u"\\\n"
-								#if self.decideMyLog("Plotting"): self.indiLOG.log(20,str(ii)+ " outline0: "+outl)
 								outLine.append(self.convertVariableOrDeviceStateToText(outl))
 	
 						try: # if empty set to 10
@@ -3868,8 +3826,8 @@ class Plugin(indigo.PluginBase):
 								weight,colorbar,
 								numberCommands,arrows,
 								rawcmd,PLT["drawZeroLine"],ncols+1 ,outLine)
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'error in setupGNUPlotFiles" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(40,"Line '%s' has error='%s'error in setupGNUPlotFiles" % (sys.exc_info()[2].tb_lineno, e))
 
 
 		return
@@ -3879,7 +3837,6 @@ class Plugin(indigo.PluginBase):
 		earliestBin =[0,0,0]
 		numberOfBins =[0,0,0]
 		for  TTI in range(noOfTimeTypes):
-#			self.indiLOG.log(20,"  earliestDay "+(earliestDay[TTI][:8+(4-nType*2)])+"  lastDay "+(lastDay[TTI][:8+(4-nType*2)])+"  timeBinNumbers "+(self.timeBinNumbers[TTI][0])+"   "+(self.timeBinNumbers[TTI][self.noOfTimeBins[TTI]-1]))
 			try:
 				earliestBin[TTI]= self.timeBinNumbers[TTI].index(earliestDay[TTI])
 			except:
@@ -3889,7 +3846,6 @@ class Plugin(indigo.PluginBase):
 				numberOfBins[TTI]= self.timeBinNumbers[TTI].index(lastDay[TTI])-earliestBin[TTI]
 			except:
 				numberOfBins[TTI]= self.noOfTimeBins[TTI]-earliestBin[TTI]
-#			self.indiLOG.log(20,"  earliestBin "+str(earliestBin[TTI])+"  numberOfBins "+str(numberOfBins[TTI]))
 		return earliestBin, numberOfBins
 	########################################
 	def firstLastDayToPlot(self,days, shift, TTI,stTime):
@@ -3974,7 +3930,6 @@ class Plugin(indigo.PluginBase):
 		,rawCmd,drawZeroLine,numberOfLines , theLines ):
 
 
-#		self.indiLOG.log(20,u" createGNUfile labelY " +labelY )
 		if nDays ==0 and theType !="Xscale" : return
 		# first part if format, second part is major tick frequency in secs 
 		try: # dont use  it if it is a number, then it is meant for matplot  
@@ -3992,7 +3947,7 @@ class Plugin(indigo.PluginBase):
 			
 		try:
 			
-			if self.decideMyLog("Plotting") and self.gnuORmat =="gnu": self.indiLOG.log(20,"lines: "+ unicode(theLines))
+			if self.decideMyLog("Plotting") and self.gnuORmat =="gnu": self.indiLOG.log(20,"lines: {}".format(theLines))
 			f= open( gnuFile , "w")
 			f.write((u"#!'" + gnuFile+u"'   \n").encode('utf8'))					# just a comment
 			f.write(u'set datafile separator ";" \n')
@@ -4009,7 +3964,6 @@ class Plugin(indigo.PluginBase):
 				f.write("###\n")
 
 			if colorbar:
-	#			self.indiLOG.log(20,"colorbar "+str(colorbar))
 				f.write("###  set colorbar size and positions \n")
 				f.write("set colorbox vertical user origin 0.98, 0.1 size  0.02, .8\n")
 				f.write("set cbtics axis nomirror out offset -7.5 left\n")
@@ -4038,14 +3992,14 @@ class Plugin(indigo.PluginBase):
 			## this is for plotting dos and specific times, need current time..
 
 			f.write("\n### time now in secs, etc parameters \n")
-			f.write("binSecs= "+str(noOfMinutesInTimeBins[TTI]*60)+"\n")
-			f.write("timeNow=time(0)-("+str(self.UTCdelta)+") # dif to UTC \n")
+			f.write("binSecs= {}".format(noOfMinutesInTimeBins[TTI]*60)+"\n")
+			f.write("timeNow=time(0)-({}".format(self.UTCdelta)+") # dif to UTC \n")
 			f.write("timeNowSec= timeNow/binSecs*binSecs\n")
 
 			secs 	= time.mktime(datetime.datetime.strptime(lastDay, "%Y%m%d%H%M%S").timetuple())
-			f.write("secsLastBin="+str(int(secs))+"-("+str(int(self.gnuOffset))+")-("+str(self.UTCdelta)+")\n")# for v4 Millenium-epoch seconds\n")
+			f.write("secsLastBin={}".format(int(secs))+"-({}".format(int(self.gnuOffset))+")-({}".format(self.UTCdelta)+")\n")# for v4 Millenium-epoch seconds\n")
 			secs2	= time.mktime(datetime.datetime.strptime(earliestDay, "%Y%m%d%H%M%S").timetuple())
-			f.write("secsFirstBin="+str(int(secs2))+"-("+str(int(self.gnuOffset))+")-("+str(self.UTCdelta)+")\n") # for v4 Millenium-epoch seconds\n\n")
+			f.write("secsFirstBin={}".format(int(secs2))+"-({}".format(int(self.gnuOffset))+")-({}".format(self.UTCdelta)+")\n") # for v4 Millenium-epoch seconds\n\n")
 
 
 
@@ -4064,16 +4018,16 @@ class Plugin(indigo.PluginBase):
 
 
 		
-				f.write('unset xlabel \n')
-				f.write('unset ylabel \n')
-				f.write('unset ytics \n')
-				f.write('unset xtics \n')
-				f.write('unset border \n')
-				f.write('set polar\n')
-				f.write('set angles radian\n')
-				f.write('set clip\n')
-				f.write('set lmargin 2\n')
-				f.write('set rmargin 2\n')
+				f.write(u'unset xlabel \n')
+				f.write(u'unset ylabel \n')
+				f.write(u'unset ytics \n')
+				f.write(u'unset xtics \n')
+				f.write(u'unset border \n')
+				f.write(u'set polar\n')
+				f.write(u'set angles radian\n')
+				f.write(u'set clip\n')
+				f.write(u'set lmargin 2\n')
+				f.write(u'set rmargin 2\n')
 				if len(title) > 1:
 					f.write('set tmargin 2.5\n')
 				else:
@@ -4148,7 +4102,7 @@ class Plugin(indigo.PluginBase):
 								f.write((u'set label "'  +labelX+  u'" at '  +str(xx-(dxL*(1.+lOffset))*float(textSize)/10.)+  u',' +str(dx*2)+ u' center textcolor rgb "'+textColor+u'"\n').encode('utf8'))
 						elif  len(labelY) > 6 and labelY.count(",")==11:
 							for i in range (0,12):
-								f.write(("set label '"+polarLabels[i]+"' at "+ str(xx*math.cos((450 -i*30)*math.pi/180.))+","+str(xx*math.sin((450-i*30)*math.pi/180.))+u" center  textcolor rgb \""+textColor+u"\"\n").encode('utf8'))
+								f.write(("set label '"+polarLabels[i]+"' at {}".format(xx*math.cos((450 -i*30)*math.pi/180.))+",{}".format(xx*math.sin((450-i*30)*math.pi/180.))+u" center  textcolor rgb \""+textColor+u"\"\n").encode('utf8'))
 
 				f.write(rawCmd+" \n")
 				firstL =False
@@ -4257,7 +4211,6 @@ class Plugin(indigo.PluginBase):
 
 		#		if len(background) > 2: f.write("set object 1 rectangle from screen 0,0 to screen 1,1 fillcolor "+background+" behind\n")
 
-	#			self.indiLOG.log(20,u" createGNUfile grid " +grid )
 
 				if grid.find("0")==-1:
 					if   grid.find("only")>-1:
@@ -4267,7 +4220,6 @@ class Plugin(indigo.PluginBase):
 					else:
 						if grid.find("y2")>-1:		gridxyy2 =" xtics y2tics"
 						else:						gridxyy2 =" xtics ytics "
-	#				self.indiLOG.log(20,u" createGNUfile gridxyy2 " +gridxyy2 )
 					if   str(grid).find("-1")==0:
 						f.write((u'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n').encode('utf8'))
 						f.write((u"set grid "+gridxyy2+" front ls 100 \n").encode('utf8'))
@@ -4347,8 +4299,8 @@ class Plugin(indigo.PluginBase):
 					f.write((u" ,\n").encode('utf8'))
 				
 			f.close()
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'error in createGNUfile" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(40,"Line '%s' has error='%s'error in createGNUfile" % (sys.exc_info()[2].tb_lineno, e))
 
 	########################################
 	def convertVariableOrDeviceStateToText(self,textIn):
@@ -4367,11 +4319,10 @@ class Plugin(indigo.PluginBase):
 				if not rCode: break
 			try:
 				if oneFound and (textIn.find("+")>-1 or  textIn.find("-")>-1 or textIn.find("/")>-1 or textIn.find("*")>-1):
-					textIn = unicode(eval(textIn))
+					textIn = u"{}".format(eval(textIn))
 			except: pass        
-		except  Exception, e:
-			if len(unicode(e)) > 5:
-				if self.decideMyLog("Plotting"): self.indiLOG.log(40,u"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			if self.decideMyLog("Plotting"): self.indiLOG.log(40,u"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
 		return textIn
 		
 	########################################
@@ -4408,9 +4359,8 @@ class Plugin(indigo.PluginBase):
 				return textOut, True
 			except:
 				return textIn, False
-		except  Exception, e:
-			if len(unicode(e)) > 5:
-				if self.decideMyLog("Plotting"): self.indiLOG.log(40,u"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			if self.decideMyLog("Plotting"): self.indiLOG.log(40,u"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
 		return textIn, False
 
 
@@ -4439,10 +4389,10 @@ class Plugin(indigo.PluginBase):
 			state   = textOut[:percent]
 			textOut = textOut[percent+2:]
 			try:
-				vText= unicode(indigo.devices[int(dev)].states[state])
+				vText= u"{}".format(indigo.devices[int(dev)].states[state])
 			except:
 				try:
-					vText= unicode(indigo.devices[dev].states[state])
+					vText= u"{}".format(indigo.devices[dev].states[state])
 				except:
 					return textIn, False
 			try:
@@ -4453,9 +4403,8 @@ class Plugin(indigo.PluginBase):
 				return textOut, True
 			except:
 				return textIn, False
-		except  Exception, e:
-			if len(unicode(e)) > 5:
-				if self.decideMyLog("Plotting"): self.indiLOG.log(40,u"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			if self.decideMyLog("Plotting"): self.indiLOG.log(40,u"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
 		return textIn, False
 	   
 		
@@ -4463,7 +4412,6 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def validateActionConfigUi(self, valuesDict, typeId, devId):
-#		if self.decideMyLog("General"): self.indiLOG.log(40,u"validateActionConfigUi  ... "+unicode(valuesDict))
 		return True, valuesDict
 
 
@@ -4512,8 +4460,8 @@ class Plugin(indigo.PluginBase):
 					deviceTypeId="plots",
 					configured=True
 					 )
-			except  Exception, e:
-				self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+			except  Exception as e:
+				self.exceptionHandler(40, e)
 				self.indiLOG.log(40,u"createOrModifyPlot-- device "+action["deviceNameOfPlot"]+" could not be created, unkonow error")
 				self.responseToActionInVariable(msg="error: device "+action["deviceNameOfPlot"]+" could not be created, unkonow error" )
 				return
@@ -4527,7 +4475,7 @@ class Plugin(indigo.PluginBase):
 			self.PLOT[nPlot]["lines"]["0"]		= copy.deepcopy(emptyLine)
 			self.PLOT[nPlot]["DeviceNamePlot"]	= action["deviceNameOfPlot"]
 
-		if self.decideMyLog("Restore"): self.indiLOG.log(20,u"createOrModifyPlot-- "+unicode(self.PLOT[nPlot]))
+		if self.decideMyLog("Restore"): self.indiLOG.log(20,u"createOrModifyPlot-- {}".format(self.PLOT[nPlot]))
 
 
 # fill props with default or existing numbers if not given
@@ -4577,8 +4525,8 @@ class Plugin(indigo.PluginBase):
 			action[key]				=self.PLOT[nPlot][key]
 
 		action, error, xxx,xxx2 = self.buttonConfirmPlotCALLBACKcheck(action, typeId="", targetId=theTargetId,script=True)															# store userinput
-		if len(error) > 2: self.indiLOG.log(30,u"createOrModifyPlot-- error:  "+unicode(error))
-		self.indiLOG.log(30,u"createOrModifyPlot-- plot("+str(nPlot)+":  "+unicode(self.PLOT[nPlot]))
+		if len(error) > 2: self.indiLOG.log(30,u"createOrModifyPlot-- error:  {}".format(error))
+		self.indiLOG.log(30,u"createOrModifyPlot-- plot({}".format(nPlot)+":  {}".format(self.PLOT[nPlot]))
 		if error =="":
 			props=dev.pluginProps
 			for theProp in self.PLOT[nPlot]:
@@ -4594,12 +4542,11 @@ class Plugin(indigo.PluginBase):
 			dev.replacePluginPropsOnServer(props)
 			self.writePlotParameters()
 			self.setupGNUPlotFiles(calledfrom="createOrModifyPlotCALLBACKaction")
-			if self.decideMyLog("Restore"): self.indiLOG.log(20,u"createOrModifyPlot--  plot   "+unicode(props))
+			if self.decideMyLog("Restore"): self.indiLOG.log(20,u"createOrModifyPlot--  plot   {}".format(props))
 			self.responseToActionInVariable(msg="ok: plot modified")
 		else:
 			self.responseToActionInVariable(msg=error)
 		self.waitWithPLOTsync =False
-#		self.indiLOG.log(20,u"createOrModifyPlotCALLBACK  ...plot[nplot]:  "+unicode(self.PLOT[nPlot]))
 		return
 		
 	########################################
@@ -4619,7 +4566,7 @@ class Plugin(indigo.PluginBase):
 			if action["deviceNameOfPlot"] == self.PLOT[nPlot]["DeviceNamePlot"]:
 				dev = indigo.devices[action["deviceNameOfPlot"]]
 				theTargetId = dev.id
-				if self.decideMyLog("Restore"): self.indiLOG.log(30,u"deletePlot--  device name , id: "+action["deviceNameOfPlot"]+"  "+str(theTargetId))
+				if self.decideMyLog("Restore"): self.indiLOG.log(30,u"deletePlot--  device name , id: "+action["deviceNameOfPlot"]+"  {}".format(theTargetId))
 				indigo.device.delete(theTargetId)
 				del self.PLOT[nPlot]
 				self.responseToActionInVariable(msg="ok: plot deleted")
@@ -4646,20 +4593,16 @@ class Plugin(indigo.PluginBase):
 		theTargetId = -1
 		dev =""
 		for nPlot in self.PLOT:
-#			self.indiLOG.log(20,u"deleteLineCALLBACKaction  .Fname.. "+unicode(self.PLOT[nPlot]["DeviceNamePlot"]))
 			if action["deviceNameOfPlot"] == self.PLOT[nPlot]["DeviceNamePlot"]:
 				dev = indigo.devices[action["deviceNameOfPlot"]]
 				theTargetId = dev.id
-#				self.indiLOG.log(20,u"deleteLineCALLBACKaction ..device id: "+str(theTargetId))
 				break
 		if theTargetId ==-1:
-#			self.indiLOG.log(20,u"deleteLineCALLBACKaction ..device not found "+action["deviceNameOfPlot"])
 			self.responseToActionInVariable(msg="error: device not found")
 			return
 
 		nLine=str(action["lineNumber"])
 		if not nLine in self.PLOT[nPlot]["lines"]:
-#			self.indiLOG.log(20,u"deleteLineCALLBACKaction ..lineNumber not found "+nLine)
 			self.responseToActionInVariable(msg="error: line not found")
 			return
 		del self.PLOT[nPlot]["lines"][nLine]
@@ -4675,7 +4618,7 @@ class Plugin(indigo.PluginBase):
 	def deleteDeviceAndStateFromSelectionList(self, action):
 		logLevel = self.getLogLevel(action)
 
-		self.indiLOG.log(30,u"deleteDataSource-- " +unicode(action))
+		self.indiLOG.log(30,u"deleteDataSource-- {}".format(action))
 		if not "deviceOrVariableName" in action:
 			self.responseToActionInVariable(msg="error: no deviceOrVariableToBedeleted given")
 			return
@@ -4691,7 +4634,6 @@ class Plugin(indigo.PluginBase):
 			if devNo =="0": continue
 			if  self.DEVICE[devNo]["Name"] != action["deviceOrVariableName"]: continue
 			for stateNo in  range(1,noOfStatesPerDeviceG+1):
-#					if self.decideMyLog("Restore"): self.indiLOG.log(20,u" createOrModifyLineCALLBACK state   " + unicode(self.DEVICE[devNo]["state"][jj]))
 				if  self.DEVICE[devNo]["state"][stateNo]  		!= action["state"]: 		continue
 				if  self.DEVICE[devNo]["measurement"][stateNo] 	!= action["measurement"]: continue
 				found =True
@@ -4701,17 +4643,13 @@ class Plugin(indigo.PluginBase):
 		if not found:
 			self.responseToActionInVariable(msg="error: device/state/measurement does not exist")
 			return
-#		if self.decideMyLog("Restore"): self.indiLOG.log(20,u"deleteDataSourceCALLBACKaction ..DEVICE.1." +str(json.dumps([self.DEVICE],sort_keys=True, indent=2)))
-
-#		self.indiLOG.log(20,u"deleteDataSourceCALLBACKaction ..devNo" +str(devNo))
 		devNo=int(devNo)
 
 		self.removePropFromDevice(devNo,stateNo)
-#		if self.decideMyLog("Restore"): self.indiLOG.log(20,u"deleteDataSourceCALLBACKaction ..DEVICE.2." +str(json.dumps([self.DEVICE],sort_keys=True, indent=2)))
 
 		remDev=True
 		for stateNo in  range(1,noOfStatesPerDeviceG+1):
-			if  self.DEVICE[str(devNo)]["stateToIndex"][stateNo]  	>0:
+			if  self.DEVICE[u"{}".format(devNo)]["stateToIndex"][stateNo]  	>0:
 				self.responseToActionInVariable(msg="ok: device/state/measurement removed")
 				remDev=False
 				break
@@ -4720,7 +4658,6 @@ class Plugin(indigo.PluginBase):
 			self.removeThisDevice.append(devNo)
 			self.removeDevice()
 
-#		if self.decideMyLog("Restore"): self.indiLOG.log(20,u"deleteDataSourceCALLBACKaction ..DEVICE.3." +str(json.dumps([self.DEVICE],sort_keys=True, indent=2)))
 		self.responseToActionInVariable(msg="ok: device with all its states removed from tracking")
 		return
 
@@ -4733,7 +4670,7 @@ class Plugin(indigo.PluginBase):
 	def deleteDeviceFromSelectionList(self,action):
 		logLevel = self.getLogLevel(action)
 		
-		if self.decideMyLog("Restore"): self.indiLOG.log(20,u"deleteDataSource-- " +unicode(action))
+		if self.decideMyLog("Restore"): self.indiLOG.log(20,u"deleteDataSource-- {}".format(action))
 		if not "deviceOrVariableName" in action:
 			self.responseToActionInVariable(msg="error: no deviceOrVariableToBedeleted given")
 			return
@@ -4774,7 +4711,6 @@ class Plugin(indigo.PluginBase):
 		self.indiLOG.log(30,u"List Device & Variable States-- that contain numbers")
 		for nDev in range(1,len(self.listOfPreselectedDevices)):
 			name=self.listOfPreselectedDevices[nDev][1]
-#			self.indiLOG.log(20,u"showDeviceStates--"+name)
 			if self.listOfPreselectedDevices[nDev][1].find("Var-") >-1:
 				if "Var-"+reqName == name or  reqName=="***":
 					name =name[4:]
@@ -4808,7 +4744,7 @@ class Plugin(indigo.PluginBase):
 						val= dev.states[test]
 						x = GT.getNumber(val)
 						count+=1
-						retList.append(test+"(\""+unicode(val)+"\"==>"+str(x)+"), ")
+						retList.append(test+"(\"{}".format(val)+"\"==>{}".format(x)+"), ")
 				found =True
 				first= u"device  : "+ (name).rjust(40)+":   "
 				for ii in range(0,count,5):
@@ -4828,46 +4764,50 @@ class Plugin(indigo.PluginBase):
 		return
 
 	########################################
-	def PrintDeviceStates(self,dev="***"):
+	def PrintDeviceStates(self, dev="***"):
 		self.showAllDeviceStates()
 	
 	def showAllDeviceStates(self):
-		self.indiLOG.log(20,u"variables  id ---------------------                      Name   Value                               used as")
-		for var in indigo.variables:
-			name=var.name
-			try:
-				val= var.value
-				x= str(GT.getNumber(val))
-			except:
-				x="not available"
-				val=""
-			if x =="x": x = "not usable"
-			self.indiLOG.log(20,(str(var.id)).ljust(15) + name.rjust(47)+": "+unicode(val)[:35].ljust(35)+ "; ==> " +x)
-		self.indiLOG.log(20,u"device id --------------------------                     Name State(Value:used as), State(Value:used as), ...")
-		for dev in indigo.devices:
-			name=dev.name
-			id = str(dev.id)
-			retList=[]
-			count=0
-			keylist = dev.states.keys()
-			keylist.sort()
+		try:
+			self.indiLOG.log(20,u"variables  id ---------------------                      Name   Value                               used as")
+			for var in indigo.variables:
+				name=var.name
+				try:
+					val= var.value
+					x= str(GT.getNumber(val))
+				except:
+					x="not available"
+					val=""
+				if x =="x": x = "not usable"
+				self.indiLOG.log(20, u"{:<15}{:>47}:{:<35}; ==> {} ".format(var.id, name, val[:35], x) )
+			self.indiLOG.log(20,u"device id --------------------------                     Name State(Value:used as), State(Value:used as), ...")
+			for dev in indigo.devices:
+				name=dev.name
+				id = str(dev.id)
+				retList=[]
+				count=0
+				keylist = dev.states.keys()
+				keylist.sort()
 
-			for test in keylist:
-				val= dev.states[test]
-				x = GT.getNumber(val)
-				if x=="x":x="not usable"
-				count+=1
-				retList.append(test+"(\""+unicode(val)[:15]+"\":"+str(x)+"), ")
-			first= name
-			for ii in range(0,count,5):
-				out=""
-				for jj in range(ii,min(ii+5,count),1):
-					out+=retList[jj]
-				self.indiLOG.log(20,(id).ljust(15) + first.rjust(47)+":"+out)
-				id   = " "
-				first= " "
-			self.responseToActionInVariable(msg="ok")
+				for test in keylist:
+					val= dev.states[test]
+					x = GT.getNumber(val)
+					if x=="x":x="not usable"
+					count+=1
+					retList.append( u"{}(\"{:15}\":{}) ".format(test, val, x) )
 
+				first= name
+				for ii in range(0,count,5):
+					out=""
+					for jj in range(ii,min(ii+5,count),1):
+						out+=retList[jj]
+					self.indiLOG.log(20,(id).ljust(15) + first.rjust(47)+":"+out)
+					id   = " "
+					first= " "
+				self.responseToActionInVariable(msg="ok")
+		except  Exception as e:
+			self.indiLOG.log(40,"in Line '%s' has error='%s'" % (test, name, val, x))
+			self.indiLOG.log(40,"in Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 		return
 
 
@@ -4887,7 +4827,7 @@ class Plugin(indigo.PluginBase):
 		elif  "debugLevel" 				in action:
 			try: self.debugLevel = json.loads(action["debugLevel"])
 			except: pass
-			self.indiLOG.log(30,u"setConfigParameters-- set debugLevel to: "+str(self.debugLevel ))
+			self.indiLOG.log(30,u"setConfigParameters-- set debugLevel to: {}".format(self.debugLevel ))
 			for d in ["Restore","General","Initialize","Plotting","Matplot","SQL","Special","all"]:
 				self.pluginPrefs[u"debug"+d] = d in  self.debugLevel
 			
@@ -4897,19 +4837,19 @@ class Plugin(indigo.PluginBase):
 			if len(action["indigoPNGdir"]) > 10:
 				self.indigoPNGdir = action["indigoPNGdir"]
 				self.pluginPrefs["indigoPNGdir"]=self.indigoPNGdir
-				self.indiLOG.log(30,u"setConfigParameters-- set indigoPNGdir to: "+str(self.indigoPNGdir ))
+				self.indiLOG.log(30,u"setConfigParameters-- set indigoPNGdir to: {}".format(self.indigoPNGdir ))
 
 		if  "gnuPlotBin" 				in action:
 			if len(action["gnuPlotBin"]) > 10:
 				self.gnuPlotBinary = action["gnuPlotBin"]
 				self.pluginPrefs["gnuPlotBin"]=self.gnuPlotBinary
-				self.indiLOG.log(30,u"setConfigParameters-- set gnuPlotBin to: "+str(self.gnuPlotBinary ))
+				self.indiLOG.log(30,u"setConfigParameters-- set gnuPlotBin to: {}".format(self.gnuPlotBinary ))
 
 		if  "sqlitepath" 				in action:
 			if len(action["sqlitepath"]) > 10:
 				self.indigoSQLliteLogsPath = action["sqlitepath"]
 				self.pluginPrefs["sqlitepath"]=self.indigoSQLliteLogsPath
-				self.indiLOG.log(30,u"setConfigParameters-- set sqlitepath to: "+str(self.indigoSQLliteLogsPath ))
+				self.indiLOG.log(30,u"setConfigParameters-- set sqlitepath to: {}".format(self.indigoSQLliteLogsPath ))
 
 
 		if  "sqlDynamic" 		in action:
@@ -4925,7 +4865,7 @@ class Plugin(indigo.PluginBase):
 				self.devicesAdded 				= 5
 			self.sqlDynamic						= xxx
 			self.pluginPrefs["sqlDynamic"]		= self.sqlDynamic
-			self.indiLOG.log(30,u"setConfigParameters-- set sqlDynamic to: "+str(self.sqlDynamic ))
+			self.indiLOG.log(30,u"setConfigParameters-- set sqlDynamic to: {}".format(self.sqlDynamic ))
 
 
 
@@ -4933,7 +4873,7 @@ class Plugin(indigo.PluginBase):
 		if  "gnuORmat" 		in action:
 			self.gnuORmat						=	action["gnuORmat"]
 			self.pluginPrefs["gnuORmat"]		=	self.gnuORmat
-			self.indiLOG.log(30,u"setConfigParameters-- set gnuORmat to: "+str(self.gnuORmat ))
+			self.indiLOG.log(30,u"setConfigParameters-- set gnuORmat to: {}".format(self.gnuORmat ))
 
 			if  action["gnuORmat"] =="mat":
 				self.gnuORmatSET( "mat")
@@ -4969,7 +4909,7 @@ class Plugin(indigo.PluginBase):
 			for  theCol  in range (1,self.dataColumnCount+1):																# list of dev/props
 				devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 				stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
-				theMeasurement 	=	self.DEVICE[str(devNo)]["measurement"][stateNo]
+				theMeasurement 	=	self.DEVICE[u"{}".format(devNo)]["measurement"][stateNo]
 				if theMeasurement.find("Consumption") >-1:
 					self.sqlHistListStatus[theCol] = 50
 					self.devicesAdded = 5
@@ -4992,7 +4932,7 @@ class Plugin(indigo.PluginBase):
 	def addDeviceAndStateToSelectionList(self, action):
 		logLevel= self.getLogLevel(action)
 
-		self.indiLOG.log(30,u"createDataSource to be tracked:     .." +unicode(action))
+		self.indiLOG.log(30,u"createDataSource to be tracked:     ..{}".format(action))
 		if not "deviceOrVariableName" in action:
 			self.responseToActionInVariable(msg="error: no deviceOrVariable given")
 			self.indiLOG.log(30,u"createDataSource-- error: no deviceOrVariable given ")
@@ -5007,8 +4947,8 @@ class Plugin(indigo.PluginBase):
 			self.indiLOG.log(30,u"createDataSource-- error: no measurement given ")
 			return 0,0
 		if not action["measurement"] in supportedMeasurements :
-			self.responseToActionInVariable(msg="error:  measurement not in list "+str(supportedMeasurements))
-			self.indiLOG.log(30,u"createDataSource-- error:  measurement "+ action["measurement"]+"  not in list "+str(supportedMeasurements))
+			self.responseToActionInVariable(msg="error:  measurement not in list {}".format(supportedMeasurements))
+			self.indiLOG.log(30,u"createDataSource-- error:  measurement "+ action["measurement"]+"  not in list {}".format(supportedMeasurements))
 			return 0,0
 
 		if not "state" in action:
@@ -5072,16 +5012,15 @@ class Plugin(indigo.PluginBase):
 
 		if self.deviceDevOrVarNew !="":
 			devOrVarId = self.listOfPreselectedDevices[nDev][0]
-			self.indiLOG.log(30,u"createDataSource-- found .." +name+" = "+action["deviceOrVariableName"]+"  "+str(devOrVarId))
+			self.indiLOG.log(30,u"createDataSource-- found .." +name+" = "+action["deviceOrVariableName"]+"  {}".format(devOrVarId))
 
 		if devOrVarId == -1:
-#			self.indiLOG.log(20,u"createDataSource ..device not found")
 			self.responseToActionInVariable(msg="error: device not found")
 			self.indiLOG.log(30,u"createDataSource-- error: device not found "+action["deviceOrVariableName"])
 			return 0,0
 
 		propList = self.preSelectStates(devOrVarId)
-		self.indiLOG.log(30,u"createDataSource .theProp-state."+str(propList)+"-"+action["state"])
+		self.indiLOG.log(30,u"createDataSource .theProp-state.{}".format(propList)+"-"+action["state"])
 		foundState= ""
 		for theProp in propList:
 			if theProp[0] == action["state"]:
@@ -5089,7 +5028,7 @@ class Plugin(indigo.PluginBase):
 				break
 			
 		if foundState == "":
-			self.indiLOG.log(30,u"createDataSource-- state of device not found: -"+ action["state"]+"- available states: "+unicode(propList))
+			self.indiLOG.log(30,u"createDataSource-- state of device not found: -"+ action["state"]+"- available states: {}".format(propList))
 			self.responseToActionInVariable(msg="error: device/state not found")
 			return 0,0
 
@@ -5100,7 +5039,7 @@ class Plugin(indigo.PluginBase):
 		devStateFound=False
 		for devNo in self.DEVICE:
 			if devNo =="0": continue
-			DEV = self.DEVICE[str(devNo)]
+			DEV = self.DEVICE[u"{}".format(devNo)]
 			if ( DEV["Name"]	!= action["deviceOrVariableName"] and
 				 DEV["Name"]	!= action["deviceOrVariableName"][4:]):				continue
 			if  DEV["devOrVar"]	!= self.deviceDevOrVarNew:							continue
@@ -5120,7 +5059,7 @@ class Plugin(indigo.PluginBase):
 				if  DEV["fillGaps"][stateNo]		!= action["fillGaps"]:			continue
 				if  DEV["offset"][stateNo]			!= float(action["offset"]):		continue
 				self.responseToActionInVariable(msg="ok: device/state/Measurement already exists")
-				self.indiLOG.log(30,u"createDataSource-- devNo and state already selected: -"+ str(devNo)+ " " +str(stateNo))
+				self.indiLOG.log(30,u"createDataSource-- devNo and state already selected: -{}".format(devNo)+ " {}".format(stateNo))
 				return devNo,stateNo
 
 # not found... added to list
@@ -5132,14 +5071,14 @@ class Plugin(indigo.PluginBase):
 # no empty slot, create a new DEVICE:
 			for devNo in range (1,999):		# find first unused slot
 				try:
-					if self.DEVICE[str(devNo)]["deviceNumberIsUsed"] ==0: break
+					if self.DEVICE[u"{}".format(devNo)]["deviceNumberIsUsed"] ==0: break
 				except:
 					break
 			stateNo = 1
-			self.DEVICE[str(devNo)] = copy.deepcopy(emptyDEVICE)
+			self.DEVICE[u"{}".format(devNo)] = copy.deepcopy(emptyDEVICE)
 
-		DEV=self.DEVICE[str(devNo)]
-		self.indiLOG.log(30,u"createDataSource-- adding to selection devNo "+ str(devNo)+ "; stateNo " +str(stateNo))
+		DEV=self.DEVICE[u"{}".format(devNo)]
+		self.indiLOG.log(30,u"createDataSource-- adding to selection devNo {}".format(devNo)+ "; stateNo {}".format(stateNo))
 		self.waitWithRedoIndex =True
 
 
@@ -5169,7 +5108,7 @@ class Plugin(indigo.PluginBase):
 		DEV["resetType"][stateNo] 	= action["resetType"]
 
 		if DEV["measurement"][stateNo].find("Consumption") >-1:
-			self.consumedDuringPeriod[str(self.dataColumnCount)] = copy.deepcopy(emptyconsumedDuringPeriod)
+			self.consumedDuringPeriod[u"{}".format(self.dataColumnCount)] = copy.deepcopy(emptyconsumedDuringPeriod)
 
 		if devStateFound :
 			self.sqlColListStatus[self.dataColumnCount] = 0
@@ -5188,7 +5127,7 @@ class Plugin(indigo.PluginBase):
 
 		self.dataColumnToDevice0Prop1Index[self.dataColumnCount]= [int(devNo),int(stateNo)]
 		
-		self.indiLOG.log(30," device sql started  with sqlColListStatus="+ str(self.sqlColListStatus[self.dataColumnCount])+"; sqlHistListStatus="+ str(self.sqlHistListStatus[self.dataColumnCount]) +"; devStateFound="+ str(devStateFound))
+		self.indiLOG.log(30," device sql started  with sqlColListStatus={}".format(self.sqlColListStatus[self.dataColumnCount])+"; sqlHistListStatus={}".format(self.sqlHistListStatus[self.dataColumnCount]) +"; devStateFound={}".format(devStateFound))
 
 		if self.redolineDataSource(calledfrom="addDeviceAndStateToSelectionList") ==-1:
 			if self.redolineDataSource(calledfrom="addDeviceAndStateToSelectionList") ==-1:
@@ -5236,13 +5175,12 @@ class Plugin(indigo.PluginBase):
 				if action["deviceNameOfPlot"] == self.PLOT[nPlot]["DeviceNamePlot"]:
 					if "PlotType" in self.PLOT[nPlot]:
 						action["PlotType"] =self.PLOT[nPlot]["PlotType"]
-	#					self.indiLOG.log(30,u"createOrModifyLine--  PlotType  "+unicode(action["PlotType"]))
 						found = True
 						break
 			if not found:
 					self.responseToActionInVariable(msg="error:  PlotType not found")
-					self.indiLOG.log(30,u"createOrModifyLine--  PlotType not found.for action "+unicode(action))
-					self.indiLOG.log(30,u"createOrModifyLine--  PlotType not found.for.nPlot "+unicode(self.PLOT[nPlot]))
+					self.indiLOG.log(30,u"createOrModifyLine--  PlotType not found.for action {}".format(action))
+					self.indiLOG.log(30,u"createOrModifyLine--  PlotType not found.for.nPlot ")
 					return
 
 			doB =False
@@ -5330,11 +5268,9 @@ class Plugin(indigo.PluginBase):
 			theTargetId = -1
 			dev =""
 			for nPlot in self.PLOT:
-	#			self.indiLOG.log(30,u"createOrModifyLineCALLBACK  .Fname.. "+unicode(self.PLOT[nPlot]["DeviceNamePlot"]))
 				if action["deviceNameOfPlot"] == self.PLOT[nPlot]["DeviceNamePlot"]:
 					dev = indigo.devices[action["deviceNameOfPlot"]]
 					theTargetId = dev.id
-	#				self.indiLOG.log(30,u"createOrModifyLineCALLBACK ..device id: "+str(theTargetId))
 					break
 			if theTargetId ==-1:
 				self.indiLOG.log(30,u"createOrModifyLine--  device not found")
@@ -5354,26 +5290,26 @@ class Plugin(indigo.PluginBase):
 					if stateNo ==0:
 						self.responseToActionInVariable(msg="error: device/state/measurement not in select list")
 						if self.decideMyLog("Restore"): self.indiLOG.log(30,u" createOrModifyLine--  device/state/measurement not in select list -A-  "
-							+" "+  unicode(action["deviceOrVariableToBePlottedLineA"])
-							+"-"+  unicode(action["StateToBePlottedLineA"])
-							+"-"+  unicode(action["MeasurementLineA"])
+							+" {}".format(action["deviceOrVariableToBePlottedLineA"])
+							+"-{}".format(action["StateToBePlottedLineA"])
+							+"-{}".format(action["MeasurementLineA"])
 							)
 						return
-					lineToColumnIndexA=int(self.DEVICE[str(devNo)]["stateToIndex"][stateNo])
-					if self.decideMyLog("Restore"): self.indiLOG.log(30,u" createOrModifyLine--  found lineToColumnIndexA "+str(lineToColumnIndexA))
+					lineToColumnIndexA=int(self.DEVICE[u"{}".format(devNo)]["stateToIndex"][stateNo])
+					if self.decideMyLog("Restore"): self.indiLOG.log(30,u" createOrModifyLine--  found lineToColumnIndexA {}".format(lineToColumnIndexA))
 					self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexA"] = lineToColumnIndexA
 					
 					if  doB:
 						if stateNoB ==0:
 							self.responseToActionInVariable(msg="error: device/state/measurement not in select list")
 							if self.decideMyLog("Restore"): self.indiLOG.log(30,u" createOrModifyLine--  device/state/measurement not in select list -A-  "
-										+" "+  unicode(action["deviceOrVariableToBePlottedLineB"])
-										+"-"+  unicode(action["StateToBePlottedLineB"])
-										+"-"+  unicode(action["MeasurementLineB"])
+										+" {}".format(action["deviceOrVariableToBePlottedLineB"])
+										+"-{}".format(action["StateToBePlottedLineB"])
+										+"-{}".format(action["MeasurementLineB"])
 								)
 							return
-						lineToColumnIndexB=int(self.DEVICE[str(devNoB)]["stateToIndex"][stateNoB])
-						if self.decideMyLog("Restore"): self.indiLOG.log(30,u" createOrModifyLine--  found lineToColumnIndexB "+str(lineToColumnIndexB))
+						lineToColumnIndexB=int(self.DEVICE[u"{}".format(devNoB)]["stateToIndex"][stateNoB])
+						if self.decideMyLog("Restore"): self.indiLOG.log(30,u" createOrModifyLine--  found lineToColumnIndexB {}".format(lineToColumnIndexB))
 						self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexB"] = lineToColumnIndexB
 				else:
 					self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexA"] = int(action["deviceOrVariableToBePlottedLineA"])
@@ -5381,30 +5317,24 @@ class Plugin(indigo.PluginBase):
 			elif self.PLOT[nPlot]["PlotType"] =="dataFromFile":
 				self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexA"] =int(action["dataColumnForFileOrVariableA"])
 				if  "dataColumnForFileOrVariableB" in action:
-					self.indiLOG.log(30,u"createOrModifyLine--  action[dataColumnForFileOrVariableB]  "+str(action["dataColumnForFileOrVariableB"]))
+					self.indiLOG.log(30,u"createOrModifyLine--  action[dataColumnForFileOrVariableB]  {}".format(action["dataColumnForFileOrVariableB"]))
 					self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexB"] =int(action["dataColumnForFileOrVariableB"])
 
 			elif self.PLOT[nPlot]["PlotType"] =="dataFromVariable":
-				self.indiLOG.log(30,u"createOrModifyLine--  nLine  "+str(nLine))
-				self.indiLOG.log(30,u"createOrModifyLine--  action[dataColumnForFileOrVariableA]  "+str(action["dataColumnForFileOrVariableA"]))
+				self.indiLOG.log(30,u"createOrModifyLine--  nLine  {}".format(nLine))
+				self.indiLOG.log(30,u"createOrModifyLine--  action[dataColumnForFileOrVariableA]  {}".format(action["dataColumnForFileOrVariableA"]))
 				self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexA"] =int(action["dataColumnForFileOrVariableA"])
 				if  "dataColumnForFileOrVariableB" in action:
-					self.indiLOG.log(30,u"createOrModifyLine--  action[dataColumnForFileOrVariableB]  "+str(action["dataColumnForFileOrVariableB"]))
+					self.indiLOG.log(30,u"createOrModifyLine--  action[dataColumnForFileOrVariableB]  {}".format(action["dataColumnForFileOrVariableB"]))
 					self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexB"] =action["dataColumnForFileOrVariableB"]
 
 			else:
 				self.responseToActionInVariable(msg="error: no data type defined (eg dataFromTimeSeries)")
 				return
 
-
-
-	#		self.indiLOG.log(30,u" createOrModifyLineCALLBACK lines step3   " )
-
 			self.CurrentLineNo =nLine
 			for key in self.PLOT[nPlot]["lines"][nLine]:
 				if key not in action: action[key]	=self.PLOT[nPlot]["lines"][nLine][key]
-	#		self.indiLOG.log(30,u" createOrModifyLineCALLBACK action   " +str(action))
-
 
 			valuesDict , error = self.buttonConfirmLinePropsCALLBACKcheck(action,typeId="plot", targetId=theTargetId,script=True)
 			if error =="":
@@ -5418,15 +5348,14 @@ class Plugin(indigo.PluginBase):
 				props["PLOTindigo"]= json.dumps(self.PLOT[nPlot])
 				if "resxy" in props: del props["resxy"]
 				dev.replacePluginPropsOnServer(props)
-	#			self.indiLOG.log(30,u"createOrModifyLineCALLBACK  ...dev props   "+unicode(props))
 				self.writePlotParameters()
 				self.setupGNUPlotFiles(calledfrom="createOrModifyLineCALLBACKaction")
 				self.responseToActionInVariable(msg="ok")
 				return
 
 			self.responseToActionInVariable(msg=error)
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			
 
 		return
@@ -5459,7 +5388,7 @@ class Plugin(indigo.PluginBase):
 	def showPlotONLY(self, action):
 		logLevel= self.getLogLevel(action)
 		
-		self.indiLOG.log(30,u"showPlotONLY-- action   "+unicode(action))
+		self.indiLOG.log(30,u"showPlotONLY-- action   {}".format(action))
 		if not "deviceNameOfPlot" in action:
 			self.responseToActionInVariable(msg="error: no plotnameToBeCreated given")
 			return
@@ -5477,7 +5406,7 @@ class Plugin(indigo.PluginBase):
 		logLevel= self.getLogLevel(action)
 
 
-		self.indiLOG.log(30,u"showPlotPNG-- action   "+unicode(action))
+		self.indiLOG.log(30,u"showPlotPNG-- action   {}".format(action))
 		if not "deviceNameOfPlot" in action:
 			self.responseToActionInVariable(msg="error: no plotnameToBeCreated given")
 			return
@@ -5511,7 +5440,6 @@ class Plugin(indigo.PluginBase):
 		self.doExportMini(self.convertACTION(action1))
 
 	def doExportMini(self, action):
-##		self.indiLOG.log(30,str(action))
 		logLevel= self.getLogLevel(action)
 		self.indiLOG.log(30,u"doExportmini-- action   ")
 		self.indigoCommand.append("exportMini")
@@ -5529,8 +5457,8 @@ class Plugin(indigo.PluginBase):
 		name =action["deviceNameOfPlot"]
 		try:
 			dev = indigo.devices[name]
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.responseToActionInVariable(msg="error: device  does not exist, can not save  "+action1.props["deviceNameOfPlot"])
 			self.indiLOG.log(30,u"savePlotCALLBACK--  device  does not exist, can not save  "+action1.props["deviceNameOfPlot"])
 			return
@@ -5760,8 +5688,7 @@ class Plugin(indigo.PluginBase):
 
 					valuesDict["showLineShift"] =True
 
-					if "StraightLine" in  valuesDict and unicode(valuesDict["StraightLine"]).upper()=="TRUE" or  valuesDict["selectedLineSourceATEXT"].find("-event") >-1:
-						#if self.decideMyLog("Plotting"): self.indiLOG.log(30,unicode(valuesDict))
+					if "StraightLine" in  valuesDict and u"{}".format(valuesDict["StraightLine"]).upper()=="TRUE" or  valuesDict["selectedLineSourceATEXT"].find("-event") >-1:
 						if valuesDict["StraightLine"] :
 							valuesDict["showFunc"] = False
 							valuesDict["showSmooth"] = False
@@ -5859,9 +5786,8 @@ class Plugin(indigo.PluginBase):
 				valuesDict["showLineShift"] =False
 				valuesDict["showNotScatterC"] = False
 			return valuesDict
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-#			self.indiLOG.log(40,unicode(valuesDict))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 
 		return valuesDict
 
@@ -5905,7 +5831,8 @@ class Plugin(indigo.PluginBase):
 			if self.decideMyLog("Matplot"): self.indiLOG.log(30,u"could not read matplotPID file")
 			return False
 		try:
-			if (subprocess.Popen("ps -p "+oldPID+" | grep "+oldPID,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0].find("indigoMPplot"))<0: return False
+			ret, err = self.readPopen("ps -p "+oldPID+" | grep "+oldPID)
+			if ret.find("indigoMPplot") < 0: return False
 			self.pidMATPLOT = oldPID
 			return True
 		except:
@@ -5921,23 +5848,23 @@ class Plugin(indigo.PluginBase):
 
 			data = json.dumps({"indigoDir":self.indigoPath,"logfile":self.PluginLogFile,"prefsDir":self.indigoPreferencesPluginDir,"loglevel":self.decideMyLog("Matplot")})
 			cmd = self.pythonPath+ " '"+self.indigoPath+"Plugins/"+self.pluginName+".indigoPlugin/Contents/Server Plugin/indigoMPplot.py' "+json.dumps(data)
-			self.pidMATPLOT = str( subprocess.Popen( cmd, shell=True,stdout=self.MPlogfhandle,stderr=self.MPlogfhandle  ).pid )
-#			 
-			#   , shell=True),stdout=self.MPlogfhandle,stderr=self.MPlogfhandle  ).pid )
-			if self.decideMyLog("Matplot") or  self.decideMyLog("Plotting"): self.indiLOG.log(30,u"started matplot, PID:{};  cmd:{}".format(self.pidMATPLOT, cmd) )
+			self.pidMATPLOT = u"{}".format( subprocess.Popen( cmd, shell=True, stdout=self.MPlogfhandle, stderr=self.MPlogfhandle).pid ) 
+
+			if self.decideMyLog("Matplot") or self.decideMyLog("Plotting"): self.indiLOG.log(30,u"(re-)started matplot, PID:{};  cmd:{}".format(self.pidMATPLOT, cmd) )
 			pidHandle= open( self.indigoPreferencesPluginDir+"matplot/matplot.pid" , "w")
 			pidHandle.write(self.pidMATPLOT)
 			pidHandle.close()
 			self.plotNow(createNow="",showNow="")
 			return True
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.indiLOG.log(40,u"error starting matplot")
 			return False
+
 	########################################
 	def stopMAT(self):
 		if not self.isMATRunning():
-			if self.decideMyLog("Matplot"): self.indiLOG.log(30,u" stop matplot: not active, PID:  "+ str(self.pidMATPLOT))
+			if self.decideMyLog("Matplot"): self.indiLOG.log(30,u" stop matplot: not active, PID:  {}".format(self.pidMATPLOT))
 			return
 		try:
 			self.MPlogfhandle.close()
@@ -5947,10 +5874,10 @@ class Plugin(indigo.PluginBase):
 
 		try:
 			os.kill(int(self.pidMATPLOT), signal.SIGKILL)
-			if self.decideMyLog("Matplot"): self.indiLOG.log(30,u"matplot stopped PID: "+ str(self.pidMATPLOT))
+			if self.decideMyLog("Matplot"): self.indiLOG.log(30,u"matplot stopped PID: {}".format(self.pidMATPLOT))
 			return True
 		except:
-			if self.decideMyLog("Matplot"): self.indiLOG.log(30,u"tried to stop matplot PID:  "+ str(self.pidMATPLOT))
+			if self.decideMyLog("Matplot"): self.indiLOG.log(30,u"tried to stop matplot PID:  {}".format(self.pidMATPLOT))
 			return False
 			
 	########################################
@@ -5965,7 +5892,6 @@ class Plugin(indigo.PluginBase):
 			if self.isMATRunning(): return
 			self.startMAT()
 		return
-	########################################	########################################	########################################	########################################
 
 
 
@@ -5973,8 +5899,6 @@ class Plugin(indigo.PluginBase):
 	
 	########################################
 	def getLinesForFileOrVariPlot(self,FileOrVariName):				# Select only device/properties that are supported:  numbers, bool, but not props that have "words"
-#		if self.decideMyLog("General"): self.indiLOG.log(30,u" getLinesForFileOrVariPlot  FileOrVariName "+ unicode(FileOrVariName) )
-#		if self.decideMyLog("General"): self.indiLOG.log(30,u" getLinesForFileOrVariPlot  FileOrVariName "+ unicode(self.currentPlotType) )
 		self.listOfLinesForFileOrVari=[(0,"None")]
 		if self.currentPlotType == "dataFromTimeSeries": return -1
 		
@@ -6004,12 +5928,9 @@ class Plugin(indigo.PluginBase):
 						lines = buff.split("\n")
 					for line in lines:
 						f.write(line+"\n")
-						#self.indiLOG.log(30,line)
 					f.close()
 				else:
 					lines = buff.split("\n")
-#				self.indiLOG.log(30,"n of lines:"+ str(len(lines)))
-#				self.indiLOG.log(30, str(lines))
 				for line in lines:
 					xxx= line.strip(" ").split(";")  #  format =   #x;y1text;y2text|1,2,3|4;5;6   --> returns: [#x;y1text;y2text]
 					if len(xxx) < 2:
@@ -6022,12 +5943,11 @@ class Plugin(indigo.PluginBase):
 					for ii in range(1,len(xxx)):
 						self.listOfLinesForFileOrVari.append((ii,xxx[ii]))
 					break
-			except  Exception, e:
-				self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+			except  Exception as e:
+				self.exceptionHandler(40, e)
 				self.indiLOG.log(40,u" getLinesForFileOrVariPlot  bad data "+ lines )  ## check this out
 				return -1
 				pass
-#			self.indiLOG.log(30,"listOfLinesForFileOrVari"+ str(self.listOfLinesForFileOrVari) )
 			f.close()
 		
 		if self.currentPlotType =="dataFromVariable":
@@ -6045,12 +5965,11 @@ class Plugin(indigo.PluginBase):
 				self.listOfLinesForFileOrVari =[(0,"None")]
 				for ii in range(1,len(xxx)):
 					self.listOfLinesForFileOrVari.append((ii,xxx[ii]))
-			except  Exception, e:
-				self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+			except  Exception as e:
+				self.exceptionHandler(40, e)
 				self.indiLOG.log(40,u" getLinesForFileOrVariPlot error bad data in variable or variable does not exist  "+ FileOrVariName )
 				return -1
 
-#		if self.decideMyLog("General"): self.indiLOG.log(30,u" getLinesForFileOrVariPlot "+ str(self.listOfLinesForFileOrVari) )
 		return
 
 
@@ -6064,11 +5983,11 @@ class Plugin(indigo.PluginBase):
 			x = GT.getNumber(val)
 			if x !="x":
 				try:
-					self.listOfPreselectedDevices.append((theVar.id, "Var-"+unicode(theVar.name)))
-					self.devIdToTypeandName[theVar.id]= "Var-",theVar.name
-				except  Exception, e:
-					self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-					self.indiLOG.log(40,u" listOfPreselectedDevices 2-2 error id, name "+ str(theVar.id) + " " +str(theVar.name)+" " +  str(self.listOfPreselectedDevices))
+					self.listOfPreselectedDevices.append((theVar.id, "Var-{}".format(theVar.name)))
+					self.devIdToTypeandName[theVar.id] = "Var-",theVar.name
+				except  Exception as e:
+					self.exceptionHandler(40, e)
+					self.indiLOG.log(40,u" listOfPreselectedDevices 2-2 error id, name {}".format(theVar.id) + " {}".format(theVar.name)+" " +  str(self.listOfPreselectedDevices))
 
 		for dev in indigo.devices.iter():
 			theStates = dev.states.keys()
@@ -6089,11 +6008,10 @@ class Plugin(indigo.PluginBase):
 			if count>0:													# add to the selection list
 				try:
 					self.listOfPreselectedDevices.append((dev.id, dev.name))				## give all id's and names of  devices that have at least one of the keys we can track
-					self.devIdToTypeandName[dev.id]="Dev-",dev.name
-				except  Exception, e:
-					self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-					self.indiLOG.log(40,u" listOfPreselectedDevices 2-1 error id, name "+ str(dev.id) + " " +str(dev.name)+" " + str(self.listOfPreselectedDevices))
-		#self.indiLOG.log(30,u"listOfPreselectedDevices found: "+ str(self.listOfPreselectedDevices))
+					self.devIdToTypeandName[dev.id] = "Dev-",dev.name
+				except  Exception as e:
+					self.exceptionHandler(40, e)
+					self.indiLOG.log(40,u" listOfPreselectedDevices 2-1 error id, name {}".format(dev.id) + " {}".format(dev.name)+" {}".format(self.listOfPreselectedDevices))
 
 		return
 
@@ -6105,7 +6023,7 @@ class Plugin(indigo.PluginBase):
 		for devNo in self.DEVICE:
 			if devNo =="0": continue
 			if self.DEVICE[devNo]["Id"] >0:
-				retList.append([int(devNo), self.DEVICE[str(devNo)]["devOrVar"]+self.DEVICE[devNo]["Name"]])
+				retList.append([int(devNo), self.DEVICE[u"{}".format(devNo)]["devOrVar"]+self.DEVICE[devNo]["Name"]])
 		retList = sorted( retList, key=lambda x:(x[1]) )
 		retList.append((0,">>>> Pick new Device/Variable"))
 
@@ -6123,7 +6041,7 @@ class Plugin(indigo.PluginBase):
 		self.addNewDevice=False
 		devNo = valuesDict["selectedExistingOrNewDevice"]
 		selectedDeviceID = valuesDict["selectedDeviceID"]
-		if self.decideMyLog("General"): self.indiLOG.log(30,"pickExistingOrNewDeviceCALLBACK    devNo "+ str(devNo) +" old d" + str(self.oldDevNo) +";;  pickExistingOrNewDeviceCALLBACK-vd "+unicode(valuesDict))
+		if self.decideMyLog("General"): self.indiLOG.log(20,"pickExistingOrNewDeviceCALLBACK    devNo {}".format(devNo) +" old d{}".format(self.oldDevNo) +";;  pickExistingOrNewDeviceCALLBACK-vd {}".format(valuesDict))
 
 
 		try:
@@ -6143,14 +6061,14 @@ class Plugin(indigo.PluginBase):
 				self.addNewDevice=True
 				for devNo in range (1,999):  # find first unused slot
 					try:
-						if self.DEVICE[str(devNo)]["deviceNumberIsUsed"] >0: continue
+						if self.DEVICE[u"{}".format(devNo)]["deviceNumberIsUsed"] >0: continue
 						else:
 							self.currentDevNo = devNo
-							self.DEVICE[str(devNo)]= copy.deepcopy(emptyDEVICE)
+							self.DEVICE[u"{}".format(devNo)]= copy.deepcopy(emptyDEVICE)
 							break
 					except:
 						self.currentDevNo = devNo
-						self.DEVICE[str(devNo)]= copy.deepcopy(emptyDEVICE)
+						self.DEVICE[u"{}".format(devNo)]= copy.deepcopy(emptyDEVICE)
 						break
 				try:
 					self.deviceIdNew		= int(selectedDeviceID)
@@ -6168,12 +6086,12 @@ class Plugin(indigo.PluginBase):
 
 			else:
 				self.currentDevNo 		= devNo
-				self.deviceIdNew		= self.DEVICE[str(self.currentDevNo)]["Id"]
-				self.deviceDevOrVarNew	= self.DEVICE[str(self.currentDevNo)]["devOrVar"]
-				if self.DEVICE[str(self.currentDevNo)]["Name"].find("Var") ==-1:
-					self.deviceNameNew		= self.DEVICE[str(self.currentDevNo)]["Name"]
+				self.deviceIdNew		= self.DEVICE[u"{}".format(self.currentDevNo)]["Id"]
+				self.deviceDevOrVarNew	= self.DEVICE[u"{}".format(self.currentDevNo)]["devOrVar"]
+				if self.DEVICE[u"{}".format(self.currentDevNo)]["Name"].find("Var") ==-1:
+					self.deviceNameNew		= self.DEVICE[u"{}".format(self.currentDevNo)]["Name"]
 				else:
-					self.deviceNameNew		= self.DEVICE[str(self.currentDevNo)]["Name"][4:]
+					self.deviceNameNew		= self.DEVICE[u"{}".format(self.currentDevNo)]["Name"][4:]
 
 				valuesDict["DefineDevicesAndNew"] = False
 				valuesDict["DefineDevicesAndOld"] = True
@@ -6186,15 +6104,15 @@ class Plugin(indigo.PluginBase):
 
 			self.selectableStatesInDevice = self.preSelectStates(self.deviceIdNew)
 
-			valuesDict,two = self.DEVtoValesDict(self.DEVICE[str(self.currentDevNo)],valuesDict)
+			valuesDict,two = self.DEVtoValesDict(self.DEVICE[u"{}".format(self.currentDevNo)],valuesDict)
 
 			if typeId=="defineDataSource":
 				valuesDict["text1-2"] = "CONFIRM device/variable first"
 			if typeId=="myFirstPlot":
 				valuesDict["fistPlotMessageText"] = "CONFIRM device/variable first"
 
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 
 		return valuesDict
 
@@ -6202,9 +6120,6 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def filterDevicesThatQualify(self,  filter="",valuesDict="",typeId=""):# Select only device/properties that are supported
 
-		#self.indiLOG.log(30,"filterDevicesThatQualify -PLOTlistLast :  "+  unicode(self.PLOTlistLast))
-		#self.indiLOG.log(30,"filterDevicesThatQualify -typeId :  "+  unicode(typeId))
-		#self.indiLOG.log(30,"filterDevicesThatQualify -valuesDict :  "+  unicode(valuesDict))
 		if typeId == "myFirstPlot":
 			if self.PLOTlistLast[2] != 0:
 				self.currentDevNo = self.PLOTlistLast[2]
@@ -6217,9 +6132,9 @@ class Plugin(indigo.PluginBase):
 		retList=self.listOfPreselectedDevices[:]											# make a copy
 		if self.currentDevNo ==0: 									return retList			# just making sure
 		if not str(self.currentDevNo)in self.DEVICE: 				return retList
-		if int(self.DEVICE[str(self.currentDevNo)]["Id"]) == 0:		return retList
+		if int(self.DEVICE[u"{}".format(self.currentDevNo)]["Id"]) == 0:		return retList
 
-		retList.append((0,self.DEVICE[str(self.currentDevNo)]["Name"])) 					# we have a device id already from indigo use that one as first = default pick in list
+		retList.append((0,self.DEVICE[u"{}".format(self.currentDevNo)]["Name"])) 					# we have a device id already from indigo use that one as first = default pick in list
 		
 		return retList
 	
@@ -6228,11 +6143,11 @@ class Plugin(indigo.PluginBase):
 		if typeId =="myFirstPlot":
 			if valuesDict["selectedDeviceIDMFP"] =="0":  # this is the default device for this plot
 				if self.currentDevNo != 0:
-					self.currentDeviceId = int(self.DEVICE[str(self.currentDevNo)]["Id"])
-					self.deviceDevOrVarNew=self.DEVICE[str(self.currentDevNo)]["devOrVar"]
+					self.currentDeviceId = int(self.DEVICE[u"{}".format(self.currentDevNo)]["Id"])
+					self.deviceDevOrVarNew=self.DEVICE[u"{}".format(self.currentDevNo)]["devOrVar"]
 					stateNo=self.dataColumnToDevice0Prop1Index[self.currentDevNo][1]
 					devNo  =self.dataColumnToDevice0Prop1Index[self.currentDevNo][0]
-					valuesDict["selDeviceStateMFP"]=self.DEVICE[str(devNo)]["state"][stateNo]
+					valuesDict["selDeviceStateMFP"]=self.DEVICE[u"{}".format(devNo)]["state"][stateNo]
 				else:
 					valuesDict["fistPlotMessageText"] ="please select device"
 				return valuesDict
@@ -6242,7 +6157,6 @@ class Plugin(indigo.PluginBase):
 			valuesDict["selDeviceStateMFP"]="0"
 			self.currentDevNo =0
 
-			##self.indiLOG.log(30,"vd: " + unicode(valuesDict))
 			
 			
 			try:
@@ -6268,8 +6182,8 @@ class Plugin(indigo.PluginBase):
 	def buttonConfirmDeviceMFPCALLBACK(self, valuesDict=None, typeId="", targetId=0):
 		if valuesDict["selectedDeviceIDMFP"] =="0":  # this is the default device for this plot
 			if self.currentDevNo != 0:
-				self.currentDeviceId = int(self.DEVICE[str(self.currentDevNo)]["Id"])
-				self.deviceDevOrVarNew=self.DEVICE[str(self.currentDevNo)]["devOrVar"]
+				self.currentDeviceId = int(self.DEVICE[u"{}".format(self.currentDevNo)]["Id"])
+				self.deviceDevOrVarNew=self.DEVICE[u"{}".format(self.currentDevNo)]["devOrVar"]
 				return valuesDict
 			else:
 				valuesDict["fistPlotMessageText"] ="please select device"
@@ -6279,7 +6193,6 @@ class Plugin(indigo.PluginBase):
 		self.currentDeviceId=int(valuesDict["selectedDeviceIDMFP"])
 		self.currentDevNo =0
 
-		##self.indiLOG.log(30,"vd: " + unicode(valuesDict))
 		
 		
 		try:
@@ -6300,7 +6213,6 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonConfirmDeviceCALLBACK(self, valuesDict=None, typeId="", targetId=0):
-#		self.indiLOG.log(30,u" buttonConfirmDevice ")
 		if typeId == "myFirstPlot":
 			valuesDict["selectedDeviceID"]				=valuesDict["selectedDeviceIDMFP"]
 			valuesDict["selectedExistingOrNewDevice"]	=valuesDict["selectedDeviceIDMFP"]
@@ -6322,43 +6234,42 @@ class Plugin(indigo.PluginBase):
 		return valuesDict
 	########################################
 	def confirmDevice(self, valuesDict):
-#		if self.decideMyLog("General"): self.indiLOG.log(30,u" confirmDevice ")
 		newDevice= False
 		if self.addNewDevice:
 			try:
 				if self.decideMyLog("General"): self.indiLOG.log(20,u" ")
-				if self.decideMyLog("General"): self.indiLOG.log(20,u" confirmDevice 0 adding new device,  currentDevNo:" + str(self.currentDevNo) +",  selectedDeviceID ="+(valuesDict["selectedDeviceID"]))
+				if self.decideMyLog("General"): self.indiLOG.log(20,u" confirmDevice 0 adding new device,  currentDevNo:{}".format(self.currentDevNo) +",  selectedDeviceID ="+(valuesDict["selectedDeviceID"]))
 				if self.deviceIdNew	!= int(valuesDict["selectedDeviceID"]): newDevice= True
 				self.deviceIdNew	= int(valuesDict["selectedDeviceID"])
-				if self.decideMyLog("General"): self.indiLOG.log(20,u" confirmDevice 1 adding new device,  deviceIdNew ="+str(self.deviceIdNew))
+				if self.decideMyLog("General"): self.indiLOG.log(20,u" confirmDevice 1 adding new device,  deviceIdNew ={}".format(self.deviceIdNew))
 				try:
 					self.deviceNameNew      = self.devIdToTypeandName[self.deviceIdNew][1]
 					self.deviceDevOrVarNew  = self.devIdToTypeandName[self.deviceIdNew][0]	# "Dev-" or "Var-"
-				except  Exception, e:
-					self.indiLOG.log(40,"bad input, no device selected (1) Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+				except  Exception as e:
+					self.indiLOG.log(40,"bad input, no device selected (1) Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 					self.indiLOG.log(40,u" confirmDevice adding new device,  deviceNameNew	error   ="+self.deviceNameNew)
 					self.indiLOG.log(40,u" confirmDevice adding new device,  deviceDevOrVarNew error="+self.deviceDevOrVarNew)
-					self.indiLOG.log(40,u" devIdToTypeandName="+str(self.devIdToTypeandName))
+					self.indiLOG.log(40,u" devIdToTypeandName={}".format(self.devIdToTypeandName))
 					valuesDict["text1-1"] = " no device selected"
 					return valuesDict, 0
 				
-				##if self.decideMyLog("General"): self.indiLOG.log(30,u" self.DEVICE "+unicode(self.DEVICE))
+				##if self.decideMyLog("General"): self.indiLOG.log(30,u" self.DEVICE {}".format(self.DEVICE))
 				if str(self.currentDevNo) in self.DEVICE:
-					if self.decideMyLog("General"): self.indiLOG.log(30,u" confirmDevice 1.1 already in device "+ str(self.currentDevNo)+" DEVICE"+unicode(self.DEVICE[str(self.currentDevNo)]["state"]))
+					if self.decideMyLog("General"): self.indiLOG.log(30,u" confirmDevice 1.1 already in device {}".format(self.currentDevNo)+" DEVICE{}".format(self.DEVICE[u"{}".format(self.currentDevNo)]["state"]))
 				if newDevice or str(self.currentDevNo) not in self.DEVICE: 
 					if newDevice : 
 						if self.decideMyLog("General"): self.indiLOG.log(30,u" confirmDevice 1.1 new ") 
 					
-					self.DEVICE[str(self.currentDevNo)]         =copy.deepcopy(emptyDEVICE)
-				self.DEVICE[str(self.currentDevNo)]["Id"]		= self.deviceIdNew
-				self.DEVICE[str(self.currentDevNo)]["devOrVar"]	= self.deviceDevOrVarNew
+					self.DEVICE[u"{}".format(self.currentDevNo)]         =copy.deepcopy(emptyDEVICE)
+				self.DEVICE[u"{}".format(self.currentDevNo)]["Id"]		= self.deviceIdNew
+				self.DEVICE[u"{}".format(self.currentDevNo)]["devOrVar"]	= self.deviceDevOrVarNew
 				if self.deviceNameNew.find("Var") ==-1:
-					self.DEVICE[str(self.currentDevNo)]["Name"] = self.deviceNameNew
+					self.DEVICE[u"{}".format(self.currentDevNo)]["Name"] = self.deviceNameNew
 				else:
-					self.DEVICE[str(self.currentDevNo)]["Name"] = self.deviceNameNew[4:]
-				if self.decideMyLog("General"): self.indiLOG.log(30,"confirmDevice 1 device DevOrVarNew " +str(self.DEVICE[str(self.currentDevNo)]["devOrVar"]))
-			except  Exception, e:
-				self.indiLOG.log(40,"bad input, no device selected (2)  Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+					self.DEVICE[u"{}".format(self.currentDevNo)]["Name"] = self.deviceNameNew[4:]
+				if self.decideMyLog("General"): self.indiLOG.log(30,"confirmDevice 1 device DevOrVarNew {}".format(self.DEVICE[u"{}".format(self.currentDevNo)]["devOrVar"]))
+			except  Exception as e:
+				self.indiLOG.log(40,"bad input, no device selected (2)  Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 				valuesDict["text1-1"] = " no device selected"
 				return valuesDict, 0
 		else:
@@ -6369,17 +6280,17 @@ class Plugin(indigo.PluginBase):
 				self.currentDevNo =0
 				return valuesDict , 1
 
-			self.deviceIdNew		= self.DEVICE[str(self.currentDevNo)]["Id"]
-			self.deviceDevOrVarNew	= self.DEVICE[str(self.currentDevNo)]["devOrVar"]
-			if self.DEVICE[str(self.currentDevNo)]["Name"].find("Var") ==-1:
-				self.deviceNameNew = self.DEVICE[str(self.currentDevNo)]["Name"]
+			self.deviceIdNew		= self.DEVICE[u"{}".format(self.currentDevNo)]["Id"]
+			self.deviceDevOrVarNew	= self.DEVICE[u"{}".format(self.currentDevNo)]["devOrVar"]
+			if self.DEVICE[u"{}".format(self.currentDevNo)]["Name"].find("Var") ==-1:
+				self.deviceNameNew = self.DEVICE[u"{}".format(self.currentDevNo)]["Name"]
 			else:
-				self.deviceNameNew = self.DEVICE[str(self.currentDevNo)]["Name"][4:]
+				self.deviceNameNew = self.DEVICE[u"{}".format(self.currentDevNo)]["Name"][4:]
 
 
 		self.selectableStatesInDevice = self.preSelectStates(self.deviceIdNew)
 			
-		valuesDict, two = self.DEVtoValesDict(self.DEVICE[str(self.currentDevNo)],valuesDict)
+		valuesDict, two = self.DEVtoValesDict(self.DEVICE[u"{}".format(self.currentDevNo)],valuesDict)
 
 		return valuesDict, two
 
@@ -6390,14 +6301,14 @@ class Plugin(indigo.PluginBase):
 		for stateNo in range(1,noOfStatesPerDeviceG+1):
 
 			if DEV["stateToIndex"][stateNo]> 0:
-				valuesDict["selDevicemeasurement"+str(stateNo)]	= DEV["measurement"][stateNo]
-				valuesDict["selDeviceStatea"+str(stateNo)]		= DEV["state"][stateNo]
-				valuesDict["selDeviceoffset"+str(stateNo)]		= DEV["offset"][stateNo]
-				valuesDict["selDevicemultiplier"+str(stateNo)]	= DEV["multiplier"][stateNo]
-				valuesDict["selDeviceminValue"+str(stateNo)]	= DEV["minValue"][stateNo]
-				valuesDict["selDevicemaxValue"+str(stateNo)]	= DEV["maxValue"][stateNo]
-				valuesDict["fillGaps"+str(stateNo)]				= DEV["fillGaps"][stateNo]
-				valuesDict["nickName"+str(stateNo)]				= DEV["nickName"][stateNo]
+				valuesDict["selDevicemeasurement{}".format(stateNo)]	= DEV["measurement"][stateNo]
+				valuesDict["selDeviceStatea{}".format(stateNo)]		= DEV["state"][stateNo]
+				valuesDict["selDeviceoffset{}".format(stateNo)]		= DEV["offset"][stateNo]
+				valuesDict["selDevicemultiplier{}".format(stateNo)]	= DEV["multiplier"][stateNo]
+				valuesDict["selDeviceminValue{}".format(stateNo)]	= DEV["minValue"][stateNo]
+				valuesDict["selDevicemaxValue{}".format(stateNo)]	= DEV["maxValue"][stateNo]
+				valuesDict["fillGaps{}".format(stateNo)]				= DEV["fillGaps"][stateNo]
+				valuesDict["nickName{}".format(stateNo)]				= DEV["nickName"][stateNo]
 				
 				if DEV["measurement"][stateNo].find("Consumption") :
 					if str(DEV["resetType"][stateNo]).find("Period")>-1:
@@ -6406,38 +6317,37 @@ class Plugin(indigo.PluginBase):
 						vdReturn=""
 						try:
 							RTP = DEV["resetType"][stateNo][VDP]
-#							self.indiLOG.log(30,"RTP "+ str(RTP))
 						except:
-							self.indiLOG.log(40,"error with "+ str(DEV["resetType"][stateNo]))
+							self.indiLOG.log(40,"error with {}".format(DEV["resetType"][stateNo]))
 							break
 						noOfPeriods = len(RTP)
 						for np in range (noOfPeriods):
-							vdReturn+=str(RTP[np])[0:4]+"/"+str(RTP[np])[4:6]+"/"+str(RTP[np])[6:8]+"/"+str(RTP[np])[8:10]+"+"
-						valuesDict["resetPeriods"+str(stateNo)] = vdReturn.strip("+")
-						valuesDict["resetType"+str(stateNo)]	= VDP
+							vdReturn+=str(RTP[np])[0:4]+"/{}".format(RTP[np])[4:6]+"/{}".format(RTP[np])[6:8]+"/{}".format(RTP[np])[8:10]+"+"
+						valuesDict["resetPeriods{}".format(stateNo)] = vdReturn.strip("+")
+						valuesDict["resetType{}".format(stateNo)]	= VDP
 					else:
-						valuesDict["resetType"+str(stateNo)]	= DEV["resetType"][stateNo]
-						valuesDict["resetPeriods"+str(stateNo)] = "0"
+						valuesDict["resetType{}".format(stateNo)]	= DEV["resetType"][stateNo]
+						valuesDict["resetPeriods{}".format(stateNo)] = "0"
 				elif  DEV["measurement"][stateNo]=="integrate":
-						valuesDict["resetType"+str(stateNo)]	= DEV["resetType"][stateNo]
-						valuesDict["resetPeriods"+str(stateNo)] = "0"
+						valuesDict["resetType{}".format(stateNo)]	= DEV["resetType"][stateNo]
+						valuesDict["resetPeriods{}".format(stateNo)] = "0"
 				elif  DEV["measurement"][stateNo]=="eventCOUNT":
-						valuesDict["resetType"+str(stateNo)]	= DEV["resetType"][stateNo]
-						valuesDict["resetPeriods"+str(stateNo)] = "0"
+						valuesDict["resetType{}".format(stateNo)]	= DEV["resetType"][stateNo]
+						valuesDict["resetPeriods{}".format(stateNo)] = "0"
 				else:
-					valuesDict["resetType"+str(stateNo)]		= "0"
-					valuesDict["resetPeriods"+str(stateNo)] = "0"
+					valuesDict["resetType{}".format(stateNo)]		= "0"
+					valuesDict["resetPeriods{}".format(stateNo)] = "0"
 			else:
-				valuesDict["selDevicemeasurement"+str(stateNo)]	= "average"
-				valuesDict["selDeviceStatea"+str(stateNo)]		= 0
-				valuesDict["selDeviceoffset"+str(stateNo)]		= copy.deepcopy(emptyDEVICE["offset"][stateNo])
-				valuesDict["selDevicemultiplier"+str(stateNo)]	= copy.deepcopy(emptyDEVICE["multiplier"][stateNo])
-				valuesDict["selDeviceminValue"+str(stateNo)]	= copy.deepcopy(emptyDEVICE["minValue"][stateNo])
-				valuesDict["selDevicemaxValue"+str(stateNo)]	= copy.deepcopy(emptyDEVICE["maxValue"][stateNo])
-				valuesDict["fillGaps"+str(stateNo)]				= copy.deepcopy(emptyDEVICE["fillGaps"][stateNo])
-				valuesDict["resetType"+str(stateNo)]			= copy.deepcopy(emptyDEVICE["resetType"][stateNo])
-				valuesDict["resetPeriods"+str(stateNo)] 		= "0"
-				valuesDict["nickName"+str(stateNo)]				= ""
+				valuesDict["selDevicemeasurement{}".format(stateNo)]	= "average"
+				valuesDict["selDeviceStatea{}".format(stateNo)]		= 0
+				valuesDict["selDeviceoffset{}".format(stateNo)]		= copy.deepcopy(emptyDEVICE["offset"][stateNo])
+				valuesDict["selDevicemultiplier{}".format(stateNo)]	= copy.deepcopy(emptyDEVICE["multiplier"][stateNo])
+				valuesDict["selDeviceminValue{}".format(stateNo)]	= copy.deepcopy(emptyDEVICE["minValue"][stateNo])
+				valuesDict["selDevicemaxValue{}".format(stateNo)]	= copy.deepcopy(emptyDEVICE["maxValue"][stateNo])
+				valuesDict["fillGaps{}".format(stateNo)]				= copy.deepcopy(emptyDEVICE["fillGaps"][stateNo])
+				valuesDict["resetType{}".format(stateNo)]			= copy.deepcopy(emptyDEVICE["resetType"][stateNo])
+				valuesDict["resetPeriods{}".format(stateNo)] 		= "0"
+				valuesDict["nickName{}".format(stateNo)]				= ""
 
 		return valuesDict, 2
 
@@ -6466,10 +6376,10 @@ class Plugin(indigo.PluginBase):
 						val= dev.states[test]
 						x = GT.getNumber(val)
 						if x !="x" : 	retList.append((test, self.tryNiceState(test)))
-		except  Exception, e:
-			if len(unicode(e)) > 5: self.indiLOG.log(40,u"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(40,u"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
 
-		if self.decideMyLog("General"): self.indiLOG.log(30,u"preSelectStates   devID: " + str(devID)+"; deviceDevOrVarNew: "+str(self.deviceDevOrVarNew) +" retList: "+ str(retList) )
+		if self.decideMyLog("General"): self.indiLOG.log(20,u"preSelectStates   devID: {}".format(devID)+"; deviceDevOrVarNew: {}".format(self.deviceDevOrVarNew) +" retList: {}".format(retList) )
 
 		return retList
 
@@ -6502,7 +6412,7 @@ class Plugin(indigo.PluginBase):
 	def filterDeviceStatesAll (self, valuesDict, stateNo):
 	
 		if self.currentDevNo ==0: return [(0,0)]
-#		statePreviouslySelected=  self.DEVICE[str(self.currentDevNo)]["state"][stateNo]									# is there a previously selected dev/property, if yes use it
+#		statePreviouslySelected=  self.DEVICE[u"{}".format(self.currentDevNo)]["state"][stateNo]									# is there a previously selected dev/property, if yes use it
 
 		retList = self.selectableStatesInDevice[:]																		# make a copy for this property
 #		if statePreviouslySelected !="None":																			# use the old one if there
@@ -6537,9 +6447,8 @@ class Plugin(indigo.PluginBase):
 			valuesDict["hour"]	= str(cCD["hour"])
 		
 		for n in range (noOfCosts):
-			valuesDict["consumed"+str(n)]= str(cCD["consumed"][n])
-			valuesDict["cost"+str(n)]= str(cCD["cost"][n])
-#		self.indiLOG.log(30,"selectConfirmERatesCALLBACK "+str(escheduleNo)+" " +str(valuesDict["cost1"])+" " +str(valuesDict["day"])+" " +str(valuesDict["hour"]))
+			valuesDict["consumed{}".format(n)]= str(cCD["consumed"][n])
+			valuesDict["cost{}".format(n)]= str(cCD["cost"][n])
 		return valuesDict
 
 
@@ -6548,11 +6457,10 @@ class Plugin(indigo.PluginBase):
 		self.eventDataPresent = {}
 		for devNo in self.DEVICE:
 			if devNo == "0": continue
-			if self.DEVICE[str(devNo)]["Id"] ==0: continue
+			if self.DEVICE[u"{}".format(devNo)]["Id"] ==0: continue
 			for stateNo in range (1, noOfStatesPerDeviceG+1):
 				if self.DEVICE[devNo]["measurement"][stateNo].find("event") >-1:
-					self.eventDataPresent[str(self.DEVICE[devNo]["stateToIndex"][stateNo])] = [devNo,stateNo]
-		#self.indiLOG.log(30,u" eventDataPresent:" + unicode(self.eventDataPresent) )
+					self.eventDataPresent[u"{}".format(self.DEVICE[devNo]["stateToIndex"][stateNo])] = [devNo,stateNo]
 
 
 	########################################
@@ -6564,7 +6472,7 @@ class Plugin(indigo.PluginBase):
 		valuesDict["selectDeviceStatesOK"] = False
 		
 		if str(devNo) not in self.DEVICE:
-			self.indiLOG.log(30,u"buttonConfirmDeviceStatesCALLBACK:  devNo "+str(devNo)+" not found in  DEVICE" )
+			self.indiLOG.log(30,u"buttonConfirmDeviceStatesCALLBACK:  devNo {}".format(devNo)+" not found in  DEVICE" )
 			out="defined DEVICE# are:"
 			for devNN in self.DEVICE:
 				out+= devNN+" - " + self.DEVICE[devNN]["Name"]+";  "
@@ -6573,42 +6481,40 @@ class Plugin(indigo.PluginBase):
 			valuesDict["text1-2"] = "E: DEVICE not selected"
 			return valuesDict
 			
-		if self.decideMyLog("General"): self.indiLOG.log(30,u"buttonConfirmDeviceStatesCALLBACK 2 devNo:"+str(devNo)+"  DEVICE..:"+unicode(self.DEVICE[str(devNo)]["state"]))
+		if self.decideMyLog("General"): self.indiLOG.log(20,u"buttonConfirmDeviceStatesCALLBACK 2 devNo:{}".format(devNo)+"  DEVICE..:{}".format(self.DEVICE[u"{}".format(devNo)]["state"]))
 
-		if self.DEVICE[str(devNo)]["Name"] !="":
-			DEV=self.DEVICE[str(devNo)]
+		if self.DEVICE[u"{}".format(devNo)]["Name"] !="":
+			DEV=self.DEVICE[u"{}".format(devNo)]
 			devName=DEV["Name"]
 			devOrVar=DEV["devOrVar"]
 
-#			self.indiLOG.log(30,u"DEVICE.bf.:"+str(self.DEVICE[str(devNo)]))
 			for stateNo in range (1, noOfStatesPerDeviceG+1):
-				state				= valuesDict["selDeviceStatea"+str(stateNo)]
-				measurement			= valuesDict["selDevicemeasurement"+str(stateNo)]
-				offset				 = float(valuesDict["selDeviceoffset"+str(stateNo)])
-				multiplier			 = float(valuesDict["selDevicemultiplier"+str(stateNo)])
-				minValue			 = float(valuesDict["selDeviceminValue"+str(stateNo)])
-				maxValue			 = float(valuesDict["selDevicemaxValue"+str(stateNo)])
-				fillGaps			 = str(valuesDict["fillGaps"+str(stateNo)])
-				resetPeriods		 = valuesDict["resetPeriods"+str(stateNo)]
-				resetTypeVD			 = valuesDict["resetType"+str(stateNo)]
-				resetType			 = valuesDict["resetType"+str(stateNo)]
-				nickName			 = valuesDict["nickName"+str(stateNo)][:50]
+				state				= valuesDict["selDeviceStatea{}".format(stateNo)]
+				measurement			= valuesDict["selDevicemeasurement{}".format(stateNo)]
+				offset				 = float(valuesDict["selDeviceoffset{}".format(stateNo)])
+				multiplier			 = float(valuesDict["selDevicemultiplier{}".format(stateNo)])
+				minValue			 = float(valuesDict["selDeviceminValue{}".format(stateNo)])
+				maxValue			 = float(valuesDict["selDevicemaxValue{}".format(stateNo)])
+				fillGaps			 = str(valuesDict["fillGaps{}".format(stateNo)])
+				resetPeriods		 = valuesDict["resetPeriods{}".format(stateNo)]
+				resetTypeVD			 = valuesDict["resetType{}".format(stateNo)]
+				resetType			 = valuesDict["resetType{}".format(stateNo)]
+				nickName			 = valuesDict["nickName{}".format(stateNo)][:50]
 				
 				if measurement =="delete":
-					if self.decideMyLog("General"): self.indiLOG.log(30,u"buttonConfirmDeviceStatesCALLBACK deleting device/state..:"+DEV["Name"]+ " " +str(state)+ " " +str(devNo)+ " " +str(stateNo))
+					if self.decideMyLog("General"): self.indiLOG.log(30,u"buttonConfirmDeviceStatesCALLBACK deleting device/state..:"+DEV["Name"]+ " {}".format(state)+ " {}".format(devNo)+ " {}".format(stateNo))
 					self.removePropFromDevice(devNo,stateNo)
-					valuesDict["selDeviceStatea"+str(stateNo)] =""
-					valuesDict["selDevicemeasurement"+str(stateNo)] ="average"
+					valuesDict["selDeviceStatea{}".format(stateNo)] =""
+					valuesDict["selDevicemeasurement{}".format(stateNo)] ="average"
 					continue
 
 				if state ==0:      continue																				# if == 0 still empty
 				if state =="":     continue																				# if == 0 still empty
 				if state =="None": continue																				# if == 0 still empty
 
-#				self.indiLOG.log(30," measurement  "+str(measurement))
 				if measurement.find("Consumption")>-1 or measurement== "integrate":
 					if str(resetTypeVD)  != "0":  
-						if self.decideMyLog("General"): self.indiLOG.log(30," resetTypeVD resetPeriods "+str(resetTypeVD)+" "+str(resetPeriods))
+						if self.decideMyLog("General"): self.indiLOG.log(30," resetTypeVD resetPeriods {}".format(resetTypeVD)+" {}".format(resetPeriods))
 					resetType ="0"
 					if resetTypeVD=="0" :
 						resetPeriods ="0"
@@ -6616,12 +6522,12 @@ class Plugin(indigo.PluginBase):
 						if resetTypeVD.find("Period") >-1 or resetTypeVD.find("NoCost") ==-1:
 							valuesDict["text1-2"]= "chose reset period cost=1 for integrate"
 							return valuesDict
-						valuesDict["resetPeriods"+str(stateNo)] ="0000000000"
+						valuesDict["resetPeriods{}".format(stateNo)] ="0000000000"
 						resetType =resetTypeVD
 					elif resetTypeVD.find("Period") >-1:
 						pList=[]
 						# parse first into "+"
-						if self.decideMyLog("General"): self.indiLOG.log(30," parsing "+str(resetPeriods))
+						if self.decideMyLog("General"): self.indiLOG.log(30," parsing {}".format(resetPeriods))
 						parsedPeriods1= resetPeriods.split("+")
 						noP =len(parsedPeriods1)
 						for np in range (noP):
@@ -6652,43 +6558,43 @@ class Plugin(indigo.PluginBase):
 								parsedPeriods2.append("01")
 								parsedPeriods2.append("00")
 							if ll <2 or ll>4:
-								valuesDict["la"+str(stateNo)]= "bad format time for # "+str(np)+": "+parsedPeriods1[np]
+								valuesDict["la{}".format(stateNo)]= "bad format time for # {}".format(np)+": "+parsedPeriods1[np]
 								return valuesDict
 							valuesDict["text1-2"]= "enter data then click CONFIRM"
 							try:
 								for n2 in range(4):
 									if int(parsedPeriods2[n2]) >0: continue
 							except:
-								valuesDict["text1-2"]= "bad date: "+str(n2)+": "+parsedPeriods1[n2]
-								self.indiLOG.log(40," non numerical dates entered "+str(n2)+": "+parsedPeriods1[n2])
+								valuesDict["text1-2"]= "bad date: {}".format(n2)+": "+parsedPeriods1[n2]
+								self.indiLOG.log(40," non numerical dates entered {}".format(n2)+": "+parsedPeriods1[n2])
 								return valuesDict
 							pList.append(parsedPeriods2[0]+parsedPeriods2[1]+parsedPeriods2[2]+parsedPeriods2[3])
 						for np in range(1,noP):
 							try:
 								if int(pList[np]) > int(pList[np-1]): continue
-								valuesDict["text1-2"]= "not seq.: "+str(np-1)+"/"+str(np)+": "+parsedPeriods1[np-1]+"-"+parsedPeriods1[np]
-								self.indiLOG.log(40," time stamps for resetPeriods not in sequence: "+str(np-1)+"/"+str(np)+": "+parsedPeriods1[np-1]+"-"+parsedPeriods1[np])
+								valuesDict["text1-2"]= "not seq.: {}".format(np-1)+"/{}".format(np)+": "+parsedPeriods1[np-1]+"-"+parsedPeriods1[np]
+								self.indiLOG.log(40," time stamps for resetPeriods not in sequence: {}".format(np-1)+"/{}".format(np)+": "+parsedPeriods1[np-1]+"-"+parsedPeriods1[np])
 								return valuesDict
 							except:
-								valuesDict["text1-2"]= "bad date:"+str(np)+"/"+str(np)
-								self.indiLOG.log(40," bad  dates: "+str(np)+"/"+str(np))
+								valuesDict["text1-2"]= "bad date: {}".format(np)+"/{}".format(np)
+								self.indiLOG.log(40," bad  dates: {}".format(np)+"/{}".format(np))
 								return valuesDict
 							
-						if self.decideMyLog("General"): self.indiLOG.log(30," pList "+str(pList))
-						valuesDict["resetType"+str(stateNo)] = resetType
+						if self.decideMyLog("General"): self.indiLOG.log(30," pList {}".format(pList))
+						valuesDict["resetType{}".format(stateNo)] = resetType
 						vdReturn=""
 						for np in range (len(pList)):
 							vdReturn+=pList[np][0:4]+"/"+pList[np][4:6]+"/"+pList[np][6:8]+"/"+pList[np][8:10]+"+"
-						valuesDict["resetPeriods"+str(stateNo)] = vdReturn.strip("+")
+						valuesDict["resetPeriods{}".format(stateNo)] = vdReturn.strip("+")
 						resetType = {resetTypeVD:pList}
 					else:
-						valuesDict["resetPeriods"+str(stateNo)] ="0000000000"
+						valuesDict["resetPeriods{}".format(stateNo)] ="0000000000"
 						resetType =resetTypeVD
 			
 #				## nickname changed?
 
-				valuesDict["nickName"+str(stateNo)] = self.getNickName(devNo,stateNo,nickNameN=nickName,devNameN=devName, stateN=state, measurementN=measurement,fillGapsN=fillGaps, resetTypeN=resetType)
-				DEV["nickName"][stateNo] = valuesDict["nickName"+str(stateNo)]
+				valuesDict["nickName{}".format(stateNo)] = self.getNickName(devNo,stateNo,nickNameN=nickName,devNameN=devName, stateN=state, measurementN=measurement,fillGapsN=fillGaps, resetTypeN=resetType)
+				DEV["nickName"][stateNo] = valuesDict["nickName{}".format(stateNo)]
 				theCol = DEV["stateToIndex"][stateNo]
 
 				## SAME?
@@ -6703,13 +6609,13 @@ class Plugin(indigo.PluginBase):
 						 DEV["maxValue"][stateNo] 		== maxValue):
 						self.sqlColListStatus[theCol] = 0
 						self.sqlHistListStatus[theCol]= 0
-						if self.decideMyLog("General"): self.indiLOG.log(30,"same state "+state+ " DEV:"+unicode(DEV))
+						if self.decideMyLog("General"): self.indiLOG.log(30,"same state "+state+ " DEV:{}".format(DEV))
 						continue
-					DEV["minValue"][stateNo]		= float(valuesDict["selDeviceminValue"+str(stateNo)])
-					DEV["maxValue"][stateNo]		= float(valuesDict["selDevicemaxValue"+str(stateNo)])
+					DEV["minValue"][stateNo]		= float(valuesDict["selDeviceminValue{}".format(stateNo)])
+					DEV["maxValue"][stateNo]		= float(valuesDict["selDevicemaxValue{}".format(stateNo)])
 					self.sqlHistListStatus[theCol]=45		# tell sql import to read, dont wait
 					self.updateALL=True
-					if self.decideMyLog("General"): self.indiLOG.log(30,"same state2  "+state+ " DEV:"+unicode(DEV))
+					if self.decideMyLog("General"): self.indiLOG.log(30,"same state2  "+state+ " DEV:{}".format(DEV))
 					continue  # everything is the same no action neeed
 				## NEW?
 				elif DEV["state"][stateNo]			== "None":	#new device / state added
@@ -6718,16 +6624,16 @@ class Plugin(indigo.PluginBase):
 					DEV["state"][stateNo]			= state										# = "property value"
 					DEV["measurement"][stateNo]		= measurement									# = "average/sum/count/min/max"
 					DEV["stateToIndex"][stateNo]	= self.dataColumnCount								# = "line index"
-					DEV["offset"][stateNo]			= float(valuesDict["selDeviceoffset"+str(stateNo)])
-					DEV["multiplier"][stateNo]		= float(valuesDict["selDevicemultiplier"+str(stateNo)])
-					DEV["minValue"][stateNo]		= float(valuesDict["selDeviceminValue"+str(stateNo)])
-					DEV["maxValue"][stateNo]		= float(valuesDict["selDevicemaxValue"+str(stateNo)])
+					DEV["offset"][stateNo]			= float(valuesDict["selDeviceoffset{}".format(stateNo)])
+					DEV["multiplier"][stateNo]		= float(valuesDict["selDevicemultiplier{}".format(stateNo)])
+					DEV["minValue"][stateNo]		= float(valuesDict["selDeviceminValue{}".format(stateNo)])
+					DEV["maxValue"][stateNo]		= float(valuesDict["selDevicemaxValue{}".format(stateNo)])
 					DEV["fillGaps"][stateNo]		= str(fillGaps)
 					DEV["resetType"][stateNo]		= str(resetType)
 					DEV["nickName"][stateNo]		= nickName
 
 					if DEV["measurement"][stateNo].find("Consumption") >-1 or measurement== "integrate":
-						self.consumedDuringPeriod[str(self.dataColumnCount)] = copy.deepcopy(emptyconsumedDuringPeriod)
+						self.consumedDuringPeriod[u"{}".format(self.dataColumnCount)] = copy.deepcopy(emptyconsumedDuringPeriod)
 						self.putconsumedDuringPeriod()
 						
 					self.devicesAdded =1
@@ -6757,26 +6663,25 @@ class Plugin(indigo.PluginBase):
 					DEV["measurement"][stateNo]		= measurement									# = "average/sum/count/min/max/...."
 					if DEV["measurement"][stateNo].find("Consumption") ==-1:
 						if str(theCol) in self.consumedDuringPeriod:
-							del self.consumedDuringPeriod[str(theCol)]
+							del self.consumedDuringPeriod[u"{}".format(theCol)]
 					else:
 						if not str(theCol) in self.consumedDuringPeriod:
-							self.consumedDuringPeriod[str(theCol)] = copy.deepcopy(emptyconsumedDuringPeriod)
+							self.consumedDuringPeriod[u"{}".format(theCol)] = copy.deepcopy(emptyconsumedDuringPeriod)
 							self.putconsumedDuringPeriod()
 							
-					DEV["offset"][stateNo]			= float(valuesDict["selDeviceoffset"+str(stateNo)])
-					DEV["multiplier"][stateNo]		= float(valuesDict["selDevicemultiplier"+str(stateNo)])
-					DEV["minValue"][stateNo]		= float(valuesDict["selDeviceminValue"+str(stateNo)])
-					DEV["maxValue"][stateNo]		= float(valuesDict["selDevicemaxValue"+str(stateNo)])
+					DEV["offset"][stateNo]			= float(valuesDict["selDeviceoffset{}".format(stateNo)])
+					DEV["multiplier"][stateNo]		= float(valuesDict["selDevicemultiplier{}".format(stateNo)])
+					DEV["minValue"][stateNo]		= float(valuesDict["selDeviceminValue{}".format(stateNo)])
+					DEV["maxValue"][stateNo]		= float(valuesDict["selDevicemaxValue{}".format(stateNo)])
 					DEV["fillGaps"][stateNo]		= str(fillGaps)
 					DEV["resetType"][stateNo]		= str(resetType)
 					continue
 
 
-#		self.indiLOG.log(30,u"DEVICE.22 :"+str(DEV))
 		if max(self.sqlColListStatus) >10: self.updateALL= True
 		if max(self.sqlHistListStatus) >10: self.updateALL= True
 		if error > 0:
-			valuesDict["text1-2"] = "..property "+str(error)+" already used.."		# restore to the old one
+			valuesDict["text1-2"] = "..property {}".format(error)+" already used.."		# restore to the old one
 		else:
 			valuesDict["text1-2"] = "CONFIRMED & SAVED"		# restore to the old one
 
@@ -6790,13 +6695,12 @@ class Plugin(indigo.PluginBase):
 		self.redoParam()
 		if self.devicesAdded >0 or self.updateALL:
 			self.newPREFS=True
-#		self.indiLOG.log(30,u"devicesAdded \n " + str(self.devicesAdded)+u"sqlColListStatus \n " + str(self.sqlColListStatus)+"\n sqlHistListStatus"+ str(self.sqlHistListStatus))
 
 		return valuesDict
 
 	########################################
 	def getNickName(self,devNo,stateNo,devNameN="",nickNameN="", stateN="", measurementN="",fillGapsN="", resetTypeN=""):
-		DEV=self.DEVICE[str(devNo)]
+		DEV=self.DEVICE[u"{}".format(devNo)]
 		state		=DEV["state"][stateNo]
 		if state==	"None": return ""
 		devName 	=DEV["Name"]
@@ -6819,7 +6723,6 @@ class Plugin(indigo.PluginBase):
 		if stateN		!= state:						ok=5
 		if resetTypeN	!= resetType:					ok=6
 		if fillGapsN	!= fillGaps:					ok=7
-		#self.indiLOG.log(30,"nickN-1--"+str(devNo)+";"+str(stateNo)+";"+unicode(nickNameN)+";"+unicode(ok)+";"+unicode(devNameN)+";"+str(stateN)+";"+str(measurementN)+";"+str(fillGapsN)+";"+str(resetTypeN))
 		if ok==0:
 			if len(nickNameN) >2: return nickNameN
 			if len(nickNameO) >2: return nickNameO
@@ -6871,7 +6774,6 @@ class Plugin(indigo.PluginBase):
 		stringToShow= devOrVar+devName+state+measurement+resetType+fillGaps
 
 		nickName= (stringToShow.replace(" ","").replace("[","").replace("]","").replace("{","").replace("}",""))[:50]
-		#self.indiLOG.log(30,"nickN-2--"+str(devNo)+";"+str(stateNo)+"; "+unicode(nickName)+";"+unicode(devName)+";"+str(state)+";"+str(measurement)+";"+str(fillGaps)+";"+str(resetType))
 
 
 		return nickName
@@ -6901,8 +6803,8 @@ class Plugin(indigo.PluginBase):
 			valuesDict["hour"]	= str(cCD["hour"])
 			valuesDict["thisPeriod"]= str(cCD["Period"])
 			for n in range (noOfCosts):
-				valuesDict["consumed"+str(n)]= str(cCD["consumed"][n])
-				valuesDict["cost"+str(n)]= str(cCD["cost"][n])
+				valuesDict["consumed{}".format(n)]= str(cCD["consumed"][n])
+				valuesDict["cost{}".format(n)]= str(cCD["cost"][n])
 			valuesDict["deleteCRate"] = False
 			self.newConsumptionParams+=consumptionType+","
 			return valuesDict
@@ -6952,7 +6854,7 @@ class Plugin(indigo.PluginBase):
 				return valuesDict
 			if consumptionPeriod > 2:
 				if int(("").join(parsedPeriods2)) < self.consumptionCostData[consumptionType][consumptionPeriod-1]["Period"]:
-					self.indiLOG.log(40,"time periods for costing not in sequence :" +("").join(parsedPeriods2)+" last period is: "+str(self.consumptionCostData[consumptionType][consumptionPeriod-1]["Period"]))
+					self.indiLOG.log(40,"time periods for costing not in sequence :" +("").join(parsedPeriods2)+" last period is: {}".format(self.consumptionCostData[consumptionType][consumptionPeriod-1]["Period"]))
 					valuesDict["thisPeriod"]=  valuesDict["thisPeriod"]+"/not in sequence"
 					return valuesDict
 			
@@ -6975,22 +6877,22 @@ class Plugin(indigo.PluginBase):
 
 		for n in range (noOfCosts):
 			try:
-				consumed = float(valuesDict["consumed"+str(n)])
+				consumed = float(valuesDict["consumed{}".format(n)])
 			except:
 				consumed = 0.
 			try:
-				cost= float(valuesDict["cost"+str(n)])
+				cost= float(valuesDict["cost{}".format(n)])
 			except:
 				cost = 0.
 			
 			if cost >0. and n> 0:
 				if cCD["cost"][n-1] == 0.:
-					self.indiLOG.log(40,"cost of schedule: " +str(n-1)+" =0; first define cost of schedule "+str(n-1)+" then schedule "+str(n))
+					self.indiLOG.log(40,"cost of schedule: {}".format(n-1)+" =0; first define cost of schedule {}".format(n-1)+" then schedule {}".format(n))
 					return valueaDict
 
 
-			valuesDict["consumed"+str(n)] =str(consumed)
-			valuesDict["cost"+str(n)] =str(cost)
+			valuesDict["consumed{}".format(n)] =str(consumed)
+			valuesDict["cost{}".format(n)] =str(cost)
 
 			if cCD["consumed"][n] !=consumed or cCD["cost"][n] != cost :
 				self.newConsumptionParams+=consumptionType+","
@@ -7019,7 +6921,7 @@ class Plugin(indigo.PluginBase):
 		else:
 			valuesDict["ExpertsP"]				= False
 		
-		if self.decideMyLog("General"): self.indiLOG.log(30,u"getDeviceConfigUiValues... devId:"+str(devId))
+		if self.decideMyLog("General"): self.indiLOG.log(30,u"getDeviceConfigUiValues... devId:{}".format(devId))
 
 		valuesDict["DefinePlots"]			= True
 		valuesDict["DefineLines"]			= False
@@ -7044,7 +6946,6 @@ class Plugin(indigo.PluginBase):
 			if nPlot == str(devId):
 				found =1
 				self.PLOT[nPlot]["DeviceNamePlot"] 			= thePlot.name
-#				if self.decideMyLog("General"): self.indiLOG.log(30,u"getDeviceConfigUiValues... nPlot:"+str(nPlot)+thePlot.name)
 				valuesDict["DefinePlots"]			= True
 				valuesDict["text2-1"]				= u"Configuring "+self.PLOT[nPlot]["DeviceNamePlot"]
 				valuesDict["text3-1"]				= u"first confirm Plot, then select Line"
@@ -7057,8 +6958,8 @@ class Plugin(indigo.PluginBase):
 		if found ==0:	# new device, check if brand new or duplicate from old device
 			for nPlot in self.PLOT:
 				if self.PLOT[nPlot]["DeviceNamePlot"]+u" copy" == thePlot.name or self.PLOT[nPlot]["DeviceNamePlot"]+" copy 1" == thePlot.name:
-					self.PLOT[str(thePlot.id)] = copy.deepcopy(self.PLOT[nPlot])
-					self.PLOT[str(thePlot.id)]["DeviceNamePlot"] = thePlot.name
+					self.PLOT[u"{}".format(thePlot.id)] = copy.deepcopy(self.PLOT[nPlot])
+					self.PLOT[u"{}".format(thePlot.id)]["DeviceNamePlot"] = thePlot.name
 					valuesDict["text2-1"]				= u"Configuring "+self.PLOT[nPlot]["DeviceNamePlot"]
 					valuesDict["text3-1"]				= u"first confirm Plot, then select Line"
 					found =2
@@ -7175,9 +7076,6 @@ class Plugin(indigo.PluginBase):
 		valuesDict["selectedLineSourceA"]		= 0
 		valuesDict["selectedLineSourceB"]		= 0
 
-#		self.indiLOG.log(30,u"getDeviceConfigUiValues... "+str(found)+" "+nPlot + " " +unicode(self.PLOT[nPlot]))
-
-#		self.indiLOG.log(30,"getDeviceConfigUiValues:"+valuesDict["TitleText"])
 		valuesDict = self.setViewOnOff( valuesDict)
 		return valuesDict
 
@@ -7185,12 +7083,11 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def filterFont(self,  filter="self", valuesDict=None, typeId="", targetId=0):                                                               # this will offer the available dev/properties for this plot/line
 		if 	self.gnuORmat =="mat" : return []
-		nPlot = unicode(targetId)
+		nPlot = u"{}".format(targetId)
 		defFont = self.PLOT[nPlot]["TextFont"]
 		retList = self.fontNames[:]
 		retList.append([0,defFont])
 		self.fontNames2[0]=defFont
-#		self.indiLOG.log(30,"filterFont:"+unicode(retList))
 		return retList
 
 	########################################
@@ -7200,7 +7097,6 @@ class Plugin(indigo.PluginBase):
 		else:
 			rgbINT ,rgbHEX, Error = self.convertoIntAndHexRGB(valuesDict["BackgroundColorRGB"],defColor="#000000")
 		valuesDict["BackgroundColorRGB"]= rgbINT
-#		self.indiLOG.log(30,"BackgroundColorRGB  rgbINT: "+rgbINT)
 		return valuesDict
 		
 	########################################
@@ -7210,7 +7106,6 @@ class Plugin(indigo.PluginBase):
 		else:
 			rgbINT ,rgbHEX, Error = self.convertoIntAndHexRGB(valuesDict["TextColorRGB"],defColor="#000000")
 		valuesDict["TextColorRGB"]= rgbINT
-#		self.indiLOG.log(30,"TextColorRGB  rgbINT: "+rgbINT)
 		return valuesDict
 	########################################
 	def plotLineColorRGBCALLBACK(self, valuesDict=None, typeId="", targetId=0):
@@ -7219,15 +7114,12 @@ class Plugin(indigo.PluginBase):
 		else:
 			rgbINT ,rgbHEX, Error = self.convertoIntAndHexRGB(valuesDict["lineColorRGB"],defColor="#000000")
 		valuesDict["lineColorRGB"]= rgbINT
-		#self.indiLOG.log(30,"lineColorRGB  rgbINT: "+rgbINT)
 		return valuesDict
 
 
 
 	########################################
 	def buttonConfirmPlotCALLBACK(self,  valuesDict=None, typeId="", targetId=0):															# store userinput
-#		self.indiLOG.log(30,u" buttonConfirmPlot typeId "+unicode(typeId))
-#		self.indiLOG.log(30,u" buttonConfirmPlot targetId "+unicode(targetId))
 
 		valuesDict, Error, nPlot,fName= self.buttonConfirmPlotCALLBACKcheck(valuesDict, typeId=typeId, targetId=targetId,script=False)															# store userinput
 
@@ -7251,7 +7143,6 @@ class Plugin(indigo.PluginBase):
 			valuesDict= self.setViewOnOff(valuesDict)
 
 		self.waitWithPlotting =True
-#		if self.decideMyLog("General"): self.indiLOG.log(30,u" buttonConfirmPlot after "+unicode(self.PLOT[nPlot]))
 		self.lineAlreadySelected = False
 
 
@@ -7261,16 +7152,9 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonConfirmPlotCALLBACKcheck(self,  valuesDict=None, typeId="", targetId=0,script=False):															# store userinput
-#		self.indiLOG.log(30,u" buttonConfirmPlot "+str(self.plotNumberNew))
 		Error = ""
 		fName								=indigo.devices[targetId].name
-		nPlot								= unicode(targetId)
-#		self.indiLOG.log(30,u" buttonConfirmPlotCALLBACKcheck valuesDict 1 "+unicode(valuesDict["XYvPolar"]))
-#		self.indiLOG.log(30,u" buttonConfirmPlotCALLBACKcheck PLOT "+unicode(self.PLOT[nPlot]["XYvPolar"]))
-
-#		valuesDict["selectLinesOK"]			= False
-
-
+		nPlot								= u"{}".format(targetId)
 
 		self.currentPlotType=valuesDict["PlotType"]
 		if self.currentPlotType != "dataFromTimeSeries":
@@ -7290,7 +7174,6 @@ class Plugin(indigo.PluginBase):
 		except:
 			self.PLOT[nPlot]["TextFont"]			= "0"
 
-#		self.indiLOG.log(30," font# and font name:"+ str(nfont)+" "+fontName)
 		self.PLOT[nPlot]["TextMATFont"]			= valuesDict["TextMATFont"]
 		self.PLOT[nPlot]["TitleText"] 			= valuesDict["TitleText"]
 		self.PLOT[nPlot]["ExtraText"] 			= valuesDict["ExtraText"]
@@ -7470,8 +7353,6 @@ class Plugin(indigo.PluginBase):
 		else: 		self.PLOT[nPlot]["Textscale21"]	=str(xx)
 
 
-#		self.indiLOG.log(30,u" buttonConfirmPlotCALLBACKcheck script "+unicode(script))#  +" " + unicode(valuesDict["BackgroundColorRGB"]),1)
-#		self.indiLOG.log(30,u" buttonConfirmPlotCALLBACKcheck Background "+unicode(valuesDict["Background"]))#  +" " + unicode(valuesDict["BackgroundColorRGB"]),1)
 		if not script:
 			rgb = valuesDict["Background"]
 			if rgb == self.PLOT[nPlot]["Background"]:
@@ -7485,7 +7366,6 @@ class Plugin(indigo.PluginBase):
 			if not rgbHEX in stdColors: valuesDict["showRGBBackground"] 	= True
 		else:
 			rgbINT ,rgbHEX, Error = self.convertoIntAndHexRGB(valuesDict["Background"],defColor="#FFFFFF")
-#			self.indiLOG.log(30,u" buttonConfirmPlotCALLBACKcheck Background "+unicode(valuesDict["Background"])+" "+rgbINT+" " +rgbHEX)
 			valuesDict["Background"]				= rgbHEX
 			self.PLOT[nPlot]["Background"]			= rgbHEX
 
@@ -7501,7 +7381,6 @@ class Plugin(indigo.PluginBase):
 			xxx="1.0"
 		self.PLOT[nPlot]["TransparentBlocks"]	= xxx
 
-#		self.indiLOG.log(30,u" buttonConfirmPlotCALLBACKcheck TextColor "+unicode(valuesDict["TextColor"])+" " + unicode(valuesDict["TextColorRGB"]))
 		if not script:
 			rgb = valuesDict["TextColor"]
 			if rgb == self.PLOT[nPlot]["TextColor"]:
@@ -7518,10 +7397,6 @@ class Plugin(indigo.PluginBase):
 			rgbINT ,rgbHEX, Error = self.convertoIntAndHexRGB(valuesDict["TextColor"],defColor="#000000")
 			valuesDict["TextColor"]					= rgbHEX
 			self.PLOT[nPlot]["TextColor"]			= rgbHEX
-#		self.indiLOG.log(30,u" buttonConfirmPlotCALLBACKcheck TextColor "+unicode(valuesDict["TextColor"])+" " + unicode(valuesDict["TextColorRGB"])+" "+rgb+" " +rgbINT+" " +rgbHEX)
-
-#		self.indiLOG.log(30,u" buttonConfirmPlotCALLBACKcheck valuesDict2 "+unicode(valuesDict))
-#		self.indiLOG.log(30,u" buttonConfirmPlotCALLBACKcheck PLOT 2 "+unicode(self.PLOT[nPlot]["lines"]))
 
 		return valuesDict, Error,nPlot, fName
 		
@@ -7531,18 +7406,18 @@ class Plugin(indigo.PluginBase):
 	def convertoIntAndHexRGB(self,value,defColor="#FFFFFF"):
 
 
-		rgbINT = str(int(defColor[1:3],16))+","+str(int(defColor[3:5],16))+","+str(int(defColor[5:7],16))
+		rgbINT = str(int(defColor[1:3],16))+",{}".format(int(defColor[3:5],16))+",{}".format(int(defColor[5:7],16))
 		rgbHEX = defColor
 		
 		if len(value) <5 :
 			return rgbINT,rgbHEX,""
 
 		if value.find("#")>-1:
-			if len(value) <7: 		return rgbINT,rgbHEX,"error: enter proper color "+str(value)
-			if value.find(",")>-1: 	return rgbINT,rgbHEX,"error: enter proper color "+str(value)
-			if value.find(".")>-1: 	return rgbINT,rgbHEX,"error: enter proper color "+str(value)
+			if len(value) <7: 		return rgbINT,rgbHEX,"error: enter proper color {}".format(value)
+			if value.find(",")>-1: 	return rgbINT,rgbHEX,"error: enter proper color {}".format(value)
+			if value.find(".")>-1: 	return rgbINT,rgbHEX,"error: enter proper color {}".format(value)
 			rgbHEX= value.upper()
-			rgbINT = str(int(value[1:3],16))+","+str(int(value[3:5],16))+","+str(int(value[5:7],16))
+			rgbINT = str(int(value[1:3],16))+",{}".format(int(value[3:5],16))+",{}".format(int(value[5:7],16))
 		elif value.count(",") == 2:
 			if len(value) >4:  # must be this format 123,222,111 numbers 0<=x<256
 				rgbINT= value
@@ -7553,14 +7428,14 @@ class Plugin(indigo.PluginBase):
 						if rgb[0] <256 and rgb[1] <256 and rgb[2] <256:
 							rgbHEX = "#"+self.padzero(str(hex(rgb[0])[2:])) +self.padzero(str(hex(rgb[1])[2:]))+self.padzero(str(hex(rgb[2])[2:])).upper()
 						else:
-							return rgbINT,rgbHEX,"error: enter propper color "+str(value)
+							return rgbINT,rgbHEX,"error: enter propper color {}".format(value)
 					else:
-						return rgbINT,rgbHEX,"error: enter propper color "+str(value)
+						return rgbINT,rgbHEX,"error: enter propper color {}".format(value)
 				else:
-					return rgbINT,rgbHEX,"error: enter propper color "+str(value)
+					return rgbINT,rgbHEX,"error: enter propper color {}".format(value)
 			else:
-				return rgbINT,rgbHEX,"error: enter propper color "+str(value)
-		else:return rgbINT,rgbHEX,"error: enter propper color "+str(value)
+				return rgbINT,rgbHEX,"error: enter propper color {}".format(value)
+		else:return rgbINT,rgbHEX,"error: enter propper color {}".format(value)
 
 		return rgbINT,rgbHEX.upper(),""
 
@@ -7569,18 +7444,16 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def filterExistingLine(self,  filter="self", valuesDict=None, typeId="", targetId=-1):
 		try:
-			if self.decideMyLog("General"): self.indiLOG.log(30,u"filterExistingLine targetId " + str(targetId))
+			if self.decideMyLog("General"): self.indiLOG.log(30,u"filterExistingLine targetId {}".format(targetId))
 
 
 			retList = []
 			nPlot = str(targetId)
 			for nLine in self.PLOT[nPlot]["lines"]:
 				theCol = int(self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexA"])
-	#			if self.decideMyLog("General"): self.indiLOG.log(30,u"filterExistingLine nLine, theCol "+nLine+ " " + str(theCol))
 				if theCol >0:
 					if self.currentPlotType=="dataFromTimeSeries":
 						if theCol >= len(self.listOfSelectedDataColumnsAndDevPropName):
-	#						if self.decideMyLog("General"): self.indiLOG.log(30,u" bad data index: please reload INDIGGOplotD to rectify " )
 							continue
 						if self.PLOT[nPlot]["lines"][nLine]["lineKey"] =="":
 							retList.append((int(nLine)," -"+self.listOfSelectedDataColumnsAndDevPropName[theCol][1]))
@@ -7588,7 +7461,7 @@ class Plugin(indigo.PluginBase):
 							retList.append((int(nLine), self.PLOT[nPlot]["lines"][nLine]["lineKey"]+"-"+self.listOfSelectedDataColumnsAndDevPropName[theCol][1]))
 					else:
 						if theCol > len(self.listOfLinesForFileOrVari):
-							self.indiLOG.log(40,u" please configure Plot correctly variable or file name or lines not correct, theCol, list: "+str(theCol)+" "+str(len(self.listOfLinesForFileOrVari))+" " +str(self.listOfLinesForFileOrVari) )
+							self.indiLOG.log(40,u" please configure Plot correctly variable or file name or lines not correct, theCol, list: {}".format(theCol)+" {}".format(len(self.listOfLinesForFileOrVari))+" {}".format(self.listOfLinesForFileOrVari) )
 							self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexA"]=0
 							continue
 						if self.PLOT[nPlot]["lines"][nLine]["lineKey"] =="":
@@ -7607,7 +7480,9 @@ class Plugin(indigo.PluginBase):
 			retList.append(("99","Add New Line"))
 			if not self.lineAlreadySelected:  retList.append(("0","Select action"))
 
-			if self.decideMyLog("General"): self.indiLOG.log(30,u"filterExistingLine retList "+ unicode(retList))
+			if self.decideMyLog("General"): 
+				self.indiLOG.log(30,u"filterExistingLine retList {}".format(retList))
+
 		except:
 			return [(0,0)]
 			self.indiLOG.log(30,u"filterExistingLine no lines in data ")
@@ -7653,7 +7528,7 @@ class Plugin(indigo.PluginBase):
 			nLine=theLine
 
 
-		if self.decideMyLog("General"): self.indiLOG.log(30,u" pickExistingOrNewLineCALLBACK  nLine nPlot vDictLine"+nLine + " " + nPlot +" "+str(theLine))
+		if self.decideMyLog("General"): self.indiLOG.log(30,u" pickExistingOrNewLineCALLBACK  nLine nPlot vDictLine"+nLine + " " + nPlot +" {}".format(theLine))
 
 
 		self.CurrentLineNo					= nLine
@@ -7681,7 +7556,6 @@ class Plugin(indigo.PluginBase):
 
 		if theLine !="99" :  # existing line
 			theDefaultColNumber =int(self.PLOT[nPlot]["lines"][self.CurrentLineNo]["lineToColumnIndexA"])					# get the last entry
-#			if self.decideMyLog("General"): self.indiLOG.log(30,u" pickExistingOrNewLineCALLBACK nl def#"+ nLine +" " + str(theDefaultColNumber))
 			if self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexA"]>0:
 				valuesDict["StraightLine"] = False
 				valuesDict["lineOffsetMultHelp"] = "value*mult+offset"
@@ -7717,17 +7591,15 @@ class Plugin(indigo.PluginBase):
 
 		valuesDict =self.setViewOnOff(valuesDict)
 
-		valuesDict["text3-1"] = "configure Line# "+str(nLine)
+		valuesDict["text3-1"] = "configure Line# {}".format(nLine)
 		self.lineAlreadySelected = True
-#		self.indiLOG.log(30,u"pickExistingOrNewLineCALLBACK showAB "+ unicode(self.showAB))
-#		self.indiLOG.log(30,u"pickExistingOrNewLineCALLBACK valuesDict "+ unicode(valuesDict))
 
 		return valuesDict
 
 	########################################
 	def filterSelectedLinesA(self,  filter="self", valuesDict=None, typeId="", targetId=0):                            # this will offer the available dev/properties for this plot/line
 		try:
-			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  nline "+ str(self.CurrentLineNo))
+			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  nline {}".format(self.CurrentLineNo))
 
 			nPlot = str(targetId)
 			
@@ -7739,15 +7611,14 @@ class Plugin(indigo.PluginBase):
 			try:
 				theDefaultColNumber =int(self.PLOT[nPlot]["lines"][self.CurrentLineNo]["lineToColumnIndexA"])					# get the last entry
 			except:
-	#			self.indiLOG.log(30,u" filterSelectedLinesA  no Plot in for for plot# "+ nPlot )
 				return [(0,"None")]
-			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  nPlot and def line#  "+ nPlot +" " + str(theDefaultColNumber) )
+			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  nPlot and def line#  "+ nPlot +" {}".format(theDefaultColNumber) )
 			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  currentPlotType "+ self.currentPlotType)
 			if theDefaultColNumber >0:																					# if there was a last entry make it the default
 				if self.currentPlotType =="dataFromTimeSeries": 			retList= [(0,self.listOfSelectedDataColumnsAndDevPropName[theDefaultColNumber][1])]
 				else:
 					retList= [(0,self.listOfLinesForFileOrVari[theDefaultColNumber][1])]
-					if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  retList self.listOfLinesForFileOrVari "+ str(self.listOfLinesForFileOrVari[theDefaultColNumber][1]))
+					if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  retList self.listOfLinesForFileOrVari {}".format(self.listOfLinesForFileOrVari[theDefaultColNumber][1]))
 				
 				if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  retList "+  str(retList))
 				return retList
@@ -7759,9 +7630,9 @@ class Plugin(indigo.PluginBase):
 				retList =  self.listOfSelectedDataColumnsAndDevPropNameSORTED[:]
 			else:
 				retList = self.listOfLinesForFileOrVari[:]
-			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  retlist " + str(retList))
-		except  Exception, e:
-			self.indiLOG.log(40,"filterSelectedLinesA  Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesA  retlist {}".format(retList))
+		except  Exception as e:
+			self.indiLOG.log(40,"filterSelectedLinesA  Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 			return [(0,0)]
 		return retList
 
@@ -7771,12 +7642,6 @@ class Plugin(indigo.PluginBase):
 		try:
 
 			nPlot = str(targetId)
-	#		self.indiLOG.log(30,u" filterSelectedLinesB  nPlot          1= "+ nPlot )
-	#		self.indiLOG.log(30,u" filterSelectedLinesB  CurrentLineNo  1= "+  str(self.CurrentLineNo))
-	#		try:
-	#			self.indiLOG.log(30,u" filterSelectedLinesB  lineToColumnIndexB 1= "+ str(self.PLOT[nPlot]["lines"][str(self.CurrentLineNo)]["lineToColumnIndexB"]))
-	#		except:
-	#			self.indiLOG.log(30,u" filterSelectedLinesB  lineToColumnIndexB 1= does not exist")
 
 			if  self.CurrentLineNo=="0":																#  nothing there return empty selection
 				retList =[(0,"None")]
@@ -7785,30 +7650,21 @@ class Plugin(indigo.PluginBase):
 			try:
 				theDefaultColNumber =int(self.PLOT[nPlot]["lines"][self.CurrentLineNo]["lineToColumnIndexB"])					# get the last entry
 			except:
-	#			self.indiLOG.log(30,u" filterSelectedLinesB  error .no PLOT info for  nPlot: "+ nPlot)
 				return [(0,"None")]
 			
 			if theDefaultColNumber >0:																					# if there was a last entry make it the default
 				if self.currentPlotType =="dataFromTimeSeries": 	retList= [(0,self.listOfSelectedDataColumnsAndDevPropName[theDefaultColNumber][1])]
 				else:												retList= [(0,self.listOfLinesForFileOrVari[theDefaultColNumber][1])]
 				
-	#			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesB  retList "+  str(retList))
 				return retList
 
 			if self.currentPlotType =="dataFromTimeSeries":
 				retList =  self.listOfSelectedDataColumnsAndDevPropNameSORTED[:]
 			else:
 				retList = self.listOfLinesForFileOrVari[:]
-	#		if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesB  retlist " + str(retList))
 
-	#		self.indiLOG.log(30,u" filterSelectedLinesB  nPlot          2= "+ nPlot )
-	#		self.indiLOG.log(30,u" filterSelectedLinesB  CurrentLineNo  2= "+  str(self.CurrentLineNo))
-	#		try:
-	#			self.indiLOG.log(30,u" filterSelectedLinesB  lineToColumnIndexB 2= "+ str(self.PLOT[nPlot]["lines"][str(self.CurrentLineNo)]["lineToColumnIndexB"]))
-	#		except:
-	#			self.indiLOG.log(30,u" filterSelectedLinesB  lineToColumnIndexB 2= does not exist")
 
-			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesB  retlist " + str(retList))
+			if self.decideMyLog("General"): self.indiLOG.log(30,u" filterSelectedLinesB  retlist {}".format(retList))
 			return retList
 		except:
 			return [(0,"None")]
@@ -7853,7 +7709,7 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def doplotNOWCommand(self):
 
-		if self.decideMyLog("Plotting"): self.indiLOG.log(30,"doplotNOWCommand-- "+str(self.plotNOWCommand))
+		if self.decideMyLog("Plotting"): self.indiLOG.log(30,"doplotNOWCommand-- {}".format(self.plotNOWCommand))
 		if self.plotNOWCommand[0]=="": return
 		xxx=self.waitWithPlotting
 		self.waitWithPlotting =False
@@ -7877,7 +7733,6 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonConfirmLinePropsCALLBACK(self, valuesDict=None, thetypeId="", thetargetId=0):
-#		self.indiLOG.log(30,u" buttonConfirmLinePropsCALLBACK  CurrentLineNo " + str(self.CurrentLineNo))
 
 		if self.CurrentLineNo =="0":
 			valuesDict["text3-1"] = "no Line selected, nothing saved "		# restore to the old one
@@ -7890,7 +7745,6 @@ class Plugin(indigo.PluginBase):
 			self.PLOT[nPlot]["dataSource"] =emptyPlot["dataSource"] # once edited remove the mini(plot) assignment
 
 		self.redoParam()
-#		self.indiLOG.log(30,u" buttonConfirmLinePropsCALLBACK  after redoParam")
 		return valuesDict
 
 	########################################
@@ -7926,12 +7780,12 @@ class Plugin(indigo.PluginBase):
 				while True:
 					iLine +=1
 					try:
-						if self.PLOT[nPlot]["lines"][str(iLine)]["lineToColumnIndexA"]==0:
+						if self.PLOT[nPlot]["lines"][u"{}".format(iLine)]["lineToColumnIndexA"]==0:
 							break
 					except:
 						break
 				self.CurrentLineNo = iLine
-				self.PLOT[nPlot]["lines"][str(iLine)] = copy.deepcopy(self.PLOT[nPlot]["lines"][nLine])
+				self.PLOT[nPlot]["lines"][u"{}".format(iLine)] = copy.deepcopy(self.PLOT[nPlot]["lines"][nLine])
 				valuesDict["newLine"] = str(iLine)
 				return valuesDict, "Line duplicated"
 
@@ -7940,10 +7794,6 @@ class Plugin(indigo.PluginBase):
 		if ( valuesDict["lineType"]			=="" ): return valuesDict, "error: lineType"
 		if ( valuesDict["lineLeftRight"]	=="" ): return valuesDict, "error: lineLeftRight"
 
-#		self.indiLOG.log(30,u" ConfirmLineProps  smooth"+ str(self.PLOT[nPlot]["lines"][nLine]["lineSmooth"]))
-#		self.indiLOG.log(30,u" ConfirmLineProps  lineSmooth"+ str(valuesDict["lineSmooth"]))
-		
-		
 		if availableSmoothTypes.find(valuesDict["lineSmooth"])==-1:
 			self.indiLOG.log(30,u" buttonConfirmLinePropsCALLBACKcheck smoothType "+ valuesDict["lineSmooth"] +" wrong, available: "+ availableSmoothTypes)
 			self.PLOT[nPlot]["lines"][nLine]["lineSmooth"] = "None"
@@ -8021,10 +7871,6 @@ class Plugin(indigo.PluginBase):
 		self.PLOT[nPlot]["lines"][nLine]["lineNumbersFormat"]	=	str(valuesDict["lineNumbersFormat"])
 		self.PLOT[nPlot]["lines"][nLine]["lineNumbersOffset"]	=	str(valuesDict["lineNumbersOffset"])
 		
-		#self.indiLOG.log(30,"lineNumbersOffset at valuesdict: "+self.PLOT[nPlot]["lines"][nLine]["lineNumbersOffset"])
-
-
-
 		if not script:
 			if self.PLOT[nPlot]["lines"][nLine]["lineFunc"] =="None" and self.PLOT[nPlot]["XYvPolar"] =="xy": 		valuesDict["selectedLineSourceB"] =0
 			theLineSource											=	int(valuesDict["selectedLineSourceB"])
@@ -8041,7 +7887,7 @@ class Plugin(indigo.PluginBase):
 			valuesDict["selectedExistingOrNewLine"] =0
 			valuesDict["newLine"] = str(nLine)
 
-		if not script: 	return valuesDict,"CONFIRMED/SAVED  line# "+str(self.CurrentLineNo)
+		if not script: 	return valuesDict,"CONFIRMED/SAVED  line# {}".format(self.CurrentLineNo)
 		return valuesDict,""
 	
 	########################################
@@ -8077,33 +7923,33 @@ class Plugin(indigo.PluginBase):
 		if oldLine==newLine: return valuesDict
 		
 		nLines=len(PLT)
-		if self.decideMyLog("General"): self.indiLOG.log(30,u" zorderCALLBACK  CurrentLineNo " + str(self.CurrentLineNo)+" newL:"+str(newLine)+" nLines:"+str(len(PLT)))
+		if self.decideMyLog("General"): self.indiLOG.log(30,u" zorderCALLBACK  CurrentLineNo {}".format(self.CurrentLineNo)+" newL:{}".format(newLine)+" nLines:{}".format(len(PLT)))
 
 		if str(oldLine) not in PLT: return valuesDict
 
 
-		PLT["9999"] =copy.deepcopy(PLT[str(oldLine)])
+		PLT["9999"] =copy.deepcopy(PLT[u"{}".format(oldLine)])
 		
 		if oldLine < newLine:
 			for nl in range(oldLine,newLine):
 				if str(nl+1) in PLT:
-					PLT[str(nl)] =copy.deepcopy(PLT[str(nl+1)])
+					PLT[u"{}".format(nl)] =copy.deepcopy(PLT[u"{}".format(nl+1)])
 				else:
 					try:
-						del PLT[str(nl)]
+						del PLT[u"{}".format(nl)]
 					except:
-						if self.decideMyLog("General"): self.indiLOG.log(30,u" zorderCALLBACK error  nl " + str(nl)+" newL:"+str(newLine)+" nLines:"+str(len(PLT)))
+						if self.decideMyLog("General"): self.indiLOG.log(30,u" zorderCALLBACK error  nl {}".format(nl)+" newL:{}".format(newLine)+" nLines:{}".format(len(PLT)))
 		else:
 			for nl in range(oldLine,newLine,-1):
 				if str(nl-1) in PLT:
-					PLT[str(nl)] =copy.deepcopy(PLT[str(nl-1)])
+					PLT[u"{}".format(nl)] =copy.deepcopy(PLT[u"{}".format(nl-1)])
 				else:
 					try:
-						del PLT[str(nl)]
+						del PLT[u"{}".format(nl)]
 					except:
-						if self.decideMyLog("General"): self.indiLOG.log(30,u" zorderCALLBACK error  nl " + str(nl)+" newL:"+str(newLine)+" nLines:"+str(len(PLT)))
+						if self.decideMyLog("General"): self.indiLOG.log(30,u" zorderCALLBACK error  nl {}".format(nl)+" newL:{}".format(newLine)+" nLines:{}".format(len(PLT)))
 		
-		PLT[str(newLine)] =copy.deepcopy(PLT["9999"])
+		PLT[u"{}".format(newLine)] =copy.deepcopy(PLT["9999"])
 		del PLT["9999"]
 		if self.decideMyLog("General"): self.indiLOG.log(30,str(PLT))
 
@@ -8187,15 +8033,13 @@ class Plugin(indigo.PluginBase):
 		for d in ["Restore","General","Initialize","Plotting","Matplot","SQL","Special","all"]:
 			if valuesDict[u"debug"+d]: self.debugLevel.append(d)
 
-		self.setLogfile(unicode(valuesDict[u"logFileActive2"]))
+		self.setLogfile(valuesDict[u"logFileActive2"])
 
-		ndays			=	valuesDict["noOfDays"]
-#		self.indiLOG.log(30," ndays "+ ndays)
-		ndays= json.loads(ndays)
-		if cmp(ndays,self.noOfDays) !=0:
-			self.noOfDays	=copy.deepcopy(ndays)
+		ndays = json.loads(valuesDict["noOfDays"])
+		if ndays != self.noOfDays:
+			self.noOfDays	= copy.deepcopy(ndays)
 			self.quitNOW = "error validatePrefsConfigUi 1"
-			self.indiLOG.log(30," need to restart plugin, data structure has changed to: " +str(ndays) +" days for the [minute, hour, day] data")
+			self.indiLOG.log(30," need to restart plugin, data structure has changed to: {} days for the [minute, hour, day] data".format(nDays))
 			self.indigoCommand=["quitNow"]
 			return True, valuesDict
 
@@ -8246,8 +8090,8 @@ class Plugin(indigo.PluginBase):
 			for  theCol  in range (1,self.dataColumnCount+1):																# list of dev/props
 				devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 				stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
-				measurement 	=	self.DEVICE[str(devNo)]["measurement"][stateNo]
-				resetType 		=	self.DEVICE[str(devNo)]["resetType"][stateNo]
+				measurement 	=	self.DEVICE[u"{}".format(devNo)]["measurement"][stateNo]
+				resetType 		=	self.DEVICE[u"{}".format(devNo)]["resetType"][stateNo]
 				if self.newConsumptionParams.find(measurement) >-1 :
 					self.sqlColListStatus[theCol] = 10
 					self.sqlHistListStatus[theCol] = 50
@@ -8257,7 +8101,6 @@ class Plugin(indigo.PluginBase):
 		self.newConsumptionParams =""
 		if self.devicesAdded ==5: self.indiLOG.log(30,"New Consumption Cost parameters.. need to updates data from SQL data base to recalculate Energy costs")
 
-#		self.indiLOG.log(30,"eConsumptionCost "+ str(self.consumptionCostData))
 		self.indigoInitialized						= True
 		valuesDict["text1-1"]						= " "
 		valuesDict["selectedExistingOrNewDevice"]	= 0
@@ -8270,8 +8113,6 @@ class Plugin(indigo.PluginBase):
 
 
 		self.putDeviceParametersToFile()
-#		valuesDict["dataColumnToDevice0Prop1Index"]	= json.dumps(self.dataColumnToDevice0Prop1Index)
-#		valuesDict["DEVICE"]						= json.dumps(self.DEVICE)
 		self.putConsumptionCostData()
 		
 		if self.devicesAdded >0 :
@@ -8280,9 +8121,6 @@ class Plugin(indigo.PluginBase):
 		self.waitWithPlotting	= False
 		valuesDict["DeleteDevice"]=False
 
-#		f =open(self.userIndigoPluginDir+"data/configPrefs","wb")
-#		f.write(unicode(valuesDict))
-#		f.close()
 
 		return (True, valuesDict)
 
@@ -8305,7 +8143,7 @@ class Plugin(indigo.PluginBase):
 		self.indigoCommand.append("redoParam")
 		
 		self.waitWithPlotting			= False
-		valuesDict["PLOTindigo"]		= json.dumps(self.PLOT[str(targetId)])
+		valuesDict["PLOTindigo"]		= json.dumps(self.PLOT[u"{}".format(targetId)])
 		self.justSaved					= True
 		self.newPLOTS					= devName
 		try:
@@ -8355,17 +8193,17 @@ class Plugin(indigo.PluginBase):
 					dev= indigo.devices[self.DEVICE[devNo]["Id"]]
 				except:
 					continue
-				if self.DEVICE[str(devNo)]["Name"] == dev.name: continue
-				anyChange += u"\nold: "+self.DEVICE[str(devNo)]["Name"]+u";   new: "+dev.name+ u";   #="+unicode(devNo)+u"; ID: "+unicode(self.DEVICE[devNo]["Id"])
-				self.DEVICE[str(devNo)]["Name"] = dev.name
+				if self.DEVICE[u"{}".format(devNo)]["Name"] == dev.name: continue
+				anyChange += u"\nold: "+self.DEVICE[u"{}".format(devNo)]["Name"]+u";   new: "+dev.name+ u";   #={}".format(devNo)+u"; ID: {}".format(self.DEVICE[devNo]["Id"])
+				self.DEVICE[u"{}".format(devNo)]["Name"] = dev.name
 			else:
 				try:
 					var=indigo.variables[self.DEVICE[devNo]["Id"]]
 				except:
 					pass
-				if self.DEVICE[str(devNo)]["Name"] == var.name: continue
-				anyChange += u"\nold: "+self.DEVICE[str(devNo)]["Name"]+u";   new: "+var.name+ u";   #="+unicode(devNo)+u"; ID: "+unicode(self.DEVICE[devNo]["Id"])
-				self.DEVICE[str(devNo)]["Name"] = var.name
+				if self.DEVICE[u"{}".format(devNo)]["Name"] == var.name: continue
+				anyChange += u"\nold: "+self.DEVICE[u"{}".format(devNo)]["Name"]+u";   new: "+var.name+ u";   #={}".format(devNo)+u"; ID: {}".format(self.DEVICE[devNo]["Id"])
+				self.DEVICE[u"{}".format(devNo)]["Name"] = var.name
 
 		if len(anyChange) >0:
 			self.putDeviceParametersToFile()
@@ -8383,7 +8221,7 @@ class Plugin(indigo.PluginBase):
 			devName			="x"
 			theState		="y"
 			theMeasurement	="z"
-			if self.decideMyLog("General"): self.indiLOG.log(30," redolineDataSource  called from : "+calledfrom)
+			if self.decideMyLog("General"): self.indiLOG.log(20," redolineDataSource  called from : "+calledfrom)
 			if self.waitWithRedoIndex:
 				if self.decideMyLog("General"): self.indiLOG.log(30," redolineDataSource  skipped due to wait-request ")
 				return
@@ -8408,7 +8246,7 @@ class Plugin(indigo.PluginBase):
 			try:
 				lN = len(self.timeDataNumbers[0][0])
 				if lN != self.dataColumnCount +1+dataOffsetInTimeDataNumbers:
-					self.indiLOG.log(40," self.timeDataNumbers wrong number of columns: "+str(self.dataColumnCount)+"/"+str(len(self.timeDataNumbers[0][0])-dataOffsetInTimeDataNumbers)+"trying to fix")
+					self.indiLOG.log(40," self.timeDataNumbers wrong number of columns: {}".format(self.dataColumnCount)+"/{}".format(len(self.timeDataNumbers[0][0])-dataOffsetInTimeDataNumbers)+"trying to fix")
 					if lN >self.dataColumnCount +1+dataOffsetInTimeDataNumbers:
 						for NT in range(noOfTimeTypes):
 							for NTB in range (self.noOfTimeBins[NT]):
@@ -8417,9 +8255,9 @@ class Plugin(indigo.PluginBase):
 						for NT in range(noOfTimeTypes):
 							for NTB in range (self.noOfTimeBins[NT]):
 								self.timeDataNumbers[NT][NTB].append("")
-			except  Exception, e:
-				self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-				self.indiLOG.log(40," self.timeDataNumbers: "+str(self.dataColumnCount)+"/"+ str(len(self.timeDataNumbers))+"/"+ str(len(self.timeDataNumbers[0]))+"/"+ str(len(self.timeDataNumbers[0][0])))
+			except  Exception as e:
+				self.exceptionHandler(40, e)
+				self.indiLOG.log(40," self.timeDataNumbers: {}".format(self.dataColumnCount)+"/{}".format(len(self.timeDataNumbers))+"/{}".format(len(self.timeDataNumbers[0]))+"/{}".format(len(self.timeDataNumbers[0][0])))
 
 
 
@@ -8427,30 +8265,30 @@ class Plugin(indigo.PluginBase):
 				try:
 					devNo= self.dataColumnToDevice0Prop1Index[theCol][0]																			# for shorter typing
 					stateNo=self.dataColumnToDevice0Prop1Index[theCol][1]
-				except  Exception, e:
-					self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-					self.indiLOG.log(40,"redolineDataSource called from: "+calledfrom+ " -- dataColumnToDevice0Prop1Index " +str(self.dataColumnToDevice0Prop1Index) +"-- theCol: "+str(theCol)+" >  dataColumnCount-1: "+str(self.dataColumnCount-1))
+				except  Exception as e:
+					self.exceptionHandler(40, e)
+					self.indiLOG.log(40,"redolineDataSource called from: "+calledfrom+ " -- dataColumnToDevice0Prop1Index {}".format(self.dataColumnToDevice0Prop1Index) +"-- theCol: {}".format(theCol)+" >  dataColumnCount-1: {}".format(self.dataColumnCount-1))
 					break
 				devID = "--"
 				
 				## check for basic errors
 				if devNo ==0 or stateNo == 0:
-					self.indiLOG.log(30,"redolineDataSource devNo or stateNo = 0  for lineDatasourceIndex "+str(theCol)+" has no device/state associated, deleting "  +str(devNo)+"["+str(stateNo)+"] ")
+					self.indiLOG.log(30,"redolineDataSource devNo or stateNo = 0  for lineDatasourceIndex {}".format(theCol)+" has no device/state associated, deleting "  +str(devNo)+"[{}".format(stateNo)+"] ")
 					self.removeColumnFromData(theCol)
 					self.removeColumnFromIndexes(theCol)
 					self.putDeviceParametersToFile(calledfrom="redolineDataSource")
 					return -1
 				try:
-					if self.DEVICE[str(devNo)]["Name"] == "None":
-						self.indiLOG.log(30,"redolineDataSource , lineDatasourceIndex "+str(theCol)+" and  deviceName number " +str(devNo)+" is None "  )
+					if self.DEVICE[u"{}".format(devNo)]["Name"] == "None":
+						self.indiLOG.log(30,"redolineDataSource , lineDatasourceIndex {}".format(theCol)+" and  deviceName number {}".format(devNo)+" is None "  )
 						self.removeColumnFromData(theCol)
 						self.removeColumnFromIndexes(theCol)
 						self.putDeviceParametersToFile(calledfrom="redolineDat+aSource")
 						return -1
-				except  Exception, e:
-					self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-					self.indiLOG.log(40,"redolineDataSource error, deviceName error bad index devNo / lineDatasourceIndex  " +str(devNo)+" /  "+str(theCol))
-					self.indiLOG.log(40,"device:" +str(self.DEVICE))
+				except  Exception as e:
+					self.exceptionHandler(40, e)
+					self.indiLOG.log(40,"redolineDataSource error, deviceName error bad index devNo / lineDatasourceIndex  {}".format(devNo)+" /  {}".format(theCol))
+					self.indiLOG.log(40,"device:{}".format(self.DEVICE))
 					self.removeColumnFromData(theCol)
 					self.removeColumnFromIndexes(theCol)
 					self.putDeviceParametersToFile(calledfrom="redolineDataSource -2")
@@ -8458,43 +8296,43 @@ class Plugin(indigo.PluginBase):
 				
 				## we have data, check details
 				if devNo > 0 and stateNo > 0:
-					self.DEVICE[str(devNo)]["stateToIndex"][stateNo]= theCol																	# = "line index"
-					theresetType	= self.tryNiceState(self.DEVICE[str(devNo)]["resetType"][stateNo])
+					self.DEVICE[u"{}".format(devNo)]["stateToIndex"][stateNo]= theCol																	# = "line index"
+					theresetType	= self.tryNiceState(self.DEVICE[u"{}".format(devNo)]["resetType"][stateNo])
 					if theresetType =="0" or len(str(theresetType))< 3:	theresetType=""
-					else:					theresetType="+"+str(theresetType).split(":")[0].replace("{u'","").replace(" ","").replace("[","").replace("]","").replace("{","").replace("}","").replace("NoCost","NoC")[:10]
-					theState		= self.tryNiceState(self.DEVICE[str(devNo)]["state"][stateNo])
-					theMeasurement	= self.DEVICE[str(devNo)]["measurement"][stateNo]
-					theName			= self.DEVICE[str(devNo)]["Name"]
-					fillGaps		= self.DEVICE[str(devNo)]["fillGaps"][stateNo]
+					else:					theresetType="+{}".format(theresetType).split(":")[0].replace("{u'","").replace(" ","").replace("[","").replace("]","").replace("{","").replace("}","").replace("NoCost","NoC")[:10]
+					theState		= self.tryNiceState(self.DEVICE[u"{}".format(devNo)]["state"][stateNo])
+					theMeasurement	= self.DEVICE[u"{}".format(devNo)]["measurement"][stateNo]
+					theName			= self.DEVICE[u"{}".format(devNo)]["Name"]
+					fillGaps		= self.DEVICE[u"{}".format(devNo)]["fillGaps"][stateNo]
 					if 	theMeasurement =="None":
-						self.indiLOG.log(30,"redolineDataSource,  for " +theName+"["+ theState+"] " +str(devID)+"["+str(devNo)+"]  index "+str(theCol) +" theMeasurement is None \n removing device")
+						self.indiLOG.log(30,"redolineDataSource,  for " +theName+"["+ theState+"] {}".format(devID)+"[{}".format(devNo)+"]  index {}".format(theCol) +" theMeasurement is None \n removing device")
 						self.removeThisDevice.append(int(devNo))
 						self.removeDevice0(reDo=False)
 						self.putDeviceParametersToFile(calledfrom="redolineDataSource -2")
 						return -1  # need to be called again
 					if 	theState 		=="None":
-						self.indiLOG.log(30,"redolineDataSource  for " +theName+"["+ theState+"] " +str(devID)+"["+str(devNo)+"]  index "+str(theCol) +"   theState is None  \n removing device")
+						self.indiLOG.log(30,"redolineDataSource  for " +theName+"["+ theState+"] {}".format(devID)+"[{}".format(devNo)+"]  index {}".format(theCol) +"   theState is None  \n removing device")
 						self.removeThisDevice.append(int(devNo))
 						self.removeDevice0(reDo=False)
 						self.putDeviceParametersToFile(calledfrom="redolineDataSource -2")
 						return -1  # need to be called again
 					devID			="--"
-					if self.DEVICE[str(devNo)]["devOrVar"]=="Dev-":
+					if self.DEVICE[u"{}".format(devNo)]["devOrVar"]=="Dev-":
 						try:
-							devID			= self.DEVICE[str(devNo)]["Id"]
+							devID			= self.DEVICE[u"{}".format(devNo)]["Id"]
 							devName			= indigo.devices[devID].name
 						except:
-							self.indiLOG.log(30,"redolineDataSource error,  deviceId[devNo] does not exist in indigo "  +str(devID)+"["+str(devNo)+"]  index "+str(theCol))
+							self.indiLOG.log(30,"redolineDataSource error,  deviceId[devNo] does not exist in indigo "  +str(devID)+"[{}".format(devNo)+"]  index {}".format(theCol))
 							self.removeThisDevice.append(int(devNo))
 							self.removeDevice0(reDo=False)
 							self.putDeviceParametersToFile(calledfrom="redolineDataSource -2")
 							return -1  # need to be called again
-					if self.DEVICE[str(devNo)]["devOrVar"]=="Var-":
+					if self.DEVICE[u"{}".format(devNo)]["devOrVar"]=="Var-":
 						try:
-							devID			= self.DEVICE[str(devNo)]["Id"]
+							devID			= self.DEVICE[u"{}".format(devNo)]["Id"]
 							devName			= indigo.variables[devID].name
 						except:
-							self.indiLOG.log(30,"redolineDataSource error,  variableId[devNo] does not exist in indigo  " +str(devID)+"["+str(devNo)+"]  index "+str(theCol))
+							self.indiLOG.log(30,"redolineDataSource error,  variableId[devNo] does not exist in indigo  {}".format(devID)+"[{}".format(devNo)+"]  index {}".format(theCol))
 							self.removeThisDevice.append(int(devNo))
 							self.removeDevice0(reDo=False)
 							self.putDeviceParametersToFile(calledfrom="redolineDataSource -2")
@@ -8514,11 +8352,11 @@ class Plugin(indigo.PluginBase):
 				for devNo in self.DEVICE:
 					nonStateUsed = True
 					for stateNo in range(1,noOfStatesPerDeviceG+1):
-						col = int(self.DEVICE[str(devNo)]["stateToIndex"][stateNo])
+						col = int(self.DEVICE[u"{}".format(devNo)]["stateToIndex"][stateNo])
 						if col > 0:
 							if col > int(self.dataColumnCount):
-								self.indiLOG.log(40,"redolineDataSource: removing  devName  devNo/stateNo/nCols/index: "+self.DEVICE[str(devNo)]["Name"] +"  "+str(devNo)+"/"+str(stateNo)+"/"+str(self.DEVICE[str(devNo)]["stateToIndex"])+"/"+str(self.dataColumnCount)+" , not in database")
-								self.DEVICE[str(devNo)]["stateToIndex"][stateNo] =0
+								self.indiLOG.log(40,"redolineDataSource: removing  devName  devNo/stateNo/nCols/index: "+self.DEVICE[u"{}".format(devNo)]["Name"] +"  {}".format(devNo)+"/{}".format(stateNo)+"/{}".format(self.DEVICE[u"{}".format(devNo)]["stateToIndex"])+"/{}".format(self.dataColumnCount)+" , not in database")
+								self.DEVICE[u"{}".format(devNo)]["stateToIndex"][stateNo] =0
 								self.removeColumnFromData(col)
 								self.removeColumnFromIndexes(col)
 								self.putDeviceParametersToFile(calledfrom="redolineDataSource -2")
@@ -8526,7 +8364,7 @@ class Plugin(indigo.PluginBase):
 								return
 							if	(int(devNo) != self.dataColumnToDevice0Prop1Index[col][0] or
 								 stateNo 	!=self.dataColumnToDevice0Prop1Index[col][1]):
-								self.indiLOG.log(40,"redolineDataSource: removing  devName  devNo/stateNo/nCols/index: "+self.DEVICE[str(devNo)]["Name"] +"  "+str(devNo)+"/"+str(stateNo)+"/"+str(col)+"/"+str(self.DEVICE[str(devNo)]["stateToIndex"])+" not in index: "+str(self.dataColumnToDevice0Prop1Index[col]))
+								self.indiLOG.log(40,"redolineDataSource: removing  devName  devNo/stateNo/nCols/index: "+self.DEVICE[u"{}".format(devNo)]["Name"] +"  {}".format(devNo)+"/{}".format(stateNo)+"/{}".format(col)+"/{}".format(self.DEVICE[u"{}".format(devNo)]["stateToIndex"])+" not in index: {}".format(self.dataColumnToDevice0Prop1Index[col]))
 								self.resetDeviceStateNo(devNo,stateNo)
 								self.removeColumnFromData(col)
 								self.removeColumnFromIndexes(col)
@@ -8536,13 +8374,13 @@ class Plugin(indigo.PluginBase):
 							nonStateUsed = False
 						else:
 							self.resetDeviceStateNo(devNo,stateNo)
-					if nonStateUsed : self.DEVICE[str(devNo)]["deviceNumberIsUsed"]=0
-			except  Exception, e:
-				self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+					if nonStateUsed : self.DEVICE[u"{}".format(devNo)]["deviceNumberIsUsed"]=0
+			except  Exception as e:
+				self.exceptionHandler(40, e)
 				try:
-					self.indiLOG.log(40,"devNo "+ str(str(devNo))+"  "+unicode(self.DEVICE[str(devNo)]))
+					self.indiLOG.log(40,"devNo {}".format(str(devNo))+"  {}".format(self.DEVICE[u"{}".format(devNo)]))
 				except:
-					self.indiLOG.log(40,"devNo "+ str(str(devNo))+"  "+unicode(self.DEVICE))
+					self.indiLOG.log(40,"devNo {}".format(str(devNo))+"  {}".format(self.DEVICE))
 					
 	
 
@@ -8551,19 +8389,19 @@ class Plugin(indigo.PluginBase):
 			if self.dataColumnCount >0:
 				for TTI in range( noOfTimeTypes):
 					if len(self.valuesFromIndigo[TTI]) < self.dataColumnCount+1:
-						self.indiLOG.log(30,"redolineDataSource: valuesFromIndigo is too SHORT, ncols/valuesFromIndigo correcting" +str(self.dataColumnCount)+"/"+str(len(self.valuesFromIndigo[TTI])))
+						self.indiLOG.log(30,"redolineDataSource: valuesFromIndigo is too SHORT, ncols/valuesFromIndigo correcting{}".format(self.dataColumnCount)+"/{}".format(len(self.valuesFromIndigo[TTI])))
 						for i in range(self.dataColumnCount+1 - len(self.valuesFromIndigo[TTI])):
 							self.valuesFromIndigo[TTI].append(emptyValues)
 						return -1 # need to redo this
 					if len(self.valuesFromIndigo[TTI]) > self.dataColumnCount+1:
-						self.indiLOG.log(30,"redolineDataSource: valuesFromIndigo is too LONG,  ncols/valuesFromIndigo .. correcting" +str(self.dataColumnCount)+"/"+str(len(self.valuesFromIndigo[TTI][theCol])))
+						self.indiLOG.log(30,"redolineDataSource: valuesFromIndigo is too LONG,  ncols/valuesFromIndigo .. correcting{}".format(self.dataColumnCount)+"/{}".format(len(self.valuesFromIndigo[TTI][theCol])))
 						for theCol in range(len(self.valuesFromIndigo[TTI])-self.dataColumnCount+1):
 							del self.valuesFromIndigo[TTI][theCol]
 							return -1 # need to redo this
 
 
 
-			if self.decideMyLog("General"): self.indiLOG.log(30,"redolineDataSource: listOfSelectedDataColumnsAndDevPropName" +str(self.listOfSelectedDataColumnsAndDevPropName)+" calledfrom :"+calledfrom)
+			if self.decideMyLog("General"): self.indiLOG.log(20,"redolineDataSource: listOfSelectedDataColumnsAndDevPropName{}".format(self.listOfSelectedDataColumnsAndDevPropName)+" calledfrom :"+calledfrom)
 			self.putDeviceParametersToFile()
 			
 			changed =False
@@ -8579,7 +8417,7 @@ class Plugin(indigo.PluginBase):
 						lineToColumnIndexA =int(self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexA"])
 						if lineToColumnIndexA==0:
 							del self.PLOT[nPlot]["lines"][nLine]
-							if self.decideMyLog("General"): self.indiLOG.log(30,"redolineDataSource: plot#: "+str(nPlot)+"  deleting empty line, index =0")
+							if self.decideMyLog("General"): self.indiLOG.log(30,"redolineDataSource: plot#: {}".format(nPlot)+"  deleting empty line, index =0")
 							changed =True
 							dev =indigo.devices[devID]
 							props=dev.pluginProps
@@ -8590,12 +8428,10 @@ class Plugin(indigo.PluginBase):
 
 
 				for nLine in nLines:
-#					if self.decideMyLog("General"): self.indiLOG.log(30,"redolineDataSource: testing plot " +str(nPlot)+" " + str(nLine)+" calledfrom :"+calledfrom)
 
 					lineToColumnIndexA =int(self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexA"])
 					DeviceNamePlot=self.PLOT[nPlot]["DeviceNamePlot"]
 					theKey = self.PLOT[nPlot]["lines"][nLine]["lineKey"]
-#					if self.decideMyLog("General"): self.indiLOG.log(30,"redolineDataSource: testing plot " +DeviceNamePlot+" " + theKey+"-"+nLine+"  col index:" +str(lineToColumnIndexA))
 					if lineToColumnIndexA <0: continue
 					try:
 						if lineToColumnIndexA==0:
@@ -8624,7 +8460,7 @@ class Plugin(indigo.PluginBase):
 							devNoB =self.dataColumnToDevice0Prop1Index[lineToColumnIndexB][0]
 					except:
 						self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexB"]=0
-						self.indiLOG.log(30,"redolineDataSource: devNo not exist deleting plot/lineB: " +str(nLine))
+						self.indiLOG.log(30,"redolineDataSource: devNo not exist deleting plot/lineB: {}".format(nLine))
 						changed =True
 						dev =indigo.devices[devID]
 						props=dev.pluginProps
@@ -8657,7 +8493,7 @@ class Plugin(indigo.PluginBase):
 							break
 					if found ==0:
 						changed =True
-						self.indiLOG.log(30,"redolineDataSource: stateNo not found deleting plot " +self.PLOT[nPlot]["DeviceNamePlot"] +"  line#"+str(nLine) )
+						self.indiLOG.log(30,"redolineDataSource: stateNo not found deleting plot " +self.PLOT[nPlot]["DeviceNamePlot"] +"  line#{}".format(nLine) )
 						del self.PLOT[nPlot]["lines"][nLine]
 						dev =indigo.devices[devID]
 						props=dev.pluginProps
@@ -8673,14 +8509,14 @@ class Plugin(indigo.PluginBase):
 				for i in range(noOfCostTimePeriods+1):
 					if "hour" not in self.consumptionCostData[n][i]: self.consumptionCostData[n][i]["hour"]=0
 	
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 		
 		return 0
 
 	########################################	remove data , device propsdata columns, plotline	########################################	########################################
 	def resetDeviceStateNo(self,devNo,stateNo):
-			DEV= self.DEVICE[str(devNo)]
+			DEV= self.DEVICE[u"{}".format(devNo)]
 			DEV["state"][stateNo]		=copy.deepcopy(emptyDEVICE["state"][stateNo])
 			DEV["measurement"][stateNo] =copy.deepcopy(emptyDEVICE["measurement"][stateNo])
 			DEV["fillGaps"][stateNo] 	=copy.deepcopy(emptyDEVICE["fillGaps"][stateNo])
@@ -8721,7 +8557,7 @@ class Plugin(indigo.PluginBase):
 			for stateNo  in range (1, noOfStatesPerDeviceG+1):
 				self.removePropFromDevice(remDev,stateNo,writeD=False,reDo=reDo)
 			if str(remDev) in self.DEVICE:
-				del self.DEVICE[str(remDev)]
+				del self.DEVICE[u"{}".format(remDev)]
 		self.putDeviceParametersToFile()
 		self.removeThisDevice=[]
 		self.indigoCommand.append("ContinueDataCollection")
@@ -8729,16 +8565,15 @@ class Plugin(indigo.PluginBase):
 
 	######################################## do this last
 	def removePropFromDevice(self,devNo,stateNo,writeD=True,reDo=True):
-#		self.indiLOG.log(30, "removePropFromDevice devNo/stateNo "+str(devNo)+"/"+str(stateNo))
 		if int(stateNo)==0: return
 		if int(devNo) ==0: return
 		if str(devNo) in self.DEVICE:
-			columnToRemove = self.DEVICE[str(devNo)]["stateToIndex"][stateNo]
+			columnToRemove = self.DEVICE[u"{}".format(devNo)]["stateToIndex"][stateNo]
 			if columnToRemove == 0: return
-			if self.decideMyLog("General"): self.indiLOG.log(30, "removePropFromDevice columnToRemove "+str(columnToRemove))
-			self.DEVICE[str(devNo)]["state"][stateNo]="None"
-			self.DEVICE[str(devNo)]["stateToIndex"][stateNo]=0
-			self.DEVICE[str(devNo)]["measurement"][stateNo]="average"
+			if self.decideMyLog("General"): self.indiLOG.log(30, "removePropFromDevice columnToRemove {}".format(columnToRemove))
+			self.DEVICE[u"{}".format(devNo)]["state"][stateNo]="None"
+			self.DEVICE[u"{}".format(devNo)]["stateToIndex"][stateNo]=0
+			self.DEVICE[u"{}".format(devNo)]["measurement"][stateNo]="average"
 			self.removeColumnFromData(columnToRemove)
 			self.removeColumnFromIndexes(columnToRemove)
 		if reDo:
@@ -8753,9 +8588,9 @@ class Plugin(indigo.PluginBase):
 	######################################## do this second to last, fist data, then plotlines then indexes
 	def removeColumnFromIndexes(self,columnToRemove):
 		if columnToRemove ==0: return
-		if self.decideMyLog("General"): self.indiLOG.log(30, "removeColumnFromIndexes col "+str(columnToRemove))
-		if self.decideMyLog("General"): self.indiLOG.log(30, "removeColumnFromIndexes ncols "+str(len(self.dataColumnToDevice0Prop1Index)-1) )
-		if self.decideMyLog("General"): self.indiLOG.log(30, "removeColumnFromIndexes index list "+str(self.dataColumnToDevice0Prop1Index) )
+		if self.decideMyLog("General"): self.indiLOG.log(30, "removeColumnFromIndexes col {}".format(columnToRemove))
+		if self.decideMyLog("General"): self.indiLOG.log(30, "removeColumnFromIndexes ncols {}".format(len(self.dataColumnToDevice0Prop1Index)-1) )
+		if self.decideMyLog("General"): self.indiLOG.log(30, "removeColumnFromIndexes index list {}".format(self.dataColumnToDevice0Prop1Index) )
 
 		plotsToupdates=[]
 		for nPlot in self.PLOT:
@@ -8780,9 +8615,9 @@ class Plugin(indigo.PluginBase):
 							anyChange=True
 							self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexB"] -=1
 							continue
-					except  Exception, e:
-						self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-						self.indiLOG.log(40,nLine+": "+str(self.PLOT[nPlot]["lines"][nLine]))
+					except  Exception as e:
+						self.exceptionHandler(40, e)
+						self.indiLOG.log(40,nLine+": {}".format(self.PLOT[nPlot]["lines"][nLine]))
 				if anyChange: plotsToupdates.append(nPlot)
 		for devNo in self.DEVICE:
 			for stateNo in range(1,noOfStatesPerDeviceG+1):
@@ -8797,11 +8632,11 @@ class Plugin(indigo.PluginBase):
 		del self.sqlLastImportedDate[columnToRemove]
 
 		if str(columnToRemove) in self.consumedDuringPeriod:
-			del self.consumedDuringPeriod[str(columnToRemove)]
+			del self.consumedDuringPeriod[u"{}".format(columnToRemove)]
 		for theCol in range(columnToRemove, self.dataColumnCount):
 				if str(theCol+1) in self.consumedDuringPeriod:
-					self.consumedDuringPeriod[str(theCol)] = copy.deepcopy(self.consumedDuringPeriod[str(theCol+1)])
-					del self.consumedDuringPeriod[str(theCol+1)]
+					self.consumedDuringPeriod[u"{}".format(theCol)] = copy.deepcopy(self.consumedDuringPeriod[u"{}".format(theCol+1)])
+					del self.consumedDuringPeriod[u"{}".format(theCol+1)]
 
 		self.dataColumnCount -=1
 
@@ -8825,17 +8660,18 @@ class Plugin(indigo.PluginBase):
 			for ss in range(0,2):
 				if self.PLOT[nPlot]["PlotType"] =="dataFromTimeSeries":
 					for tt in range(0,noOfTimeTypes):
-						Fname= self.userIndigoPluginDir+"gnu/"+self.PLOT[nPlot]["DeviceNamePlot"]+"-"+self.plotTimeNames[tt]+"-"+self.plotSizeNames[ss]+".gnu"
-						ret =subprocess.Popen(" rm '"+Fname+"'  2>&1 &",shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]
-						Fname= self.indigoPNGdir+self.PLOT[nPlot]["DeviceNamePlot"]+"-"+self.plotTimeNames[tt]+"-"+self.plotSizeNames[ss]+".png"
-						ret =subprocess.Popen(" rm '"+Fname+"'  2>&1 &",shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]
+						Fname= "{}gnu/{}-{}-{}.gnu".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotTimeNames[tt], self.plotSizeNames[ss])
+						ret, err = self.readPopen(" rm '{}'  2>&1 &".format(Fname))
+						Fname= "{}gnu/{}-{}-{}.png".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotTimeNames[tt], self.plotSizeNames[ss])
+						ret, err = self.readPopen(" rm '{}'  2>&1 &".format(Fname))
 				else:
-					Fname= self.userIndigoPluginDir+"gnu/"+self.PLOT[nPlot]["DeviceNamePlot"]+"-"+self.plotSizeNames[ss]+".gnu"
-					ret =subprocess.Popen(" rm '"+Fname+"'  2>&1 &",shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]
-					Fname= self.indigoPNGdir+self.PLOT[nPlot]["DeviceNamePlot"]+"-"+self.plotSizeNames[ss]+".png"
-					ret =subprocess.Popen(" rm '"+Fname+"'  2>&1 &",shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' plot# '%s' ;  plot files already removed" % (sys.exc_traceback.tb_lineno, e))
+					Fname= "{}gnu/{}-{}.gnu".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotSizeNames[ss])
+					ret, err = self.readPopen(" rm '{}'  2>&1 &".format(Fname))
+					Fname= "{}gnu/{}-{}.png".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotSizeNames[ss])
+					ret, err = self.readPopen(" rm '{}'  2>&1 &".format(Fname))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
+			self.indiLOG.log(40,"... plot files already removed")
 
 
 	########################################
@@ -8846,15 +8682,15 @@ class Plugin(indigo.PluginBase):
 		self.CurrentLineNo					= "0"
 		try:
 			del self.PLOT[nPlot]
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 
 		self.writePlotParameters()
 		return
 		
 	#########################################
 	def removeColumnFromData(self,colToRemove):
-		self.indiLOG.log(30,"removeColumnFromData colToRemove " +str(colToRemove) +" from number of columns: "+str(self.dataColumnCount))
+		self.indiLOG.log(30,"removeColumnFromData colToRemove {}".format(colToRemove) +" from number of columns: {}".format(self.dataColumnCount))
 		try:
 			for TTI in range(0,noOfTimeTypes):
 				for NTB in range (self.noOfTimeBins[TTI]):
@@ -8862,17 +8698,17 @@ class Plugin(indigo.PluginBase):
 						for theCol in range(colToRemove, self.dataColumnCount):
 							self.timeDataNumbers[TTI][NTB][theCol+dataOffsetInTimeDataNumbers]  = self.timeDataNumbers[TTI][NTB][theCol+1+dataOffsetInTimeDataNumbers]
 					del self.timeDataNumbers[TTI][NTB][self.dataColumnCount+dataOffsetInTimeDataNumbers]
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-			self.indiLOG.log(40," self.timeDataNumbers: "+str(self.dataColumnCount)+"/"+str(len(self.timeDataNumbers[0][0])))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
+			self.indiLOG.log(40," self.timeDataNumbers: {}".format(self.dataColumnCount)+"/{}".format(len(self.timeDataNumbers[0][0])))
 		
 
 
 		try:
 			for TTI in range (noOfTimeTypes):
 				del self.valuesFromIndigo[TTI][colToRemove]
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 
 		del self.newVFromIndigo[colToRemove]
 		del self.lastTimeStampOfDevice[colToRemove]
@@ -8915,7 +8751,7 @@ class Plugin(indigo.PluginBase):
 					pri  = ""
 				self.timeTrackWaitTime = 20
 				return cmd, pri
-		except	Exception, e:
+		except	Exception as e:
 			pass
 
 		self.timeTrackWaitTime = 60
@@ -8959,7 +8795,7 @@ class Plugin(indigo.PluginBase):
 			self.cProfileVariableLoaded = 0
 			self.do_cProfile  			= "x"
 			self.timeTrVarName 			= "enableTimeTracking_"+self.pluginName
-			indigo.server.log("testing if variable "+self.timeTrVarName+" is == on/off/print-option to enable/end/print time tracking of all functions and methods (option:'',calls,cumtime,pcalls,time)")
+			indigo.server.log("testing if variable {} is == on/off/print-option to enable/end/print time tracking of all functions and methods (option:'',calls,cumtime,pcalls,time)".format(self.timeTrVarName))
 
 		self.lastTimegetcProfileVariable = time.time()
 
@@ -9004,7 +8840,7 @@ class Plugin(indigo.PluginBase):
 
 		self.sleep(1)
 		if self.quitNow !="":
-			indigo.server.log( u"runConcurrentThread stopping plugin due to:  ::::: " + unicode(self.quitNow) + " :::::")
+			indigo.server.log( u"runConcurrentThread stopping plugin due to:  ::::: {}".format(self.quitNow) + " :::::")
 			serverPlugin = indigo.server.getPlugin(self.pluginId)
 			serverPlugin.restart(waitUntilDone=False)
 		return
@@ -9015,7 +8851,6 @@ class Plugin(indigo.PluginBase):
 # reset variables just to make sure..
 		self.indigoCommand =[]
 
-#		self.indiLOG.log(30,u" dataColumnCount mainloog ..."+str(self.dataColumnCount))
 		self.checkPlotsEnable=False
 		self.checkIfEventData()
 		
@@ -9030,7 +8865,7 @@ class Plugin(indigo.PluginBase):
 		lastHourS                   = theHourS
 		lastSecond                  = theSecond
 		lastMinute                  = int(theMinute)
-		theMinute5                  = (theMinute/5)*5
+		theMinute5                  = (theMinute//5)*5
 		lastMinute5                 = theMinute5
 		lastMinute5P                = theMinute5
 		lastDaycheckS               = " "
@@ -9115,7 +8950,6 @@ class Plugin(indigo.PluginBase):
 
 						if  len(self.eventDataPresent)>0:############## check if EVENT  measures in data requested:
 							if  theMinuteToCheckEvents != theMinute:
-								####self.indiLOG.log(30," min check: "+str(theMinute)+"  %5:"+str(theMinute%5)) 
 								if theMinute%5 == 3:
 									theMinuteToCheckEvents = theMinute
 									self.getLastSQLforEventdata(self.eventDataPresent) # start sql job to the the events
@@ -9138,7 +8972,7 @@ class Plugin(indigo.PluginBase):
 				theHourS 		= time.strftime("%H", time.localtime())
 				theMinuteS		= time.strftime("%M", time.localtime())
 				theMinute		= int(theMinuteS)
-				theMinute5		= (theMinute/5)*5
+				theMinute5		= (theMinute//5)*5
 				theSecond		= int(time.strftime("%S", time.localtime()))
 				theDayIndex		= time.strftime("%Y%m%d", time.localtime())+"000000"
 				theHourIndex	= time.strftime("%Y%m%d%H", time.localtime())+"0000"
@@ -9151,7 +8985,6 @@ class Plugin(indigo.PluginBase):
 						self.preSelectDevices()										# redo device list
 						self.putconsumedDuringPeriod()
 						if self.syncPlotsWithIndigo() ==-1: break
-#						self.indiLOG.log(30," min "+str(theMinute)+"    min5 "+str(theMinute5)+"   min5L "+str(lastMinute5))
 						if theMinute5 != lastMinute5:									# new 5 minute bin	after 5 minutes average the5 minutes bin ..
 							lastMinute5 = theMinute5
 							if theDayS != lastDayS:									# new Day bin
@@ -9183,7 +9016,6 @@ class Plugin(indigo.PluginBase):
 					## get new values once a minute
 					self.getIndigoData()
 
-#					self.indiLOG.log(30," min:secs: "+str(theMinute)+":"+ str(theSecond))
 					
 				## updates Day count
 					try:
@@ -9196,6 +9028,8 @@ class Plugin(indigo.PluginBase):
 						theHourIndex	= time.strftime("%Y%m%d%H", time.localtime())+"0000"
 						theMinuteIndex	= time.strftime("%Y%m%d%H", time.localtime())+self.padzero(theMinute5)+"00"
 					
+					#self.indiLOG.log(30,u" main loop  day:{}, hour:{}, minute:{},  theMinute5:{}".format(theDayIndex,theHourIndex, theMinuteIndex, theMinute5 ))
+					#self.indiLOG.log(30,u" main loop  timeDataIndex:{}".format(self.timeDataIndex[0]))
 					self.acummulateValues("finish", 2, self.timeDataIndex[2][theDayIndex])
 					self.putDiskData(2)								# save it to disk for gnuplot
 				## updates hourly count
@@ -9249,8 +9083,8 @@ class Plugin(indigo.PluginBase):
 					self.setupSQLDataBatch(calledfrom="midnight")
 					if self.originalCopySQLActive =="-1": break
 					sleep(60)            
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 		return
 
 
@@ -9270,8 +9104,8 @@ class Plugin(indigo.PluginBase):
 					if self.syncPlotsWithIndigo(Force=True) ==-1: return True
 					self.newPREFS=False
 					self.plotNow()
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 		return False
 
 
@@ -9311,8 +9145,8 @@ class Plugin(indigo.PluginBase):
 						self.histupdatesWaitCount =0
 				self.histupdatesWaitCount1=sum(self.sqlHistListStatus)
 
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 		return 
 
 
@@ -9327,7 +9161,7 @@ class Plugin(indigo.PluginBase):
 
 			if len(self.indigoCommand) >0:
 				if self.indigoCommand[0]!="" and self.indigoCommand[0].find("redoParam")==-1:
-																				self.indiLOG.log(30,"pending indigoCommands: "+str(self.indigoCommand))
+																				self.indiLOG.log(30,"pending indigoCommands: {}".format(self.indigoCommand))
 				if self.indigoCommand[0] =="PauseDataCollection":
 																				self.pause = True
 																				self.pauseTimer = 0
@@ -9373,19 +9207,16 @@ class Plugin(indigo.PluginBase):
 			if self.pause:
 				self.sleep(1)
 				return 1
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 		return 0
 
 
 	########################################
 	def syncPlotsWithIndigo(self, Force=False):
-		##self.indiLOG.log(30," start syncplot")
 		changed = False
 		if self.waitWithPLOTsync: self.sleep(0.5)
-#		if self.decideMyLog("General"): self.indiLOG.log(30,u"syncPlotsWithIndigo forcing read indigoplot parameters")
 		for dev in indigo.devices.iter("self"):
-#			if  dev.pluginId.find(self.pluginId) == -1 :continue  # not needed any more done with ("self") option
 
 			### if this happens we can not handle this automatically!!!
 			if dev.name.find("/") >-1:
@@ -9405,12 +9236,11 @@ class Plugin(indigo.PluginBase):
 								somethingAdded = True
 								changed =True
 						for  theKey in emptyLine:
-#							self.indiLOG.log(30,u"syncPlotsWithIndigo testing "+ theKey)
 							for  line in self.PLOT[nPlot]["lines"]:
 								if not theKey in self.PLOT[nPlot]["lines"][line]:
 									self.PLOT[nPlot]["lines"][line][theKey]= emptyLine[theKey]
 									somethingAdded = True
-									self.indiLOG.log(30,u"syncPlotsWithIndigo adding missing keys to PLOT line "+ dev.name+" id"+ nPlot+" DeviceNamePlot:" +unicode(self.PLOT[nPlot])+ " key:"+theKey)
+									self.indiLOG.log(20,u"syncPlotsWithIndigo adding missing keys to PLOT line "+ dev.name+" id"+ nPlot+" DeviceNamePlot:{}".format(self.PLOT[nPlot])+ " key:"+theKey)
 						for  line in self.PLOT[nPlot]["lines"]:
 							kList=[]
 							for k in self.PLOT[nPlot]["lines"][line]:
@@ -9425,7 +9255,7 @@ class Plugin(indigo.PluginBase):
 							changed = True
 
 						if somethingAdded:
-							if self.decideMyLog("General"): self.indiLOG.log(30,u"syncPlotsWithIndigo adding missing keys to PLOT "+ dev.name+" id"+ nPlot+" DeviceNamePlot:" +unicode(self.PLOT[nPlot]) )
+							if self.decideMyLog("General"): self.indiLOG.log(20,u"syncPlotsWithIndigo adding missing keys to PLOT "+ dev.name+" id"+ nPlot+" DeviceNamePlot:{}".format(self.PLOT[nPlot]) )
 							props=dev.pluginProps
 							dev.configured = True
 							props["PLOTindigo"]= json.dumps(self.PLOT[nPlot])
@@ -9450,14 +9280,10 @@ class Plugin(indigo.PluginBase):
 					dev.replacePluginPropsOnServer(props)
 					changed=True
 					continue
-#					except:
-#						self.indiLOG.log(40,u"syncPlotsWithIndigo  error creating "+ dev.name+" id:"+ nPlot)
-
-
 
 
 			else:  # this either new  plot or call at start up when we read the data copy info from device into PLOT
-				if self.decideMyLog("General"): self.indiLOG.log(30,u"syncPlotsWithIndigo copying PLOT using "+ dev.name+" id:"+ nPlot)
+				if self.decideMyLog("General"): self.indiLOG.log(20,u"syncPlotsWithIndigo copying PLOT using "+ dev.name+" id:"+ nPlot)
 				try:
 					try: self.PLOT[nPlot]=json.loads(dev.pluginProps["PLOTindigo"])
 					except: pass
@@ -9480,12 +9306,10 @@ class Plugin(indigo.PluginBase):
 						for  theKey in emptyPlot:
 							if not theKey in self.PLOT[nPlot] : self.PLOT[nPlot][theKey] =emptyPlot[theKey]
 						for  theKey in emptyLine:
-	#						self.indiLOG.log(30,u"syncPlotsWithIndigo testing "+ theKey)
 							for  line in self.PLOT[nPlot]["lines"]:
 								if not theKey in self.PLOT[nPlot]["lines"][line]:
 									self.PLOT[nPlot]["lines"][line][theKey]= emptyLine[theKey]
 									somethingAdded = True
-	#								self.indiLOG.log(30,u"syncPlotsWithIndigo adding missing keys to PLOT/line "+ dev.name+" id"+ nPlot+" DeviceNamePlot:" +unicode(self.PLOT[nPlot])+ " key:"+theKey)
 								if str(type(self.PLOT[nPlot]["lines"][line]["lineToColumnIndexA"])) !="int":
 									somethingAdded = True
 									try:
@@ -9503,7 +9327,7 @@ class Plugin(indigo.PluginBase):
 						dev.replacePluginPropsOnServer(props)
 						dev.configured = True
 						dev.replaceOnServer()
-						if self.decideMyLog("General"): self.indiLOG.log(30,u"syncPlotsWithIndigo found new  PLOT ... syncing 2 "+ dev.name+" id"+ nPlot+" fname:" +self.PLOT[nPlot]["DeviceNamePlot"] )
+						if self.decideMyLog("General"): self.indiLOG.log(20,u"syncPlotsWithIndigo found new  PLOT ... syncing 2 "+ dev.name+" id"+ nPlot+" fname:" +self.PLOT[nPlot]["DeviceNamePlot"] )
 						changed=True
 						continue
 				except:
@@ -9515,7 +9339,6 @@ class Plugin(indigo.PluginBase):
 		if Force or changed:
 			self.writePlotParameters()
 			self.setupGNUPlotFiles(calledfrom="syncPlotsWithIndigo")
-		##self.indiLOG.log(30," return from syncplot")
 		return
 
 	########################################
@@ -9547,7 +9370,7 @@ class Plugin(indigo.PluginBase):
 		if nPlot not in self.PLOT: return False
 
 		if "Fname" not in self.PLOT[nPlot]: return False
-		if self.decideMyLog("General"): self.indiLOG.log(30,u"fnameToDeviceNamePlot 1: "+ str(nPlot)+ " " + unicode(self.PLOT[nPlot]))
+		if self.decideMyLog("General"): self.indiLOG.log(30,u"fnameToDeviceNamePlot 1: {}".format(nPlot)+ " {}".format(self.PLOT[nPlot]))
 		self.PLOT[nPlot]["DeviceNamePlot"]		= self.PLOT[nPlot]["Fname"]
 		del self.PLOT[nPlot]["Fname"]
 
@@ -9613,7 +9436,7 @@ class Plugin(indigo.PluginBase):
 				self.PLOT[nPlot]["lines"][nLine]["lineToColumnIndexB"] 	= self.PLOT[nPlot]["lines"][nLine]["ToColumnIndexB"]
 				del self.PLOT[nPlot]["lines"][nLine]["ToColumnIndexB"]
 
-		if self.decideMyLog("General"): self.indiLOG.log(30,u"fnameToDeviceNamePlot after: "+ str(nPlot)+ " " + unicode(self.PLOT[nPlot]))
+		if self.decideMyLog("General"): self.indiLOG.log(30,u"fnameToDeviceNamePlot after: {}".format(nPlot)+ " {}".format(self.PLOT[nPlot]))
 
 		return True
 
@@ -9628,7 +9451,6 @@ class Plugin(indigo.PluginBase):
 			if  dev.pluginId.find(self.pluginId) > -1:
 				devlist.append(dev)
 		ndevs= len(devlist)
-#		if self.decideMyLog("General"): self.indiLOG.log(30,u"removeDeletedIndigoPlots number of indigo devices "+ str(ndevs))
 
 		# check if the PLOTs are in the list found
 		for nPlot in self.PLOT:
@@ -9642,7 +9464,7 @@ class Plugin(indigo.PluginBase):
 			plotsToDelete.append(nPlot)
 
 		if len(plotsToDelete) >0:
-			self.indiLOG.log(30,u"removeDeletedIndigoPlots remove device from PLOT: "+ str(plotsToDelete))
+			self.indiLOG.log(30,u"removeDeletedIndigoPlots remove device from PLOT: {}".format(plotsToDelete))
 			for ii in range(len(plotsToDelete)):
 				nPlot = plotsToDelete[ii]
 				self.removeThisPlotFile(nPlot)  # remove the gnu png files etc
@@ -9662,16 +9484,15 @@ class Plugin(indigo.PluginBase):
 						try:
 							xx=os.remove(self.userIndigoPluginDir+u"data/"+ff)
 						except:
-							self.indiLOG.log(30,"failed to delete file "+self.userIndigoPluginDir+u"data/"+ff+"  error: "+unicode(xx))    
+							self.indiLOG.log(30,"failed to delete file "+self.userIndigoPluginDir+u"data/"+ff+"  error: {}".format(xx))    
 						
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 
 
 
 	########################################
 	def plotNow(self,createNow="",showNow="",ShowOnly=""):
-		#self.indiLOG.log(30,"plotNow:" +createNow+"-"+showNow+"-"+ShowOnly+"-"+str(self.waitWithPlotting))
 		if self.waitWithPlotting: return
 		self.checkPlot1 =False
 		
@@ -9794,7 +9615,7 @@ class Plugin(indigo.PluginBase):
 
 
 			for iLine in range(1,99):											# loop though the number of plots
-				nLine = unicode(iLine)
+				nLine = u"{}".format(iLine)
 				if not nLine in PLT["lines"]: continue
 				PLTline=PLT["lines"][nLine]
 				lR = PLTline["lineEveryRepeat"]
@@ -9832,7 +9653,6 @@ class Plugin(indigo.PluginBase):
 					try: lineShift = int(PLTline["lineShift"]) #  # of day this lines is shifted
 					except: lineShift = 0 
 					datefmt = "%Y%m%d%H%M%S"
-					#if self.decideMyLog("special"): self.indiLOG.log(30, "===== nLine:"+nLine+"  column:"+str(column)+ " TTI:"+str(TTI)+"  lineShift:"+str(lineShift)+ "  fromTo1:"+fromTo1+"  fromTo2:"+ fromTo2+"  earliestDay:"+ str(earliestDay[TTI]) +"  lastDay:"+ str(lastDay[TTI]) +"  earliestBinsToPlot:"+str(earliestBinsToPlot[TTI])+"  noOfBinsToPlot:"+ str(noOfBinsToPlot[TTI])  )
 					
 
 					for timeIndex in range(earliestBinsToPlot[TTI], earliestBinsToPlot[TTI]+ noOfBinsToPlot[TTI]):
@@ -9870,7 +9690,7 @@ class Plugin(indigo.PluginBase):
 
 
 					out2=""
-					#if self.decideMyLog("special"): self.indiLOG.log(30,"===== out:"+ str(out) )
+					#if self.decideMyLog("special"): self.indiLOG.log(30,"===== out:{}".format(out) )
 					if     lR.find("maxMonth")  == 0:
 						out2 = self.calcMinMax(4,6, out, 1)
 						
@@ -9890,13 +9710,13 @@ class Plugin(indigo.PluginBase):
 						out2 = self.calcMinMax(8,10, out, -1)
 						
 					if len(out2) > 0:
-						f=open(self.userIndigoPluginDir+u"data/"+self.PLOT[nPlot]["DeviceNamePlot"]+"-"+binTypeFileNames[TTI]+u"-"+nLine+u".dat","w")
+						f=open(u"{}data/{}-{}-{}.dat".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], binTypeFileNames[TTI], nLine),"w")
 						f.write(out2)
 					try:    f.close()
 					except: pass
 
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 
    ########################################
 	def calcMinMax(self,frDate,toDate, out, minMAX):
@@ -9910,7 +9730,7 @@ class Plugin(indigo.PluginBase):
 				MM= out[ii][0][frDate:toDate]
 				if m != MM:
 					if m!="":
-						out2+=(str(X)+";"+str(Y)+"\n")
+						out2+=(str(X)+";{}".format(Y)+"\n")
 					Y = minMAX*-1*99999999999999
 					X = ""
 					m= MM
@@ -9920,9 +9740,9 @@ class Plugin(indigo.PluginBase):
 					X = out[ii][0]
 					new = True
 			if new:
-				out2+=(str(X)+";"+str(Y)+"\n")            
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+				out2+=(str(X)+";{}".format(Y)+"\n")            
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 		return out2
 
 	########################################
@@ -9930,15 +9750,12 @@ class Plugin(indigo.PluginBase):
 		if os.path.isfile((Fname+'.err').encode('utf8')): os.remove((Fname+'.err').encode('utf8'))
 		if os.path.isfile((Fname+'.ok').encode('utf8')): os.remove((Fname+'.ok').encode('utf8'))
 		if os.path.isfile((Fname+'.done').encode('utf8')): os.remove((Fname+'.done').encode('utf8'))
-#		self.indiLOG.log(30,cmd)
-		p=subprocess.Popen(cmd.encode('utf8'),shell=True)
+		ret, err = self.readPopen(cmd)
 		if not compressPNGfile : return
 		
-		# need to wait until gnuplot is done to compress png file
-		p.wait()
 		## now compress png file
 		cmd = "'"+self.indigoPath+"Plugins/"+self.pluginName+".indigoPlugin/Contents/Server Plugin/pngquant' --force --ext .png '"+PNGname+"'"
-		ppp = subprocess.Popen(cmd.encode('utf8'),shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()
+		ret, err = self.readPopen(cmd)
 		if os.path.isfile((PNGname).encode('utf8')): os.remove((PNGname).encode('utf8'))
 	
 
@@ -10071,12 +9888,14 @@ class Plugin(indigo.PluginBase):
 		for nPlot in self.PLOT:
 			if self.PLOT[nPlot]["PlotType"] =="dataFromFile":
 				try:
-					newTime = os.path.getmtime(self.userIndigoPluginDir+"data/"+self.PLOT[nPlot]["PlotFileOrVariName"].encode('utf8'))
+					#self.indiLOG.log(30,u"check if data file is there {}data/{}".format(self.userIndigoPluginDir, self.PLOT[nPlot]["PlotFileOrVariName"]))
+					newTime = os.path.getmtime(u"{}data/{}".format(self.userIndigoPluginDir, self.PLOT[nPlot]["PlotFileOrVariName"]))
 
-				except:
+				except  Exception as e:
+					self.exceptionHandler(40, e)
 					self.PLOT[nPlot]["errorCount"] +=1
 					if self.PLOT[nPlot]["errorCount"] >  1000:	self.PLOT[nPlot]["errorCount"] =0
-					if self.PLOT[nPlot]["errorCount"]< 5:		self.indiLOG.log(40,u"File  does not exist: "+self.PLOT[nPlot]["PlotFileOrVariName"])
+					if self.PLOT[nPlot]["errorCount"]< 5:		self.indiLOG.log(40,u"File  does not exist: {}".format(self.PLOT[nPlot]["PlotFileOrVariName"]))
 					return
 				if newTime == self.PLOT[nPlot]["PlotFileLastupdates"]: continue
 				self.PLOT[nPlot]["PlotFileLastupdates"]= newTime
@@ -10097,7 +9916,7 @@ class Plugin(indigo.PluginBase):
 			x				=	"x"
 			devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 			stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
-			DEV				=	self.DEVICE[str(devNo)]
+			DEV				=	self.DEVICE[u"{}".format(devNo)]
 			if not str(devNo) in self.DEVICE:
 				self.sqlColListStatus[theCol]=0
 				self.sqlHistListStatus[theCol]=0
@@ -10120,7 +9939,7 @@ class Plugin(indigo.PluginBase):
 				try:
 					theVariable	=	indigo.variables[theDeviceID]														# this is the pointer to the device, reuse if the device is the same for other props
 				except:
-					self.indiLOG.log(30,"getIndigoData, variable ID does not exist "+str(theDeviceID)+ "; will be removed at next cycle")
+					self.indiLOG.log(30,"getIndigoData, variable ID does not exist {}".format(theDeviceID)+ "; will be removed at next cycle")
 					self.removeThisDevice.append(devNo)
 					useID = False
 				if useID:
@@ -10135,7 +9954,7 @@ class Plugin(indigo.PluginBase):
 						try:
 							theDevice	=	indigo.devices[theDeviceID]														# this is the pointer to the device, reuse if the device is the same for other props
 						except:
-							self.indiLOG.log(30,"getIndigoData, device ID does not exist "+str(theDeviceID)+" ; will be removed at next cycle")
+							self.indiLOG.log(30,"getIndigoData, device ID does not exist {}".format(theDeviceID)+" ; will be removed at next cycle")
 							self.removeThisDevice.append(devNo)
 							useID = False
 						lastdevNo = devNo
@@ -10147,376 +9966,368 @@ class Plugin(indigo.PluginBase):
 									self.lastTimeStampOfDevice[theCol][TTI][1] = self.lastTimeStampOfDevice[theCol][TTI][0]
 									self.lastTimeStampOfDevice[theCol][TTI][0] = theDevice.lastChanged.strftime("%Y%m%d%H%M%S")		# is YYYYMMDDHHMM
 
-							except  Exception, e:
-								self.indiLOG.log(40,"lastTimeStampOfDevice bad "+str(theDeviceID)+" \nLine '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-						except  Exception, e:
-							self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-							self.indiLOG.log(30,u" getIndigoData, device prop does not exist "+str(theDeviceID)+" "+theDeviceState)
-							self.indiLOG.log(30, unicode(theDevice))
+							except  Exception as e:
+								self.indiLOG.log(40,"lastTimeStampOfDevice bad {}".format(theDeviceID)+" \nLine '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
+						except  Exception as e:
+							self.exceptionHandler(40, e)
+							self.indiLOG.log(40,u" getIndigoData, device state does not exist {} {}, plotdev:{}, devNo:{}; stateNo:{}".format(theDeviceID, theDeviceState, DEV, devNo, stateNo) )
 
 
 			if x !="x":
 				if  x < minValue  or (x > maxValue ):
-					if self.decideMyLog("General"): self.indiLOG.log(30, u"getIndigoData  "+theDeviceName+"/"+theDeviceState+"  out of min/max range: " + str(minValue)+ "< "+ str(x)+ "< "+ str(maxValue))
+					if self.decideMyLog("General"): self.indiLOG.log(30, u"getIndigoData  "+theDeviceName+"/"+theDeviceState+"  out of min/max range: {}".format(minValue)+ "< {}".format(x)+ "< {}".format(maxValue))
 				else:
 					self.newVFromIndigo[theCol]= (x+offset)*multiplier
 		return
 
 
 	########################################
-	def acummulateValues(self,action,TTI,TBI):															# add up values, make averages or initialize
-		if self.decideMyLog("General"): self.indiLOG.log(30," action:"+str(action) +";  init:"+ str(self.initBy)+ "; TTI: "+ str(TTI)+"; TBI:  "+str(TBI) +"  \n sqlColListStatus:"+ unicode(self.sqlColListStatus))
-		if self.initBy == "SQLstart" :return
-		if self.dataColumnCount <1: return
+	def acummulateValues(self,action,TTI,TBI):	
+		try:														# add up values, make averages or initialize
+			if self.decideMyLog("General"): self.indiLOG.log(20," action:{}".format(action) +";  init:{}".format(self.initBy)+ "; TTI: {}".format(TTI)+"; TBI:  {}".format(TBI) +"  \n sqlColListStatus:{}".format(self.sqlColListStatus))
+			if self.initBy == "SQLstart" :return
+			if self.dataColumnCount <1: return
 		
-		if action =="init":
-			self.timeDataNumbers[TTI][TBI][0]=0
+			if action =="init":
+				self.timeDataNumbers[TTI][TBI][0]=0
 
-			try:
-				for theCol in range(1,self.dataColumnCount+1):
-					devNo 			=	self.dataColumnToDevice0Prop1Index[theCol][0]
-					stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
-					DEV				=	self.DEVICE[str(devNo)]
-					theMeasurement	=	DEV["measurement"][stateNo]
-					resetTypeIN 	=	str(DEV["resetType"][stateNo])
-					fillGaps 		=	str(DEV["fillGaps"][stateNo])
-					vFI				=	self.newVFromIndigo[theCol]
-					VFItc			=	self.valuesFromIndigo[TTI][theCol]
+				try:
+					for theCol in range(1,self.dataColumnCount+1):
+						devNo 			=	self.dataColumnToDevice0Prop1Index[theCol][0]
+						stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
+						DEV				=	self.DEVICE[u"{}".format(devNo)]
+						theMeasurement	=	DEV["measurement"][stateNo]
+						resetTypeIN 	=	str(DEV["resetType"][stateNo])
+						fillGaps 		=	str(DEV["fillGaps"][stateNo])
+						vFI				=	self.newVFromIndigo[theCol]
+						VFItc			=	self.valuesFromIndigo[TTI][theCol]
 					
-					if theMeasurement=="integrate":
-						VFItc[1]	= VFItc[0]
-						VFItc[3]	= 0.
-						VFItc[2] 	= 0.
-#						self.indiLOG.log(30," 0: "+ str(VFItc[0])+";  1: "+ str(VFItc[1])+";  2: "+ str(VFItc[2])+";  3: "+ str(VFItc[3]))
-						resetType 	=	resetTypeIN
+						if theMeasurement=="integrate":
+							VFItc[1]	= VFItc[0]
+							VFItc[3]	= 0.
+							VFItc[2] 	= 0.
+							resetType 	=	resetTypeIN
 						
-						if self.timeBinNumbers[TTI][TBI][6:8] !=self.timeBinNumbers[TTI][max(TBI-1,0)][6:8]:
-							if resetType.find("day") >-1:
-								VFItc[1]	= 0.
-#								self.indiLOG.log(30," resetting at "+self.timeBinNumbers[TTI][TBI])
-							else:
-								dd = datetime.datetime.strptime(self.timeBinNumbers[TTI][TBI][:8],'%Y%m%d')
-								if resetType.find("week") >-1:
-									if dd.weekday() ==0:	# its monday and a new day
-										VFItc[1]	= 0.
-								elif resetType.find("month") >-1:
-									if dd.day ==1:	# its first day in new month
-										VFItc[1]	= 0.
-								elif resetType.find("year") >-1:
-									if dd.day ==1 and dd.month ==1:	# its first day in new month
-										VFItc[1]	= 0.
-
-
-
-
-					elif theMeasurement =="deltaNormHour":
-						if TBI != VFItc[4]:	# is this the next bin?
-							if  VFItc[2] >0:	# is there data in the last bin, if yes shift, if no keep values of bin with last entries
-								VFItc[10]	= VFItc[7]
-								VFItc[11]	= VFItc[8]
-								VFItc[12]	= VFItc[9]
-								VFItc[5]	= VFItc[0]
-								VFItc[6]	= VFItc[1]
-								VFItc[7]	= VFItc[2]
-								VFItc[8]	= VFItc[3]
-								VFItc[9]	= VFItc[4]
-							VFItc[0]	= 0
-							VFItc[1]	= 0
-							VFItc[3]	= 0
-							VFItc[4]	= 0
-							VFItc[5]	= 0
-						VFItc[4]	= TBI
-						self.timeDataNumbers[TTI][TBI][0]	= max(1,self.timeDataNumbers[TTI][TBI][0])
-				
-					elif theMeasurement=="delta":
-						if TBI != VFItc[4]:	# is this the next bin?
-							if (fillGaps =="1" and VFItc[2] >0) or (fillGaps =="0"):
-								VFItc[3]	= VFItc[2]
-								VFItc[1]	= VFItc[0]
-							VFItc[4]	= TBI
-							VFItc[0]	= 0
-							VFItc[2]	= 0
-
-				
-					elif theMeasurement=="deltaMax":
-						if TBI != VFItc[4]:	# is this the next bin?
-							if (fillGaps =="1" and VFItc[2] >0) or (fillGaps =="0"):
-								VFItc[3]	= VFItc[2]
-								VFItc[1]	= VFItc[0]
-							VFItc[4]	= TBI
-							VFItc[0]	= 0
-							VFItc[2]	= 0
-
-
-
-
-					elif theMeasurement.find("Consumption") >-1 :
-							VFItc[4]	= TBI
-							try:
-								if resetTypeIN =="0":						resetType="0"
-								elif str(resetTypeIN).find("day")>-1:		resetType="day"
-								elif str(resetTypeIN).find("week")>-1:		resetType="week"
-								elif str(resetTypeIN).find("month")>-1:		resetType="month"
-								elif str(resetTypeIN).find("year")>-1:		resetType="year"
-								elif str(resetTypeIN).find("Period")>-1:	resetType="Period"
-								if str(resetTypeIN).find("NoCost")>-1:		resetType+="NoCost"
-							except:
-																			resetType="0"
-
-							self.dd=datetime.datetime.now()
-							for tti in range(noOfTimeTypes):
-								cDPC= self.consumedDuringPeriod[str(theCol)][tti]
-								VFItci			=	self.valuesFromIndigo[tti][theCol]
-									
-								if resetType.find("NoCost")==-1:
-									cDPC["currentCostTimeBin"], cDPC["lastCostBinWithData"] = self.getCurrentCostTimeBin("0",theMeasurement)
-									if cDPC["currentCostTimeBin"] != cDPC["lastCostTimeBin"]:
-		#									self.indiLOG.log(30," changing cost data "+str(theCol)+"   "+str(tti)+"   "+str(cDPC["currentCostTimeBin"])+"--"+str(cDPC["lastCostTimeBin"]))
-										cDPC["valueAtStartOfCostBin"]	= VFItci[1]	# offset for price calc
-										cDPC["costAtLastCostBracket"]	= VFItci[0]	# current cost
-										cDPC["lastCostTimeBin"] 		= cDPC["currentCostTimeBin"]
-								cDPC["valueAtStartOfTimeBin"] = VFItci[1]
-
-								if resetType !="0":
-										if resetType.find("Period") >-1:
-											xxx= self.getCurrentResetPeriod("0",resetTypeIN[resetType],cDPC["lastResetBin"])
-											if xxx != cDPC["lastResetBin"]:
-		#											self.indiLOG.log(30," resetting cost data period "+str(theCol)+"   "+str(tti)+"   "+str(xxx)+"--"+str(cDPC["lastResetBin"]))
-												cDPC["lastResetBin"] =xxx
-												cDPC["valueAtStartOfCostBin"]= VFItci[1]	# offset for price calc
-												cDPC["costAtLastCostBracket"] 	= 0	# last cost
-										else:
-											if cDPC["lastDay"] != self.dd.strftime("%d"):
-												cDPC["lastDay"] = self.dd.strftime("%d")
-												#self.indiLOG.log(30," resetting cost data day "+str(theCol)+"   "+str(tti)+"   "+str(self.dd)+"--"+str(cDPC["lastDay"]))
-												
-												if resetType.find("day") >-1:
-													cDPC["valueAtStartOfCostBin"]		= VFItci[1]
-													cDPC["costAtLastCostBracket"] 		= 0.
-												if resetType.find("week") >-1:
-													if self.dd.weekday() ==0:	# its monday and a new day
-														cDPC["valueAtStartOfCostBin"]	= VFItci[1]
-														cDPC["costAtLastCostBracket"] 	= 0.
-												if resetType.find("month") >-1:
-													if self.dd.day ==1:	# its first day in new month
-														cDPC["valueAtStartOfCostBin"]	= VFItci[1]
-														cDPC["costAtLastCostBracket"] 	= 0.
-												if resetType.find("year") >-1:
-													if self.dd.day ==1 and  self.dd.month ==1:	# it is first day in  month 1
-														cDPC["valueAtStartOfCostBin"]	= VFItci[1]
-														cDPC["costAtLastCostBracket"] 	= 0
+							if self.timeBinNumbers[TTI][TBI][6:8] !=self.timeBinNumbers[TTI][max(TBI-1,0)][6:8]:
+								if resetType.find("day") >-1:
+									VFItc[1]	= 0.
 								else:
-														cDPC["valueAtStartOfCostBin"]	= VFItci[1]	# offset for price calc
-														cDPC["costAtLastCostBracket"]	= 0		# last cost
+									dd = datetime.datetime.strptime(self.timeBinNumbers[TTI][TBI][:8],'%Y%m%d')
+									if resetType.find("week") >-1:
+										if dd.weekday() ==0:	# its monday and a new day
+											VFItc[1]	= 0.
+									elif resetType.find("month") >-1:
+										if dd.day ==1:	# its first day in new month
+											VFItc[1]	= 0.
+									elif resetType.find("year") >-1:
+										if dd.day ==1 and dd.month ==1:	# its first day in new month
+											VFItc[1]	= 0.
+
+
+
+
+						elif theMeasurement =="deltaNormHour":
+							if TBI != VFItc[4]:	# is this the next bin?
+								if  VFItc[2] >0:	# is there data in the last bin, if yes shift, if no keep values of bin with last entries
+									VFItc[10]	= VFItc[7]
+									VFItc[11]	= VFItc[8]
+									VFItc[12]	= VFItc[9]
+									VFItc[5]	= VFItc[0]
+									VFItc[6]	= VFItc[1]
+									VFItc[7]	= VFItc[2]
+									VFItc[8]	= VFItc[3]
+									VFItc[9]	= VFItc[4]
+								VFItc[0]	= 0
+								VFItc[1]	= 0
+								VFItc[3]	= 0
+								VFItc[4]	= 0
+								VFItc[5]	= 0
+							VFItc[4]	= TBI
+							self.timeDataNumbers[TTI][TBI][0]	= max(1,self.timeDataNumbers[TTI][TBI][0])
+				
+						elif theMeasurement=="delta":
+							if TBI != VFItc[4]:	# is this the next bin?
+								if (fillGaps =="1" and VFItc[2] >0) or (fillGaps =="0"):
+									VFItc[3]	= VFItc[2]
+									VFItc[1]	= VFItc[0]
+								VFItc[4]	= TBI
+								VFItc[0]	= 0
+								VFItc[2]	= 0
+
+				
+						elif theMeasurement=="deltaMax":
+							if TBI != VFItc[4]:	# is this the next bin?
+								if (fillGaps =="1" and VFItc[2] >0) or (fillGaps =="0"):
+									VFItc[3]	= VFItc[2]
+									VFItc[1]	= VFItc[0]
+								VFItc[4]	= TBI
+								VFItc[0]	= 0
+								VFItc[2]	= 0
+
+
+
+
+						elif theMeasurement.find("Consumption") >-1 :
+								VFItc[4]	= TBI
+								try:
+									if resetTypeIN =="0":						resetType="0"
+									elif str(resetTypeIN).find("day")>-1:		resetType="day"
+									elif str(resetTypeIN).find("week")>-1:		resetType="week"
+									elif str(resetTypeIN).find("month")>-1:		resetType="month"
+									elif str(resetTypeIN).find("year")>-1:		resetType="year"
+									elif str(resetTypeIN).find("Period")>-1:	resetType="Period"
+									if str(resetTypeIN).find("NoCost")>-1:		resetType+="NoCost"
+								except:
+																				resetType="0"
+
+								self.dd=datetime.datetime.now()
+								for tti in range(noOfTimeTypes):
+									cDPC= self.consumedDuringPeriod[u"{}".format(theCol)][tti]
+									VFItci			=	self.valuesFromIndigo[tti][theCol]
+									
+									if resetType.find("NoCost")==-1:
+										cDPC["currentCostTimeBin"], cDPC["lastCostBinWithData"] = self.getCurrentCostTimeBin("0",theMeasurement)
+										if cDPC["currentCostTimeBin"] != cDPC["lastCostTimeBin"]:
+											cDPC["valueAtStartOfCostBin"]	= VFItci[1]	# offset for price calc
+											cDPC["costAtLastCostBracket"]	= VFItci[0]	# current cost
+											cDPC["lastCostTimeBin"] 		= cDPC["currentCostTimeBin"]
+									cDPC["valueAtStartOfTimeBin"] = VFItci[1]
+
+									if resetType !="0":
+											if resetType.find("Period") >-1:
+												xxx= self.getCurrentResetPeriod("0",resetTypeIN[resetType],cDPC["lastResetBin"])
+												if xxx != cDPC["lastResetBin"]:
+													cDPC["lastResetBin"] =xxx
+													cDPC["valueAtStartOfCostBin"]= VFItci[1]	# offset for price calc
+													cDPC["costAtLastCostBracket"] 	= 0	# last cost
+											else:
+												if cDPC["lastDay"] != self.dd.strftime("%d"):
+													cDPC["lastDay"] = self.dd.strftime("%d")
+												
+													if resetType.find("day") >-1:
+														cDPC["valueAtStartOfCostBin"]		= VFItci[1]
+														cDPC["costAtLastCostBracket"] 		= 0.
+													if resetType.find("week") >-1:
+														if self.dd.weekday() ==0:	# its monday and a new day
+															cDPC["valueAtStartOfCostBin"]	= VFItci[1]
+															cDPC["costAtLastCostBracket"] 	= 0.
+													if resetType.find("month") >-1:
+														if self.dd.day ==1:	# its first day in new month
+															cDPC["valueAtStartOfCostBin"]	= VFItci[1]
+															cDPC["costAtLastCostBracket"] 	= 0.
+													if resetType.find("year") >-1:
+														if self.dd.day ==1 and  self.dd.month ==1:	# it is first day in  month 1
+															cDPC["valueAtStartOfCostBin"]	= VFItci[1]
+															cDPC["costAtLastCostBracket"] 	= 0
+									else:
+															cDPC["valueAtStartOfCostBin"]	= VFItci[1]	# offset for price calc
+															cDPC["costAtLastCostBracket"]	= 0		# last cost
 	
 
-					else:
-							if TBI != VFItc[4]:	# is this the next bin?
-								VFItc[4]	= TBI
-								if (theMeasurement.find("average")>-1	or
-									theMeasurement.find("sum")>-1		or
-									theMeasurement.find("count")>-1		or
-									theMeasurement.find("min")>-1		or
-									theMeasurement.find("max")>-1		or
-									theMeasurement.find("Direction")>-1	):
-									VFItc[0]		= 0.
-									VFItc[1]		= 0.
-									VFItc[2] 		= 0.
-									VFItc[3] 		= 0.
-								if (theMeasurement.find("first")>-1	or
-									theMeasurement.find("last")>-1):
-									VFItc[0]		= ""
-									VFItc[1]		= 0.
-									VFItc[2] 		= 0.
-									VFItc[3] 		= 0.
-			except  Exception, e:
-				self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+						else:
+								if TBI != VFItc[4]:	# is this the next bin?
+									VFItc[4]	= TBI
+									if (theMeasurement.find("average")>-1	or
+										theMeasurement.find("sum")>-1		or
+										theMeasurement.find("count")>-1		or
+										theMeasurement.find("min")>-1		or
+										theMeasurement.find("max")>-1		or
+										theMeasurement.find("Direction")>-1	):
+										VFItc[0]		= 0.
+										VFItc[1]		= 0.
+										VFItc[2] 		= 0.
+										VFItc[3] 		= 0.
+									if (theMeasurement.find("first")>-1	or
+										theMeasurement.find("last")>-1):
+										VFItc[0]		= ""
+										VFItc[1]		= 0.
+										VFItc[2] 		= 0.
+										VFItc[3] 		= 0.
+				except  Exception as e:
+					self.exceptionHandler(40, e)
 
-			return
-
-
+				return
 
 
-
-		#self.indiLOG.log(30," fill "+action+ "  "+ self.initBy+ " "+ str(TTI)+"  "+str(TBI))
-		try:
-			theCol=0
-			self.timeDataNumbers[TTI][TBI][0]+=1
-			for  theCol in range(1,self.dataColumnCount+1):
-				vFI				=	self.newVFromIndigo[theCol]
-				try:
-					vFI+=0.
-				except:
-					continue  # ignore if junk data
-				devNo 			=	self.dataColumnToDevice0Prop1Index[theCol][0]
-				stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
-				DEV				=	self.DEVICE[str(devNo)]
-				theMeasurement	=	DEV["measurement"][stateNo]
-				theState		=	DEV["state"][stateNo]
-				fillGaps 		=	str(DEV["fillGaps"][stateNo])
-				resetType 		=	str(DEV["resetType"][stateNo])
-				if fillGaps =="0":
+			try:
+				theCol=0
+				self.timeDataNumbers[TTI][TBI][0]+=1
+				for  theCol in range(1,self.dataColumnCount+1):
+					vFI				=	self.newVFromIndigo[theCol]
 					try:
-						timeStr=self.lastTimeStampOfDevice[theCol][TTI][0] # drop /-/minutes/hours if needed
-						if int(timeStr) - int(self.timeBinNumbers[TTI][TBI])<0:
-							#if self.decideMyLog("General"): self.indiLOG.log(30, u"  theCol "+str(theCol)+"    lastTimeStampOfDevice "+timeStr+"    timeBinStart "+ self.timeBinNumbers[TTI][TBI] )
-							continue
-					except  Exception, e:
-						self.indiLOG.log(40,"lastTimeStampOfDevice comparison bad Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-				VFItc = self.valuesFromIndigo[TTI][theCol]
-				if theMeasurement == "average" :
-					if VFItc[0] =="": VFItc[0]=0.
-					VFItc[0] += vFI			# sum of measured values
-					VFItc[2] +=1.														# number of measurements
-					self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]/max(VFItc[2],1.) # here we calculate the average
-					VFItc[1] = float(vFI)
-					continue
-
-				if theMeasurement == "sum":
-					if VFItc[0] =="": VFItc[0]=0.
-					VFItc[0] += vFI			# sum of measured values
-					VFItc[2] +=1.														# number of measurements
-					self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]
-					VFItc[1] = float(vFI)
-					continue
-
-				if theMeasurement == "integrate":
-					try:
-						VFItc[1] +1.
+						vFI+=0.
 					except:
-						VFItc[1] = 0.
-					VFItc[2] +=1.														# number of measurements
-					VFItc[3] += vFI
-					VFItc[0] = VFItc[3]/VFItc[2] * integrateConstantMinuteHourDay[TTI] + VFItc[1]
-					self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]								# do not devide by # of measurements
-#					self.indiLOG.log(30,";  vFI: "+ str(vFI)+";  0: "+ str(VFItc[0])+";  1: "+ str(VFItc[1])+";  2: "+ str(VFItc[2])+";  3: "+ str(VFItc[3]))
-					continue
+						continue  # ignore if junk data
+					devNo 			=	self.dataColumnToDevice0Prop1Index[theCol][0]
+					stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
+					DEV				=	self.DEVICE[u"{}".format(devNo)]
+					theMeasurement	=	DEV["measurement"][stateNo]
+					theState		=	DEV["state"][stateNo]
+					fillGaps 		=	str(DEV["fillGaps"][stateNo])
+					resetType 		=	str(DEV["resetType"][stateNo])
+					if fillGaps =="0":
+						try:
+							timeStr=self.lastTimeStampOfDevice[theCol][TTI][0] # drop /-/minutes/hours if needed
+							if int(timeStr) - int(self.timeBinNumbers[TTI][TBI])<0:
+								#if self.decideMyLog("General"): self.indiLOG.log(30, u"  theCol {}".format(theCol)+"    lastTimeStampOfDevice "+timeStr+"    timeBinStart "+ self.timeBinNumbers[TTI][TBI] )
+								continue
+						except  Exception as e:
+							self.indiLOG.log(40,"lastTimeStampOfDevice comparison bad Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
+					VFItc = self.valuesFromIndigo[TTI][theCol]
+					if theMeasurement == "average" :
+						if VFItc[0] =="": VFItc[0]=0.
+						VFItc[0] += vFI			# sum of measured values
+						VFItc[2] +=1.														# number of measurements
+						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]/max(VFItc[2],1.) # here we calculate the average
+						VFItc[1] = float(vFI)
+						continue
 
-				if theMeasurement == "count":
-					if vFI > 0:
-						if int(self.lastTimeStampOfDevice[theCol][TTI][0])  > int(self.timeBinNumbers[TTI][TBI]):				# only count if the event happened in this time period to not count twice if ON was just measured twice
-							if VFItc[0] =="": VFItc[0]=0.
-							VFItc[0] += 1
+					if theMeasurement == "sum":
+						if VFItc[0] =="": VFItc[0]=0.
+						VFItc[0] += vFI			# sum of measured values
+						VFItc[2] +=1.														# number of measurements
+						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]
+						VFItc[1] = float(vFI)
+						continue
+
+					if theMeasurement == "integrate":
+						try:
+							VFItc[1] +1.
+						except:
+							VFItc[1] = 0.
+						VFItc[2] +=1.														# number of measurements
+						VFItc[3] += vFI
+						VFItc[0] = VFItc[3]/VFItc[2] * integrateConstantMinuteHourDay[TTI] + VFItc[1]
+						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]								# do not devide by # of measurements
+						continue
+
+					if theMeasurement == "count":
+						if vFI > 0:
+							if int(self.lastTimeStampOfDevice[theCol][TTI][0])  > int(self.timeBinNumbers[TTI][TBI]):				# only count if the event happened in this time period to not count twice if ON was just measured twice
+								if VFItc[0] =="": VFItc[0]=0.
+								VFItc[0] += 1
+								VFItc[2] +=1.
+								self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]= VFItc[0]
+						VFItc[1]	= vFI
+						continue
+					
+					if theMeasurement == "min":
+						if  VFItc[2] == 0.  or VFItc[0] >= vFI :
+							VFItc[0]  = vFI
+							VFItc[2] +=1.
+							self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]
+						continue
+					
+					if theMeasurement == "max":
+						if  VFItc[2] == 0.  or VFItc[0] <= vFI :
+							VFItc[0]  = vFI
 							VFItc[2] +=1.
 							self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]= VFItc[0]
-					VFItc[1]	= vFI
-					continue
-					
-				if theMeasurement == "min":
-					if  VFItc[2] == 0.  or VFItc[0] >= vFI :
-						VFItc[0]  = vFI
-						VFItc[2] +=1.
-						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]
-					continue
-					
-				if theMeasurement == "max":
-					if  VFItc[2] == 0.  or VFItc[0] <= vFI :
-						VFItc[0]  = vFI
-						VFItc[2] +=1.
-						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]= VFItc[0]
-					continue
+						continue
 
 
 					
-				if theMeasurement == "first":
-					if  VFItc[0] == "":
+					if theMeasurement == "first":
+						if  VFItc[0] == "":
+							VFItc[0]  = vFI
+							VFItc[2] +=1.
+							self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]= VFItc[0]
+						continue
+					
+					if theMeasurement == "last":
 						VFItc[0]  = vFI
 						VFItc[2] +=1.
 						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]= VFItc[0]
-					continue
-					
-				if theMeasurement == "last":
-					VFItc[0]  = vFI
-					VFItc[2] +=1.
-					self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]= VFItc[0]
-					continue
+						continue
 				
 				
 
-				if theMeasurement== "delta":
-					if VFItc[0] =="": VFItc[0]=0.
-					VFItc[0] += vFI			# sum of measured values
-					VFItc[2] +=1.														# number of measurements
-					self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]/max(VFItc[2],1.) - VFItc[1]/max(VFItc[3],1) # this value - last value
-					continue
+					if theMeasurement== "delta":
+						if VFItc[0] =="": VFItc[0]=0.
+						VFItc[0] += vFI			# sum of measured values
+						VFItc[2] +=1.														# number of measurements
+						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]/max(VFItc[2],1.) - VFItc[1]/max(VFItc[3],1) # this value - last value
+						continue
 				
 				
 				
 
-				if theMeasurement== "deltaMax":
-					if VFItc[0] =="": VFItc[0]=0.
-					VFItc[0] += vFI			# sum of measured values
-					VFItc[2] +=1.														# number of measurements
-					self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0] - VFItc[1] # this value - last value
-					continue
+					if theMeasurement== "deltaMax":
+						if VFItc[0] =="": VFItc[0]=0.
+						VFItc[0] += vFI			# sum of measured values
+						VFItc[2] +=1.														# number of measurements
+						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0] - VFItc[1] # this value - last value
+						continue
 				
 				
 				
 				
-				if theMeasurement== "deltaNormHour":
-					if self.lastTimeStampOfDevice[theCol][TTI][1] == self.lastTimeStampOfDevice[theCol][TTI][0]: continue
-					if self.lastTimeStampOfDevice[theCol][TTI][0] < self.timeBinNumbers[TTI][TBI]: continue
-					ttt =self.lastTimeStampOfDevice[theCol][TTI][0]
-					if  VFItc[1] == 0 :
-						# firs measurement in bin
-						VFItc[0] = vFI
-						VFItc[1] = time.mktime(time.struct_time((int(ttt[0:4]),int(ttt[4:6]),int(ttt[6:8]),int(ttt[8:10]),int(ttt[10:12]),int(ttt[12:14]),0,0,0)))
-						VFItc[4] =TBI
-					#last measuremernt in bin
-					VFItc[3] = time.mktime(time.struct_time((int(ttt[0:4]),int(ttt[4:6]),int(ttt[6:8]),int(ttt[8:10]),int(ttt[10:12]),int(ttt[12:14]),0,0,0)))
-					VFItc[2] =vFI
-					slope= 0
-					dTime= TBI-VFItc[12]
-					if dTime > 0 :
-						ddy= VFItc[0]	- VFItc[10]
-						ddx= VFItc[1]	- VFItc[11]
-						slope=ddy/(max(ddx,0.5))*DeltaNormHOURFactor
-						for ii in range(VFItc[12]+1,TBI):
-								self.timeDataNumbers[TTI][ii][theCol+dataOffsetInTimeDataNumbers]  = slope
-					else:
-								self.timeDataNumbers[TTI][max(TBI-1,0)][theCol+dataOffsetInTimeDataNumbers]	= self.timeDataNumbers[TTI][max(TBI-2,0)][theCol+dataOffsetInTimeDataNumbers]
-					continue
-
-
-				if theMeasurement.find("Direction") >-1:
-					if theMeasurement.find("North") >-1:
-						offset= math.pi/2.
-						flip=True  # oregon scientific is clockwise, need to flip the angle (theta =360-theta)
-					else:
-						offset= 0
-						flip=False
-					if theMeasurement.find("360") >-1:
-						mult=math.pi/180.
-					else:
-						mult=1.
-					theta = self.aveAngle(vFI*mult,VFItc[0],VFItc[2],offset=offset,flip=flip)
-					VFItc[2] +=1.
-					self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = theta
-					VFItc[0] = theta
-					VFItc[1] = vFI
-					continue
-
-					
-				if (theMeasurement.find("Consumption") >-1 and str(resetType) !="0") :
-					VFItc[2] +=1.
-					cDPC= self.consumedDuringPeriod[str(theCol)][TTI]
-					try:
-						if str(resetType).find("NoCost") >-1 :
-							VFItc[0] = vFI - cDPC["valueAtStartOfCostBin"] ##+ cDPC["costAtLastCostBracket"]
+					if theMeasurement== "deltaNormHour":
+						if self.lastTimeStampOfDevice[theCol][TTI][1] == self.lastTimeStampOfDevice[theCol][TTI][0]: continue
+						if self.lastTimeStampOfDevice[theCol][TTI][0] < self.timeBinNumbers[TTI][TBI]: continue
+						ttt =self.lastTimeStampOfDevice[theCol][TTI][0]
+						if  VFItc[1] == 0 :
+							# firs measurement in bin
+							VFItc[0] = vFI
+							VFItc[1] = time.mktime(time.struct_time((int(ttt[0:4]),int(ttt[4:6]),int(ttt[6:8]),int(ttt[8:10]),int(ttt[10:12]),int(ttt[12:14]),0,0,0)))
+							VFItc[4] =TBI
+						#last measuremernt in bin
+						VFItc[3] = time.mktime(time.struct_time((int(ttt[0:4]),int(ttt[4:6]),int(ttt[6:8]),int(ttt[8:10]),int(ttt[10:12]),int(ttt[12:14]),0,0,0)))
+						VFItc[2] =vFI
+						slope= 0
+						dTime= TBI-VFItc[12]
+						if dTime > 0 :
+							ddy= VFItc[0]	- VFItc[10]
+							ddx= VFItc[1]	- VFItc[11]
+							slope=ddy/(max(ddx,0.5))*DeltaNormHOURFactor
+							for ii in range(VFItc[12]+1,TBI):
+									self.timeDataNumbers[TTI][ii][theCol+dataOffsetInTimeDataNumbers]  = slope
 						else:
-							deltaCost, costAtLastCostBracket= self.calcConsumptionCostValue(vFI,cDPC["currentCostTimeBin"],cDPC["valueAtStartOfCostBin"],cDPC["lastCostBinWithData"],VFItc[1],theMeasurement,doPrint=False)
-							cDPC["costAtLastCostBracket"] += costAtLastCostBracket
-							VFItc[0] = deltaCost+cDPC["costAtLastCostBracket"]
-						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]= VFItc[0]  ## current + lastCost
-						VFItc[1] = vFI
-					except  Exception, e:
-						self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+									self.timeDataNumbers[TTI][max(TBI-1,0)][theCol+dataOffsetInTimeDataNumbers]	= self.timeDataNumbers[TTI][max(TBI-2,0)][theCol+dataOffsetInTimeDataNumbers]
+						continue
 
-					continue
+
+					if theMeasurement.find("Direction") >-1:
+						if theMeasurement.find("North") >-1:
+							offset= math.pi/2.
+							flip=True  # oregon scientific is clockwise, need to flip the angle (theta =360-theta)
+						else:
+							offset= 0
+							flip=False
+						if theMeasurement.find("360") >-1:
+							mult=math.pi/180.
+						else:
+							mult=1.
+						theta = self.aveAngle(vFI*mult,VFItc[0],VFItc[2],offset=offset,flip=flip)
+						VFItc[2] +=1.
+						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = theta
+						VFItc[0] = theta
+						VFItc[1] = vFI
+						continue
+
+					
+					if (theMeasurement.find("Consumption") >-1 and str(resetType) !="0") :
+						VFItc[2] +=1.
+						cDPC= self.consumedDuringPeriod[u"{}".format(theCol)][TTI]
+						try:
+							if str(resetType).find("NoCost") >-1 :
+								VFItc[0] = vFI - cDPC["valueAtStartOfCostBin"] ##+ cDPC["costAtLastCostBracket"]
+							else:
+								deltaCost, costAtLastCostBracket= self.calcConsumptionCostValue(vFI,cDPC["currentCostTimeBin"],cDPC["valueAtStartOfCostBin"],cDPC["lastCostBinWithData"],VFItc[1],theMeasurement,doPrint=False)
+								cDPC["costAtLastCostBracket"] += costAtLastCostBracket
+								VFItc[0] = deltaCost+cDPC["costAtLastCostBracket"]
+							self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]= VFItc[0]  ## current + lastCost
+							VFItc[1] = vFI
+						except  Exception as e:
+							self.exceptionHandler(40, e)
+
+						continue
 		
-				self.lastTimeStampOfDevice[theCol][TTI][1]= self.lastTimeStampOfDevice[theCol][TTI][0]
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+					self.lastTimeStampOfDevice[theCol][TTI][1]= self.lastTimeStampOfDevice[theCol][TTI][0]
+			except  Exception as e:
+				self.exceptionHandler(40, e)
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 
 		return
 
@@ -10532,13 +10343,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def mkCopyOfDB(self):
 		if self.liteOrPsql	== "sqlite" and self.originalCopySQL == "copy":
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u" in mkCopy DB pid=" + str(self.originalCopySQLActive) +"=   flag= "+ str(self.originalCopySQL))
+			if self.decideMyLog("SQL"): self.indiLOG.log(30, u" in mkCopy DB pid={}".format(self.originalCopySQLActive) +"=   flag= {}".format(self.originalCopySQL))
 			
-			xx = subprocess.Popen("ps -ef | grep indigo_history.sqlite | grep historycp.sqlite | grep -v grep",shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u" in mkCopy DB xx pid=" + str(xx))
+			ret, err = self.readPopen("ps -ef | grep indigo_history.sqlite | grep historycp.sqlite | grep -v grep")
+			if self.decideMyLog("SQL"): self.indiLOG.log(30, u" in mkCopy DB xx pid={}".format(ret))
 			try:
 				if len(x) > 10:
-					self.originalCopySQLActive =xx.split(" ")[1]
+					self.originalCopySQLActive =ret.split(" ")[1]
 					return  ## still running
 			except:
 				pass        
@@ -10547,25 +10358,24 @@ class Plugin(indigo.PluginBase):
 			try:
 				dt=time.time() - os.path.getmtime(self.indigoSQLliteLogsPath+"indigo_historycp.sqlite")   ## is it older than 2 hours?
 				if dt > 60*60*2: ok=False  ## is it older than 2 hours?
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, u" in mkCopy dt=" + str(dt))
+				if self.decideMyLog("SQL"): self.indiLOG.log(30, u" in mkCopy dt={}".format(dt))
 			except:    
 				ok=False
 			if not ok:
 				cmd="cp '"+self.indigoSQLliteLogsPath+"indigo_history.sqlite' '"+self.indigoSQLliteLogsPath+"indigo_historycp.sqlite'"
 				if self.decideMyLog("SQL"): self.indiLOG.log(30, u"cp cmd:" +cmd)
 				self.originalCopySQLActive = str(subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).pid)
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, u" in mkCopy DB self.originalCopySQLActive pid=" + str(self.originalCopySQLActive))
+				if self.decideMyLog("SQL"): self.indiLOG.log(30, u" in mkCopy DB self.originalCopySQLActive pid={}".format(self.originalCopySQLActive))
 				return # too old, create new and wait 
 		# finished nothing to do          
 		self.originalCopySQLActive = "-1"
 
 	########################################
 	def setupSQLDataBatch(self,calledfrom=""):
-		#self.indiLOG.log(30, u"setupSQLDataBatch:  called "+ str(self.sqlDynamic) + " "+str(self.sqlColListStatus) )
 		##self.sleep(2)
 		if self.sqlDynamic.find("batch") !=0: return -1
 		if self.dataColumnCount ==0:
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"Updating device/prop from SQL db: no device or variable defined.. skipping updates   ...")
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"Updating device/prop from SQL db: no device or variable defined.. skipping updates   ...")
 			self.sqlColListStatus = [0]
 			self.sqlHistListStatus = [0]
 			self.scriptNewDevice  = 0
@@ -10577,10 +10387,9 @@ class Plugin(indigo.PluginBase):
 			return 0
 		if max(self.sqlColListStatus) == 5: return 0
 
-		#if self.decideMyLog("SQL"): self.indiLOG.log(30, u"setupSQLDataBatch:  sqlColListStatus " +str(self.sqlColListStatus))
 
 		if not indigo.server.getPlugin("com.perceptiveautomation.indigoplugin.sql-logger").isEnabled():
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql-logger not enabled  disabling calls to SQL-Logger")
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql-logger not enabled  disabling calls to SQL-Logger")
 			self.sqlDynamic =""
 			self.devicesAdded  = 0
 			self.scriptNewDevice  = 0
@@ -10590,11 +10399,12 @@ class Plugin(indigo.PluginBase):
 		### check if we need to make a copy of the sqlite db,  only for slow computer where query = regular indigoplot creates blocks
 		self.mkCopyOfDB()
 		if  (max(self.sqlColListStatus) == 49  or  max(self.sqlColListStatus) ==0)  and self.originalCopySQLActive !="-1": # it is active or not ready
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql import still running  - 1")
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql import still running  - 1")
 			return # still running
 
-		if subprocess.Popen("ps -p "+self.pidSQL,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0].find("sqlcmd") > 0:
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql import still running  - 2" )
+		ret, err = self.readPopen("ps -p "+self.pidSQL)
+		if ret.find("sqlcmd") > 0:
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql import still running  - 2" )
 			return 0
 
 		self.initBy		="SQLstart"
@@ -10622,7 +10432,7 @@ class Plugin(indigo.PluginBase):
 			for n in range(self.dataColumnCount+1 -len(self.sqlColListStatusRedo)):
 				self.sqlColListStatusRedo.append(0)
 
-		if self.decideMyLog("SQL"): self.indiLOG.log(30,"setupSQLDataBatch 2 updateslist:"+str(self.sqlColListStatus))
+		if self.decideMyLog("SQL"): self.indiLOG.log(20,"setupSQLDataBatch 2 updateslist:{}".format(self.sqlColListStatus))
 
 		for theCol in range (1,self.dataColumnCount+1):
 			if self.sqlLastID[theCol] =="": self.sqlLastID[theCol] ="0"
@@ -10633,7 +10443,7 @@ class Plugin(indigo.PluginBase):
 			
 			devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 			stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
-			DEV				=	self.DEVICE[str(devNo)]
+			DEV				=	self.DEVICE[u"{}".format(devNo)]
 			theDeviceId		=	str(DEV["Id"])
 			theDeviceName	=	DEV["Name"]
 			theState		=	DEV["state"][stateNo]
@@ -10642,10 +10452,10 @@ class Plugin(indigo.PluginBase):
 			if theDeviceId+theState  not in self.sqlImportControl:
 				self.sqlImportControl[theDeviceId+theState]= {}
 			if str(theCol) not in self.sqlImportControl[theDeviceId+theState]:
-				self.sqlImportControl[theDeviceId+theState][str(theCol)]="x"
+				self.sqlImportControl[theDeviceId+theState][u"{}".format(theCol)]="x"
 
 			if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done"):
-				if self.decideMyLog("SQL"): self.indiLOG.log(30,"setupSQLDataBatch  "+theDeviceId+"-"+theState+".done exists; skip ")
+				if self.decideMyLog("SQL"): self.indiLOG.log(20,"setupSQLDataBatch  "+theDeviceId+"-"+theState+".done exists; skip ")
 				continue
 
 			if  self.sqlColListStatus[theCol] ==0: 
@@ -10700,26 +10510,25 @@ class Plugin(indigo.PluginBase):
 							if self.sqlColListStatus[nCol] ==0: continue  # skip this one, not done yet, not eligible 
 							devNoN			=	self.dataColumnToDevice0Prop1Index[nCol][0]
 							stateNoN		=	self.dataColumnToDevice0Prop1Index[nCol][1]
-							theDeviceIdN    =   str(self.DEVICE[str(devNoN)]["Id"])
-							theDeviceNameN	=	self.DEVICE[str(devNoN)]["Name"]
-							theStateN		=	self.DEVICE[str(devNoN)]["state"][stateNoN]
+							theDeviceIdN    =   str(self.DEVICE[u"{}".format(devNoN)]["Id"])
+							theDeviceNameN	=	self.DEVICE[u"{}".format(devNoN)]["Name"]
+							theStateN		=	self.DEVICE[u"{}".format(devNoN)]["state"][stateNoN]
 
-							##self.indiLOG.log(30,"comparing:"+ str(theDeviceId)+"-"+ str(theDeviceIdN)+"  "+str(theState)+"-"+str(theStateN) +"  "+ str(self.sqlColListStatus[theCol])+"  "+ str(self.sqlColListStatus[nCol]))
 							if theDeviceId == theDeviceIdN and theState == theStateN:
 								#if self.sqlColListStatus[nCol] > 0:
 									self.sqlLastImportedDate[theCol] 	= self.sqlLastImportedDate[nCol]
 									self.sqlLastID[theCol] 				= self.sqlLastID[nCol]
 									foundDevProp = 10
 									if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState):
-										if self.decideMyLog("SQL"): self.indiLOG.log(30,u"sql command for col:"+str(nCol)+"  theCol:" +str(theCol)+" name-state:"+(theDeviceName+"-"+theState).ljust(50)+" already submitted current file size:  "+str(os.path.getsize(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)))
+										if self.decideMyLog("SQL"): self.indiLOG.log(20,u"sql command for col:{}".format(nCol)+"  theCol:{}".format(theCol)+" name-state:"+(theDeviceName+"-"+theState).ljust(50)+" already submitted current file size:  {}".format(os.path.getsize(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)))
 										break
-									if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql command for "+(theDeviceName+"-"+theState).ljust(50)+" already submitted")
+									if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql command for "+(theDeviceName+"-"+theState).ljust(50)+" already submitted")
 
 
 
-						if self.sqlColListStatus[theCol] > 100: self.indiLOG.log(30, u"sql commands "+theDeviceName+ "[" + theState+"] " +str(self.sqlColListStatus[theCol]-10)+ " waits")
+						if self.sqlColListStatus[theCol] > 100: self.indiLOG.log(20, u"sql commands "+theDeviceName+ "[" + theState+"] {}".format(self.sqlColListStatus[theCol]-10)+ " waits")
 						if self.sqlColListStatus[theCol] > 600:  #### this is a back stop, in case it hangs.  its a bad situation, need to handle better
-							self.indiLOG.log(30, u"sql commands waited 10 minutes for "+theDeviceName+ "[" + theState+"] not received yet, re-issuing sql command, if it re-occurs, use SQL-ONLINE/ notify programmer")
+							self.indiLOG.log(20, u"sql commands waited 10 minutes for "+theDeviceName+ "[" + theState+"] not received yet, re-issuing sql command, if it re-occurs, use SQL-ONLINE/ notify programmer")
 							self.sqlColListStatus[theCol] =0
 							foundDevProp =0
 							if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")	:	os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")
@@ -10730,7 +10539,7 @@ class Plugin(indigo.PluginBase):
 							continue
 						
 						if self.sqlColListStatus[theCol] >10 and  self.sqlLastID[theCol] !="0":
-							if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sqlColListStatus > 10, delete  sql/"+theDeviceId+"-"+theState)
+							if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sqlColListStatus > 10, delete  sql/"+theDeviceId+"-"+theState)
 							if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")	:	os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")
 							if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState) 			:	os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)
 							self.sqlLastID[theCol] ="0"
@@ -10742,27 +10551,25 @@ class Plugin(indigo.PluginBase):
 						theTailS = "no SQL file generated yet"
 						if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState ):
 							cmd =  "tail -n 1 '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+"'"
-							theTailS = subprocess.Popen( cmd , shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]
+							theTailS, err = self.readPopen("ps -p "+self.pidSQL)
 							theTail  = theTailS.strip("\n").split(";")
-							if self.decideMyLog("SQL"): self.indiLOG.log(30, u" sql import  devID:{}; state:{}; col:{}; cmd:{};   tails:{}; tail:{}; len(sqlLastImportedDate):{}; sqlLastImportedDate: {} ".format(theDeviceId, theState, theCol, cmd,  theTailS, theTail, len(self.sqlLastImportedDate), self.sqlLastImportedDate) )
+							if self.decideMyLog("SQL"): self.indiLOG.log(20, u" sql import  devID:{}; state:{}; col:{}; cmd:{};   tails:{}; tail:{}; len(sqlLastImportedDate):{}; sqlLastImportedDate: {} ".format(theDeviceId, theState, theCol, cmd,  theTailS, theTail, len(self.sqlLastImportedDate), self.sqlLastImportedDate) )
 							if len(theTail) > 1:												# does it have id and date field?
 								self.sqlLastImportedDate[theCol] =theTail[1][:-6]+"000000" 	# replace HH MM with 00 00
 								self.sqlLastID[theCol]= theTail[0]							  	# get last sqlid = first word in line
-							#					self.indiLOG.log(30, u" sql import  col & tail from sql file"+ str(theCol)+" " + str(theTailS))
 							else:
 								theTailS =" nothing exported from SQL  yet"
 								self.sqlLastImportedDate[theCol] 	="00000000"+"000000"		# replace HH MM with 00 and drop seconds  set to 0 if nothing found
 								self.sqlLastID[theCol] 					="0"					# get last sqlid = first word in line
-								if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql importfile file does not have a valid last record: "+ self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+" " + theTailS.strip("\n"))
+								if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql importfile file does not have a valid last record: "+ self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+" " + theTailS.strip("\n"))
 						else:
-							if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql importfile file not created yet, resetting import parameters: "+ self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)
+							if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql importfile file not created yet, resetting import parameters: "+ self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)
 							self.sqlLastImportedDate[theCol] 	="00000000"+"000000"		# replace HH MM with 00 and drop seconds  set to 0 if nothing found
 							self.sqlLastID[theCol] 					="0"					# get last sqlid = first word in line
-						#if self.decideMyLog("SQL"): self.indiLOG.log(30, u" sql="+ self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+" " + theTailS.strip("\n"))
 				
 
 			else:
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sqlColListStatus ==50, delete  sql/"+theDeviceId+"-"+theState)
+				if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sqlColListStatus ==50, delete  sql/"+theDeviceId+"-"+theState)
 				if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done"):	os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done") # delete "ready" flag file
 				if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState):			os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState) # 
 				self.sqlLastID[theCol] ="0"
@@ -10774,7 +10581,7 @@ class Plugin(indigo.PluginBase):
 			sqlID = str(self.sqlLastID[theCol])
 
 			if sqlID =="0":
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sqlID ==0, delete  col:"+ str(theCol)+" sql/"+theDeviceId+"-"+theState)
+				if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sqlID ==0, delete  col:{}".format(theCol)+" sql/"+theDeviceId+"-"+theState)
 				if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState) 		:	os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)
 
 
@@ -10797,8 +10604,8 @@ class Plugin(indigo.PluginBase):
 			sqlCommandText =  "rm '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+property+".done' ;"
 			sqlCommandText+=  select1
 			sqlCommandText+=  "\" SELECT id, "+ timestamp +propertySQL+" from " + tableName
-			sqlCommandText+=  " WHERE "+propertySQL+" IS NOT NULL  AND  ID > "+str(sqlID) + orderby
-			sqlCommandText+=  " LIMIT " + str(maxNumberOfRecords)+";\""
+			sqlCommandText+=  " WHERE "+propertySQL+" IS NOT NULL  AND  ID > {}".format(sqlID) + orderby
+			sqlCommandText+=  " LIMIT {}".format(maxNumberOfRecords)+";\""
 
 
 			postProcessing =  " "
@@ -10809,18 +10616,18 @@ class Plugin(indigo.PluginBase):
 			postProcessing+=  self.pythonPath+" '"+self.indigoPath+"Plugins/"+self.pluginName+".indigoPlugin/Contents/Server Plugin/fixSQLoutput.py' " 
 			postProcessing+=  "'"+json.dumps( {"fileDir":self.userIndigoPluginDir+"sql/","inputFile":theDeviceId+"-"+property+".sqlout", "outputFile":theDeviceId+"-"+property,"logFile":"sqlFix","startID":str(sqlID)})+"' "
 			outCMD += ((sqlCommandText+postProcessing)) # this is the sqllite command
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, sqlCommandText+postProcessing) # this is the sql command
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, sqlCommandText+postProcessing) # this is the sql command
 
 			outCMD += ((" && ls -l -T  '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+property+"' | awk '{print $8 \" \"  $5 \"      \"  $10}' >> '"+self.userIndigoPluginDir+"sql/sqlcmd.log'")) # time stamp and file size  awk removes unwanted columns
 
 			outCMD += ((" && echo finished > '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+property+".done' \n\n")) # create sql command finished flag file
 
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql command for col:"+str(theCol)+"  name-state:"+(theDeviceName+"-"+property).ljust(50)+" starting at record:"+str(sqlID).rjust(8)+" added; last existing record is: "+ theTailS.strip("\n"))
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql command for col:{}".format(theCol)+"  name-state:"+(theDeviceName+"-"+property).ljust(50)+" starting at record:{}".format(sqlID).rjust(8)+" added; last existing record is: "+ theTailS.strip("\n"))
 
-		if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql commands launched sqlID anythingToupdates "+str(sqlID)+ " " + str(anythingToupdates))
+		if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql commands launched sqlID anythingToupdates {}".format(sqlID)+ " {}".format(anythingToupdates))
 
 		if anythingToupdates ==0:
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql commands ..  nothing to update ...  sqlID: "+str(sqlID)+ " anythingToupdates: " + str(anythingToupdates))
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql commands ..  nothing to update ...  sqlID: {}".format(sqlID)+ " anythingToupdates: {}".format(anythingToupdates))
 			return 0
 
 
@@ -10828,14 +10635,15 @@ class Plugin(indigo.PluginBase):
 		
 		outCMD += (("echo finished > '"+self.userIndigoPluginDir+"sql/sqlcmd.done' \n"))  # all sql commands finished
 		f= open( self.userIndigoPluginDir+"sql/sqlcmd.sh" , "w")
-		f.write(outCMD.encode("utf8"))
+		f.write(outCMD)
 		f.close()
-		if self.decideMyLog("SQL"): self.indiLOG.log(30, "\n\n==================\n\n"+ outCMD.encode("utf8") +"\n\n==================\n\n") 
+		if self.decideMyLog("SQL"): self.indiLOG.log(20, "\n\n==================\n\n{}\n\n==================\n\n".format(outCMD)) 
 		self.sqlNumbOfRecsRead  = 0
-
+		xx = subprocess.Popen( "sh '"+self.userIndigoPluginDir+"sql/sqlcmd.sh' ", shell=True).pid
+		self.indiLOG.log(20, u"pid {}".format(xx, ))
 		self.pidSQL = str( subprocess.Popen( "sh '"+self.userIndigoPluginDir+"sql/sqlcmd.sh' ", shell=True).pid )
 		self.checkFileExistsErrorMessageCounter =99
-		if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql commands launched "+str(datetime.datetime.now())+"  waiting for SQL tasks to end to read data into "+self.pluginName+" pid=" +self.pidSQL)
+		if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql commands launched {}".format(datetime.datetime.now())+"  waiting for SQL tasks to end to read data into "+self.pluginName+" pid=" +self.pidSQL)
 
 
 	########################################
@@ -10851,7 +10659,7 @@ class Plugin(indigo.PluginBase):
 			for theCol in range (1,self.dataColumnCount+1):
 				devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 				stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
-				DEV				=	self.DEVICE[str(devNo)]
+				DEV				=	self.DEVICE[u"{}".format(devNo)]
 				theDeviceId		=	str(DEV["Id"])
 				theDeviceName	=	DEV["Name"]
 				theState		=	DEV["state"][stateNo]
@@ -10864,8 +10672,8 @@ class Plugin(indigo.PluginBase):
 				for nCol in range(1,theCol):
 					devNoN			=	self.dataColumnToDevice0Prop1Index[nCol][0]
 					stateNoN		=	self.dataColumnToDevice0Prop1Index[nCol][1]
-					theDeviceNameN	=	self.DEVICE[str(devNoN)]["Name"]
-					theStateN		=	self.DEVICE[str(devNoN)]["state"][stateNoN]
+					theDeviceNameN	=	self.DEVICE[u"{}".format(devNoN)]["Name"]
+					theStateN		=	self.DEVICE[u"{}".format(devNoN)]["state"][stateNoN]
 					if theDeviceName == theDeviceNameN and theState == theStateN:
 							foundDevProp = 10
 							break
@@ -10888,14 +10696,16 @@ class Plugin(indigo.PluginBase):
 
 			for i in range(55): # wait for max 55 seconds before we return or if finished earlier
 				self.sleep(1)
-				if str(subprocess.Popen("ps -p "+thePID,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]).find("sql/fixSQL.sh") ==-1:
-					if self.decideMyLog("SQL"): self.indiLOG.log(30, u"fixSQL import data is finished after: "+str(time()-d0)+" seconds")
+				ret, err = self.readPopen("ps -p "+self.pidSQL)
+				if ret.find("sql/fixSQL.sh") ==-1:
+					if self.decideMyLog("SQL"): self.indiLOG.log(20, u"fixSQL import data is finished after: {}".format(time.time()-d0)+" seconds")
 					return
 
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"fixSQL import data  is still running " +str(time.time()-d0)+" seconds")
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-		
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"fixSQL import data  is still running {}".format(time.time()-d0)+" seconds")
+		except  Exception as e:
+			self.exceptionHandler(40, e)
+		return
+	
 
 	########################################
 	def readSQLdataBatch(self,calledfrom=""):
@@ -10904,10 +10714,10 @@ class Plugin(indigo.PluginBase):
 		try:
 	
 		
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"readSQLdataBatch calledfrom    ..."+calledfrom+ "  sqlHistListStatus" +str(self.sqlHistListStatus))
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"                               ..."+calledfrom+ "  sqlColListStatus " +str(self.sqlColListStatus))
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"readSQLdataBatch calledfrom    ..."+calledfrom+ "  sqlHistListStatus{}".format(self.sqlHistListStatus))
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"                               ..."+calledfrom+ "  sqlColListStatus {}".format(self.sqlColListStatus))
 			if self.dataColumnCount ==0:
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, u"Updating device/prop from SQL db: no device or variable defined.. skipping updates   ...")
+				if self.decideMyLog("SQL"): self.indiLOG.log(20, u"Updating device/prop from SQL db: no device or variable defined.. skipping updates   ...")
 				self.sqlColListStatus = [0]
 				self.sqlHistListStatus = [0]
 				self.scriptNewDevice  = 0
@@ -10920,15 +10730,13 @@ class Plugin(indigo.PluginBase):
 				self.initBy ="SQLdone"
 				self.scriptNewDevice  = 0
 				self.devicesAdded =0
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, u" sql and hist ==0 ...")
+				if self.decideMyLog("SQL"): self.indiLOG.log(20, u" sql and hist ==0 ...")
 				return
 			timeNow  = [time.strftime("%Y%m%d%H%M", time.localtime())+"00", time.strftime("%Y%m%d%H", time.localtime())+"0000", time.strftime("%Y%m%d", time.localtime())+"000000"]
-			#self.indiLOG.log(30, unicode(timeNow)) 
 			if timeNow[0][11] <"5":
 				timeNow[0] =timeNow[0][:11]+"0"+timeNow[0][12:] # replace min digit with 0 if < 5
 			else:
 				timeNow[0] =timeNow[0][:11]+"5"+timeNow[0][12:]  #   otherwise with 5
-			#self.indiLOG.log(30, unicode(timeNow)) 
 		
 
 			foundfirst = 0
@@ -10942,7 +10750,7 @@ class Plugin(indigo.PluginBase):
 			for theCol in range (1,self.dataColumnCount+1):
 				devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 				stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
-				DEV				=	self.DEVICE[str(devNo)]
+				DEV				=	self.DEVICE[u"{}".format(devNo)]
 				theDeviceId		=	str(DEV["Id"])
 				theState		=	DEV["state"][stateNo]
 			   
@@ -10976,9 +10784,9 @@ class Plugin(indigo.PluginBase):
 						if theDeviceId+"-"+theState in self.sqlErrorCount: 		self.sqlErrorCount[theDeviceId+"-"+theState] +=1
 						else:													self.sqlErrorCount[theDeviceId+"-"+theState] =1
 						if (self.sqlErrorCount[theDeviceId+"-"+theState])%4 ==0:
-							self.indiLOG.log(30, u"sql file "+theDeviceId+"-"+theState+".done exist but SQL final output file not created, no data or error (check .. /indigoPlotD/sql/sqlFix.log for errors)  will wait")
+							self.indiLOG.log(20, u"sql file "+theDeviceId+"-"+theState+".done exist but SQL final output file not created, no data or error (check .. /indigoPlotD/sql/sqlFix.log for errors)  will wait")
 						if self.sqlErrorCount[theDeviceId+"-"+theState] >19:
-							self.indiLOG.log(30, u"sql file "+theDeviceId+"-"+theState+".done exist but SQL final output file not created, does not work, stopping import for that device/state")
+							self.indiLOG.log(20, u"sql file "+theDeviceId+"-"+theState+".done exist but SQL final output file not created, does not work, stopping import for that device/state")
 							self.sqlColListStatus[theCol]  =0
 							self.sqlHistListStatus[theCol] =0
 							del self.sqlErrorCount[theDeviceId+"-"+theState]
@@ -10991,12 +10799,12 @@ class Plugin(indigo.PluginBase):
 
 				if theDeviceId+"-"+theState in self.sqlErrorCount:
 					if self.sqlErrorCount[theDeviceId+"-"+theState] >4:
-						if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql file "+theDeviceId+"-"+theState+".done  recovered, was finished")
+						if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql file "+theDeviceId+"-"+theState+".done  recovered, was finished")
 					del self.sqlErrorCount[theDeviceId+"-"+theState]
 
 			if len(colSequence) <1:
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql files .done not found.. still waiting ")
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, unicode(colSequence))
+				if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql files .done not found.. still waiting ")
+				if self.decideMyLog("SQL"): self.indiLOG.log(20, u"{}".format(colSequence))
 				return
 			colSequence.sort(key=lambda x:x[1])
 		
@@ -11004,7 +10812,7 @@ class Plugin(indigo.PluginBase):
 			theStateOld		=	"x"
 
 
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"sql file if done, now reading  it "+str(self.devicesAdded)+ " "+str(self.sqlHistListStatus))
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"sql file if done, now reading  it {}".format(self.devicesAdded)+ " {}".format(self.sqlHistListStatus))
 	#		for theCol in range (1,self.dataColumnCount+1):
 			for ii in range (len(colSequence)):
 				theCol =colSequence[ii][0]
@@ -11013,7 +10821,7 @@ class Plugin(indigo.PluginBase):
 				atLeastOneRecord =0
 				devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 				stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
-				DEV				=	self.DEVICE[str(devNo)]
+				DEV				=	self.DEVICE[u"{}".format(devNo)]
 				theDeviceId		=	str(DEV["Id"])
 				theDeviceName	=	DEV["Name"]
 				theState		=	DEV["state"][stateNo]
@@ -11029,13 +10837,13 @@ class Plugin(indigo.PluginBase):
 
 				if 	DEV["devOrVar"] == "Var-":theState="value"
 				if self.sqlColListStatus[theCol] >0 and not os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done"):
-					if self.decideMyLog("SQL"): self.indiLOG.log(30, u"Reading SQL files,col .. not done yet")
+					if self.decideMyLog("SQL"): self.indiLOG.log(20, u"Reading SQL files,col .. not done yet")
 					continue
 				d1 = datetime.datetime.now()
 				SQLHeader = time.time()
 				if SQLHeader - self.lastSQLHeader > 60:
-					self.indiLOG.log(30, u"Reading SQL files,filtering,converting")
-					self.indiLOG.log(30, u"Elapsed time   Device----- State name-------------------------------   records read/imported/  LastID/  F size--Rej: ValueRng/  Number/ TimeSeq/timeWind/  Data/   col#")
+					self.indiLOG.log(20, u"Reading SQL files,filtering,converting")
+					self.indiLOG.log(20, u"Elapsed time   Device----- State name-------------------------------   records read/imported/  LastID/  F size--Rej: ValueRng/  Number/ TimeSeq/timeWind/  Data/   col#")
 					self.lastSQLHeader = SQLHeader
 
 	#			if len(self.firstBinToFillFromSQL) < theCol:
@@ -11047,7 +10855,7 @@ class Plugin(indigo.PluginBase):
 	#					self.FirstBindatetime.date.append("0000"+"00"+"00"+"0000")  ## YYYY mm dd HHMM
 
 				FirstBinDateX ="0000"+"00"+"00"+"00"+"00"+"00"
-				if self.decideMyLog("SQL"): self.indiLOG.log(30," theCol:"+str(theCol)+"; updatesALL:"+str(self.updateALL)+"; sqlDynamic:"+str(self.sqlDynamic)+"; sqlHistListStatus:"+str(self.sqlHistListStatus))
+				if self.decideMyLog("SQL"): self.indiLOG.log(20," theCol:{}".format(theCol)+"; updatesALL:{}".format(self.updateALL)+"; sqlDynamic:{}".format(self.sqlDynamic)+"; sqlHistListStatus:{}".format(self.sqlHistListStatus))
 				if  not self.updateALL and self.sqlHistListStatus[theCol] <45  and resetTypeX =="short":		## this mode will only read the last 2 days and leave the other info in day hour min files as they are,
 				
 					if (self.sqlDynamic.find("batch2Days") ==0):
@@ -11057,7 +10865,6 @@ class Plugin(indigo.PluginBase):
 						self.FirstBinDate = (datetime.date.today() - datetime.timedelta(1)).strftime("%Y%m%d")+"000000"
 						for i in range(noOfTimeTypes):
 							FirstBinDateX=FirstBinDateY
-	#						self.indiLOG.log(30," theCol:"+str(theCol)+"; FirstBinDateX:"+str(FirstBinDateX)+"; timeBinNumbers:"+str(self.timeBinNumbers[i][2]))
 							for j in range(self.noOfTimeBins[i]):
 								if self.timeBinNumbers[i][j] == FirstBinDateX:
 	#							if self.timeDataNumbers[i][j][0] == FirstBinDateX:
@@ -11070,20 +10877,13 @@ class Plugin(indigo.PluginBase):
 				else:
 					self.firstBinToFillFromSQL	=[0 for k in range(noOfTimeTypes)]
 					self.FirstBinDate			= self.timeBinNumbers[noOfTimeTypes-1][0]
-	#			if self.decideMyLog("SQL"): self.indiLOG.log(30," theCol:"+str(theCol)+"; FirstBinDate:"+str(self.FirstBinDate)+"; firstBinToFillFromSQL:"+str(self.firstBinToFillFromSQL))
 
-
-	#			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"firstBinToFillFromSQL theCol sqlLastImportedDate ID FBin Fdate FdateX 2 "+ str(theCol)+" " +self.sqlLastImportedDate[theCol]+" " +str(self.sqlLastID[theCol])+ " " +str(self.firstBinToFillFromSQL) + u";  "+ self.FirstBinDate+";  "+ FirstBinDateX)
-	#			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"SQL import   . sqlColListStatus sqlHistListStatus: "+str(self.sqlColListStatus[theCol])+" "+str(self.sqlHistListStatus[theCol]))
 
 
 
 
 				# get data from sql database
 			
-	#			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"+++++++++++ theCol  "+ str(theCol))
-			
-	#			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"Convert1.0 device/prop from        "+ str(datetime.datetime.now()-d0) )
 
 				if theDeviceIdOld !=theDeviceId or theStateOld != theState or theMeasurement.find("Consumption") >-1:  # not rereading saves ~ 30% if same device/state is used in different ways
 					try:
@@ -11093,15 +10893,14 @@ class Plugin(indigo.PluginBase):
 						sqlData ,nrecs, rejectTimeStamp,foundfirst,fSize, atLeastOneRecord,reject2days,badDataCount= self.getsqldataFromFile(theDeviceId,theState,theDeviceName,theMeasurement,theCol,foundfirst,d0,atLeastOneRecord,reject2days,ignoreSQL)
 						nRecsInSqlData =len(sqlData)
 					except:
-						if self.decideMyLog("SQL"): self.indiLOG.log(30, u"Convert no records found, try later 1" )
+						if self.decideMyLog("SQL"): self.indiLOG.log(20, u"Convert no records found, try later 1" )
 						nRecsInSqlData =0
 				
 					if nRecsInSqlData ==0 or nrecs==0:
-						if self.decideMyLog("SQL"): self.indiLOG.log(30, u"Convert no records found, try later 2" )
+						if self.decideMyLog("SQL"): self.indiLOG.log(20, u"Convert no records found, try later 2" )
 						continue
 				
 					# check for bad data, out of range etc:
-		#			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"Convert1.1 device/prop from        "+ str(datetime.datetime.now()-d0) )
 					sqlData ,rejectNumber ,rejectRange= self.checkSQLData(sqlData,theMeasurement,theState,minValue,maxValue)
 
 				theDeviceIdOld	=	theDeviceId
@@ -11116,31 +10915,29 @@ class Plugin(indigo.PluginBase):
 						self.sqlColListStatus[theCol]  = 0
 						self.sqlHistListStatus[theCol]  = 0
 					continue
-	#			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"Convert1.2 device/prop from SQLdb: "+ str(datetime.datetime.now()-d0) )
 				self.sqlNumbOfRecsImported += nRecsInSqlData
 			
 				self.fillHistogramFromSQL(sqlData,1,theCol,theState,fillGaps,resetType,theMeasurement,offset,multiplier,timeNow,d0)
-	#			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"Convert1.3 device/prop from        "+ str(datetime.datetime.now()-d0) )
 
 				self.sqlColListStatus[theCol]  = 0
 				self.sqlHistListStatus[theCol]  = 0
 			
 				exeTime = time.strftime("%H:%M:%S", time.localtime())
 				if resetType =="0":	xType=""
-				else:				xType = "-"+str(resetType)[:15].strip("{u':[ ")[:12]
-				self.indiLOG.log(30, str(datetime.datetime.now()-d0)+ " "+(theDeviceName+"-"+theState+"-"+theMeasurement+xType).ljust(60)+
-					str(nrecs).rjust(8)+"/"+ str(nRecsInSqlData).rjust(8)+"/"+ str(self.sqlLastID[theCol]).rjust(8)+"/"+ str(fSize).rjust(8)+
-					"-rejec:"+str(rejectRange).rjust(8)+"/"+str(rejectNumber).rjust(8)+"/"+str(rejectTimeStamp).rjust(8)+"/"+str(reject2days).rjust(8)+"/"+str(badDataCount).rjust(6)+"/"+str(theCol).rjust(6))
+				else:				xType = "-{}".format(resetType)[:15].strip("{u':[ ")[:12]
+				self.indiLOG.log(20, str(datetime.datetime.now()-d0)+ " "+(theDeviceName+"-"+theState+"-"+theMeasurement+xType).ljust(60)+
+					str(nrecs).rjust(8)+"/{}".format(nRecsInSqlData).rjust(8)+"/{}".format(self.sqlLastID[theCol]).rjust(8)+"/{}".format(fSize).rjust(8)+
+					"-rejec:{}".format(rejectRange).rjust(8)+"/{}".format(rejectNumber).rjust(8)+"/{}".format(rejectTimeStamp).rjust(8)+"/{}".format(reject2days).rjust(8)+"/{}".format(badDataCount).rjust(6)+"/{}".format(theCol).rjust(6))
 
 
 
 			self.cleanData()
 			self.clearSqlData(False)
-			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"SQL imp. " +str(datetime.datetime.now())+ " ... sqlColListStatus: "+str(self.sqlColListStatus) )
+			if self.decideMyLog("SQL"): self.indiLOG.log(20, u"SQL imp. {}".format(datetime.datetime.now())+ " ... sqlColListStatus: {}".format(self.sqlColListStatus) )
 			if max(self.sqlColListStatus) == 0 and max(self.sqlHistListStatus) == 0:
 				self.updateALL=False
 
-				self.indiLOG.log(30, u"SQL imp.  ... finished, total number of records read/imported:             "+str(self.sqlNumbOfRecsRead).rjust(8)+"/"+str(self.sqlNumbOfRecsImported).rjust(8) )
+				self.indiLOG.log(20, u"SQL imp.  ... finished, total number of records read/imported:             {}".format(self.sqlNumbOfRecsRead).rjust(8)+"/{}".format(self.sqlNumbOfRecsImported).rjust(8) )
 				self.sqlNumbOfRecsImported =0
 				self.fixSQLFiles(wait=False)
 				self.initBy ="SQLdone"
@@ -11154,8 +10951,8 @@ class Plugin(indigo.PluginBase):
 	
 
 			self.putDeviceParametersToFile(calledfrom="readSQLdataBatch")
-		except  Exception, e:
-			self.indiLOG.log(30,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(20,"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
 		return
 
 
@@ -11187,23 +10984,23 @@ class Plugin(indigo.PluginBase):
 				if os.path.getsize(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error")==0:
 					os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error")
 				else:
-					msg= subprocess.Popen("cat '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error'",shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]
-					self.indiLOG.log(30," clearSqlData resetting sql import for "+theDeviceName+"-"+theState+"- Col#="+str(theCol)+" will retry ... error message is:"+msg)
+					msg, err = self.readPopen("cat '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error'")
+					self.indiLOG.log(20," clearSqlData resetting sql import for "+theDeviceName+"-"+theState+"- Col#={}".format(theCol)+" will retry ... error message is:"+msg)
 					if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done"): os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")
 					self.sqlColListStatus[theCol]=10
 					return [0,0],0,rejectTimeStamp,foundfirst,fSize,atLeastOneRecord
 
 
 			if not os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done"):
-				self.indiLOG.log(30," clearSqlData not done yet:"+theDeviceName+"-"+theState)
+				self.indiLOG.log(20," clearSqlData not done yet:"+theDeviceName+"-"+theState)
 				return [0,0] ,0, rejectTimeStamp,foundfirst,0,0,0
 
-#			if self.decideMyLog("SQL"): self.indiLOG.log(30, u"reading Device/State from SQL db:  "+ str(datetime.datetime.now()-d0)+" "+theDeviceName+"-"+theState)
 			if not os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState):
-				if subprocess.Popen("ps -p "+self.pidSQL,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0].find("sqlcmd") > 0:
-					self.indiLOG.log(30, u" SQL still running will just have to wait ")
+				ret, err = self.readPopen("ps -p "+self.pidSQL)
+				if ret.find("sqlcmd") > 0:
+					self.indiLOG.log(20, u" SQL still running will just have to wait ")
 					return [0,0] ,0, rejectTimeStamp,foundfirst,fSize,0,0
-				if self.sqlColListStatus[theCol] > 8: self.indiLOG.log(30, u"reading Device/State from SQL db:  "+theDeviceName+" "+theDeviceId+"-"+theState+" does not exist forcing redo .. ")
+				if self.sqlColListStatus[theCol] > 8: self.indiLOG.log(20, u"reading Device/State from SQL db:  "+theDeviceName+" "+theDeviceId+"-"+theState+" does not exist forcing redo .. ")
 				self.sqlColListStatus[theCol] +=1
 				return  [0,0] ,0, rejectTimeStamp,foundfirst,0,0,0
 
@@ -11211,14 +11008,14 @@ class Plugin(indigo.PluginBase):
 			if fSize ==0:
 				if subprocess.Popen("ps -p "+self.pidSQL,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0].find("sqlcmd") > 0:
 					return [0,0] ,0, rejectTimeStamp,foundfirst,fSize,atLeastOneRecord,0
-				if self.sqlColListStatus[theCol] > 8: self.indiLOG.log(30, u"reading Device/State from SQL db:  "+theDeviceName+"-"+theState+"-"+theMeasurement+" is empty       forcing redo  .. ")
+				if self.sqlColListStatus[theCol] > 8: self.indiLOG.log(20, u"reading Device/State from SQL db:  "+theDeviceName+"-"+theState+"-"+theMeasurement+" is empty       forcing redo  .. ")
 				self.sqlColListStatus[theCol] +=1
-				self.indiLOG.log(30, u"sql produced file is empty ")
+				self.indiLOG.log(20, u"sql produced file is empty ")
 				return  [0,0] ,0, rejectTimeStamp,foundfirst,0,0,0
 
 			foundfirst +=1
 			if foundfirst ==1:
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, u"SQL Data arrived      "+ str(datetime.datetime.now())+" " +theDeviceName+"-"+theState+"-"+theMeasurement+" sql output file created")
+				if self.decideMyLog("SQL"): self.indiLOG.log(20, u"SQL Data arrived      {}".format(datetime.datetime.now())+" " +theDeviceName+"-"+theState+"-"+theMeasurement+" sql output file created")
 
 		try:
 
@@ -11233,10 +11030,10 @@ class Plugin(indigo.PluginBase):
 				fSize2 = os.path.getsize(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)
 				if fSize2 == fSize:
 					if nSleep >0: 
-						if self.decideMyLog("SQL"): self.indiLOG.log(30, u"SQL Data arrived, file  ready for: " +str(theCol)+";  file size:  now: "+ str(fSize2) )
+						if self.decideMyLog("SQL"): self.indiLOG.log(20, u"SQL Data arrived, file  ready for: {}".format(theCol)+";  file size:  now: {}".format(fSize2) )
 					break  
 				nSleep+=1
-				self.indiLOG.log(30, u"SQL Data arrived, file not ready yet for: " +str(theCol)+";  file size:  now: "+ str(fSize2)+";   was: "+ str(fSize) )
+				self.indiLOG.log(20, u"SQL Data arrived, file not ready yet for: {}".format(theCol)+";  file size:  now: {}".format(fSize2)+";   was: {}".format(fSize) )
 
 				# file actually not ready still writing ... 
 				self.sleep(0.2) 
@@ -11272,8 +11069,8 @@ class Plugin(indigo.PluginBase):
 			
 			return sqlData ,nrecs, rejectTimeStamp,foundfirst,fSize,atLeastOneRecord,reject2days,badDataCount
 
-		except  Exception, e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 			self.indiLOG.log(40, u"sql produced file with bad data ")
 			try:    f.close()
 			except: pass
@@ -11284,7 +11081,7 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def clearSqlData(self,empty):
 
-		if self.decideMyLog("SQL"): self.indiLOG.log(30," clearSqlData sqlupdates: "+str(self.sqlColListStatus))
+		if self.decideMyLog("SQL"): self.indiLOG.log(20," clearSqlData sqlupdates: {}".format(self.sqlColListStatus))
 
 # clean up parameter at end
 		if max(self.sqlColListStatus) == 0 or empty:
@@ -11297,7 +11094,7 @@ class Plugin(indigo.PluginBase):
 			for theCol in range (1,self.dataColumnCount+1):
 				devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 				if devNo == 0: continue
-				DEV				=	self.DEVICE[str(devNo)]
+				DEV				=	self.DEVICE[u"{}".format(devNo)]
 				stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
 				theDeviceId		=	str(DEV["Id"])
 				theDeviceName	=	DEV["Name"]
@@ -11315,7 +11112,7 @@ class Plugin(indigo.PluginBase):
 
 				devNo			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 				if devNo == 0: continue
-				DEV				=	self.DEVICE[str(devNo)]
+				DEV				=	self.DEVICE[u"{}".format(devNo)]
 				stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
 				theDeviceId		=	str(DEV["Id"])
 				theDeviceName	=	DEV["Name"]
@@ -11336,8 +11133,8 @@ class Plugin(indigo.PluginBase):
 				if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")	or os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error"):
 					if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error"):
 						if os.path.getsize(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error")>0:
-							msg= subprocess.Popen("cat '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error'",shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]
-							self.indiLOG.log(30," clearSqlData resetting sql import for "+theDeviceName+"-"+theState+"- Col#="+str(theCol)+" will retry, error message is:"+msg)
+							msg, err = self.readPopen("cat '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error'")
+							self.indiLOG.log(20," clearSqlData resetting sql import for "+theDeviceName+"-"+theState+"- Col#={}".format(theCol)+" will retry, error message is:"+msg)
 							self.sqlColListStatus[theCol] =10
 							if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done") : os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")
 						if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error"):os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error")
@@ -11345,21 +11142,9 @@ class Plugin(indigo.PluginBase):
 					if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done"):
 						if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState):
 							if os.path.getsize( self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)==0:
-								self.indiLOG.log(30," clearSqlData resetting sql import for "+theDeviceName+"-"+theState+"- Col#="+str(theCol)+" done but no file created, ignoring this device/state")
+								self.indiLOG.log(20," clearSqlData resetting sql import for "+theDeviceName+"-"+theState+"- Col#={}".format(theCol)+" done but no file created, ignoring this device/state")
 								if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done") : os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")
 								self.sqlColListStatus[theCol] =0
-
-
-
-
-#				else:
-#					if 	os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState):
-#						if os.path.getsize(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)==0:
-#							if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done"):	os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")
-#							if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error"):os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".error")
-#							if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState):os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState)
-#							self.sqlColListStatus[theCol] =10
-#							self.indiLOG.log(30," clearSqlData resetting sql import for "+theDeviceName+"-"+theState+"- Col#="+str(theCol)+" file created is empty, will try again")
 
 
 
@@ -11425,16 +11210,13 @@ class Plugin(indigo.PluginBase):
 			sqlIndex =1
 
 
-#			self.indiLOG.log(30, u"timeTest init   secs: %10.5f"%(time.time()-timetest[1]))
-
 			# loop over bin time types (min/hour/day)
 			for TTI in range (noOfTimeTypes):					# now fill existing data bins with sql data if exists, do for all three time series(minutes, hours, days)
 				
 				timetest[3] = time.time()
 				timetest[4] = time.time()
-	#			if self.timeDataNumbers[TTI][0][0] =="" or self.timeDataNumbers[TTI][0][0] ==" ":
 				if self.timeBinNumbers[TTI][0] =="" or self.timeBinNumbers[TTI][0] ==" ":
-					if self.decideMyLog("SQL"): self.indiLOG.log(30, "timeDataNumbers date field is empty  " + str(TTI))
+					if self.decideMyLog("SQL"): self.indiLOG.log(30, "timeDataNumbers date field is empty  {}".format(TTI))
 					break
 				## add starting bin here
 				
@@ -11464,7 +11246,6 @@ class Plugin(indigo.PluginBase):
 				sqlX2				=	sqlX1
 				lastSQLD			=	"0"
 
-#				self.indiLOG.log(30, u"timeTest start nrec loop   secs: %10.5f"%(time.time()-timetest[1]))
 				for nRecordSQL in range(firstRec[TTI],nRecsInSqlData):
 					sqlX2 =sqlX1
 					sqlX1 =sqlX
@@ -11692,10 +11473,8 @@ class Plugin(indigo.PluginBase):
 								if sqlbin0 >=  (self.timeBinNumbers[TTI][TBI+1]): continue  # after this timebin
 							except:
 								if TBI  >= self.noOfTimeBins[TBI]:	break # this is tommorow bin we are at the end
-#							if theCol==14 and TTI ==0:
-#								self.indiLOG.log(30,"sqlbin0"+sqlbin0 +"  TBI"+TBI+"  sqlX1"+sqlX1 +"  sqlX1"+ sqlX1 )
 							tempCount[TBI] 	+=1
-							cDPC= self.consumedDuringPeriod[str(theCol)][TTI]
+							cDPC= self.consumedDuringPeriod[u"{}".format(theCol)][TTI]
 							if firstC:
 								firstC = False
 								cDPC["valueAtStartOfTimeBin"]	= sqlX1
@@ -11713,13 +11492,11 @@ class Plugin(indigo.PluginBase):
 
 							if (sqlD[6:10]) !=cDPC["testDayHour"]:	# quick check if we should do anything
 								cDPC["testDayHour"] = (sqlD[6:10])	# yes it is possible should reduce the number of test by factor of 100
-#									if str(theCol) == "9991" and TTI ==1 : 	self.indiLOG.log(30,"1 "+ sqlD )
-
 								if resetType.find("NoCost") ==-1:
 									cDPC["currentCostTimeBin"], cDPC["lastCostBinWithData"] = self.getCurrentCostTimeBin(sqlD,theMeasurement)
 									
 									if cDPC["currentCostTimeBin"] 	!= cDPC["lastCostTimeBin"]:
-									### works										if theCol == 9 and TTI ==1: self.indiLOG.log(30," changing cost data "+sqlD+" " +str(theCol)+"   "+str(TTI)+"   "+str(cDPC["currentCostTimeBin"])+"--"+str(cDPC["lastCostTimeBin"]))
+									### works										if theCol == 9 and TTI ==1: self.indiLOG.log(30," changing cost data "+sqlD+" {}".format(theCol)+"   {}".format(TTI)+"   {}".format(cDPC["currentCostTimeBin"])+"--{}".format(cDPC["lastCostTimeBin"]))
 										cDPC["lastCostTimeBin"] 	= cDPC["currentCostTimeBin"]
 										cDPC["valueAtStartOfCostBin"]= sqlX1	# offset for price calc
 										if tempData[lastTBI] =="": tempData[lastTBI]=0.
@@ -11730,25 +11507,22 @@ class Plugin(indigo.PluginBase):
 									try:
 										xxx= self.getCurrentResetPeriod(sqlD,resetTypeIN[resetType],cDPC["lastResetBin"])
 										if xxx != cDPC["lastResetBin"]:
-#												if TTI ==1 : 	self.indiLOG.log(30," 3p "+ sqlD + " " +str(xxx)+ " " +str(cDPC["lastResetBin"]))
 											cDPC["lastResetBin"] =xxx
 											cDPC["valueAtStartOfCostBin"]= sqlX1	# offset for price calc
 											cDPC["costAtLastCostBracket"]= 0	# last cost
-									except  Exception, e:
-										self.indiLOG.log(40,"Exception: Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+									except  Exception as e:
+										self.indiLOG.log(40,"Exception: Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 										break
 								else:
 									if (sqlD[6:8]) !=cDPC["lastDay"]:
 										cDPC["lastDay"]= (sqlD[6:8])
 										if resetType.find("day") >-1:
-#													if TTI ==1 : 	self.indiLOG.log(30," 3d "+ sqlD + " " +str(sqlD[6:8])+ " " +str(cDPC["lastDay"]))
 												cDPC["valueAtStartOfCostBin"]= sqlX1	# offset for price calc
 												cDPC["costAtLastCostBracket"]= 0		# last cost
 										else:
 											self.dd = datetime.datetime.strptime(sqlD[:10],'%Y%m%d%H')
 											if resetType.find("week") >-1:
 												if self.dd.weekday() ==0:	# its monday and a new day
-#														if TTI ==1 : 	self.indiLOG.log(30," 3w "+ sqlD + " " +str(sqlD[6:8])+ " " +str(self.dd.weekday()))
 													cDPC["valueAtStartOfCostBin"]= sqlX1	# offset for price calc
 													cDPC["costAtLastCostBracket"]= 0		# last cost
 											elif resetType.find("month") >-1:
@@ -11788,10 +11562,6 @@ class Plugin(indigo.PluginBase):
 				### end loop over sql input
 
 
-
-
-#				self.indiLOG.log(30, u"timeTest bf build average   secs: %10.5f"%(time.time()-timetest[1]))
-
 # build averages  and fill holes copy to timeDataNumbers
 				#  find last bin..
 				lastTimeBin=self.noOfTimeBins[TTI]
@@ -11802,7 +11572,6 @@ class Plugin(indigo.PluginBase):
 				VFItc = self.valuesFromIndigo[TTI][theCol]
 				
 				if  theMeasurement.find("average") >-1  :
-#					if TTI ==2: self.indiLOG.log(30,"tempCount "+str(tempCount) )
 					tD	= tempData[self.firstBinToFillFromSQL[TTI]]
 					tD1	= tD
 					tN	= tempCount[self.firstBinToFillFromSQL[TTI]]
@@ -11811,7 +11580,7 @@ class Plugin(indigo.PluginBase):
 						tD	= tempData[TBI]
 						tN	= tempCount[TBI]
 						if fillGaps=="1" and tN ==0: tD = tD1;tN=tN1
-						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]			= tD/max(tN,1)
+						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers]	= tD/max(tN,1)
 						VFItc[0]			= tD
 						VFItc[1]			= tD1
 						VFItc[2]			= tN
@@ -12020,16 +11789,15 @@ class Plugin(indigo.PluginBase):
 					VFItc[4] = TBI
 					self.lastTimeStampOfDevice[theCol][TTI][0]					= sqlD[:14]
 					self.lastTimeStampOfDevice[theCol][TTI][1]					= sqlD[:14]
-#					if self.decideMyLog("SQL"): self.indiLOG.log(30," TBI: "+ str(TBI)
-#									+ "   lastTimeBin: "+ str(lastTimeBin)
+#									+ "   lastTimeBin: {}".format(lastTimeBin)
 #									+"   noOfTimeBins:"+  str(self.noOfTimeBins[TTI])
-#									+"  1: "+str(VFItc[1])
-#									+"  2: "+str(VFItc[2])
-#									+"  3: "+str(VFItc[3])
-#									+"  4: "+str(VFItc[4])
-#									+"  5: "+str(VFItc[5])
-#									+"  6: "+str(VFItc[6])
-#									+"  7: "+str(VFItc[7]),1)
+#									+"  1: {}".format(VFItc[1])
+#									+"  2: {}".format(VFItc[2])
+#									+"  3: {}".format(VFItc[3])
+#									+"  4: {}".format(VFItc[4])
+#									+"  5: {}".format(VFItc[5])
+#									+"  6: {}".format(VFItc[6])
+#									+"  7: {}".format(VFItc[7]),1)
 					continue
 
 
@@ -12123,10 +11891,8 @@ class Plugin(indigo.PluginBase):
 					continue
 
 # exception from very start
-		except  Exception, e:
-			self.indiLOG.log(30,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-#		self.indiLOG.log(30, u"timeTest end of fill histL secs:  %10.5f"%( time.time()- timetest[0] ))
-
+		except  Exception as e:
+			self.exceptionHandler(40, e)
 
 		return
 
@@ -12162,8 +11928,6 @@ class Plugin(indigo.PluginBase):
 		sqlData.append(SQLtemp[0])
 		nrecs 		= len(SQLtemp)
 		
-		#if self.decideMyLog("SQL"): self.indiLOG.log(30, u"nrec into check  theState theMeasurement " +theMeasurement+" " +theState+ str(nrecs).rjust(5))
-
 		rejectRange	= 0
 		blibCount 	= 0
 		lastData	= 0
@@ -12179,7 +11943,7 @@ class Plugin(indigo.PluginBase):
 			x = SQLtemp[nSQL][1]
 			if theState == "curEnergyLevel"or (theState == "accumEnergyTotal"):
 				if (                 (x < 0.) or  (abs(x  - SQLtemp[nSQLm1][1]) > self.DATAlimitseConsumption)) :
-					#if self.decideMyLog("SQL"): self.indiLOG.log(30, u" bad data ... Timestamp " + SQLtemp[nSQL][0].rjust(10) +" data:" + str(x).rjust(18)+ " last:" +str(SQLtemp[nSQLm1][1]).rjust(18))
+					#if self.decideMyLog("SQL"): self.indiLOG.log(30, u" bad data ... Timestamp " + SQLtemp[nSQL][0].rjust(10) +" data:{}".format(x).rjust(18)+ " last:{}".format(SQLtemp[nSQLm1][1]).rjust(18))
 					SQLtemp[nSQL][1] = SQLtemp[nSQLm1][1]
 					rejectRange +=1
 					continue
@@ -12187,7 +11951,7 @@ class Plugin(indigo.PluginBase):
 			if  (x < minValue) or ( x> maxValue)   :
 				rejectRange +=1
 				SQLtemp[nSQL][1] = SQLtemp[nSQLm1][1]
-				if self.decideMyLog("SQL"): self.indiLOG.log(30, u"                                    data out of min/max range: " + SQLtemp[nSQL][0] +" " + str(x))
+				if self.decideMyLog("SQL"): self.indiLOG.log(20, u"                                    data out of min/max range: " + SQLtemp[nSQL][0] +" {}".format(x))
 				continue
 
 
@@ -12204,7 +11968,7 @@ class Plugin(indigo.PluginBase):
 						if SQLtemp[min(nrecs-1,nSQL+1)][1] < SQLtemp[nSQLm1][1]:
 							if SQLtemp[min(nrecs-1,nSQL+2)][1] < SQLtemp[nSQLm1][1]:
 								if SQLtemp[min(nrecs-1,nSQL+3)][1] < SQLtemp[nSQLm1][1]:  # use min() to not go beyond end of data
-									#if self.decideMyLog("SQL"): self.indiLOG.log(30, u"1-consumption reset  Timestamp " + SQLtemp[nSQL][0].rjust(10) +" state"+ theState+" nSQL/nrecs"+str(nSQL)+"/"+str(nrecs) +" data:" + str(SQLtemp[nSQL][1]).rjust(15)+" data-1:"+ str(SQLtemp[nSQLm1][1]).rjust(15)+ " data+1:" +str(SQLtemp[nSQLp1][1]).rjust(15)+" data+2:" +str(SQLtemp[nSQLp2][1]).rjust(15))
+									#if self.decideMyLog("SQL"): self.indiLOG.log(30, u"1-consumption reset  Timestamp " + SQLtemp[nSQL][0].rjust(10) +" state"+ theState+" nSQL/nrecs{}".format(nSQL)+"/{}".format(nrecs) +" data:{}".format(SQLtemp[nSQL][1]).rjust(15)+" data-1:{}".format(SQLtemp[nSQLm1][1]).rjust(15)+ " data+1:{}".format(SQLtemp[nSQLp1][1]).rjust(15)+" data+2:{}".format(SQLtemp[nSQLp2][1]).rjust(15))
 									sqlData.append(SQLtemp[nSQL])
 									continue
 
@@ -12221,7 +11985,6 @@ class Plugin(indigo.PluginBase):
 						sqlData.append(SQLtemp[nSQL])
 						continue
 					else:
-#						if self.decideMyLog("SQL"): self.indiLOG.log(30, u"1-1blip data .. Timestamp " + SQLtemp[nSQL][0].rjust(10) +" data:" + str(SQLtemp[nSQL][1]).rjust(15)+" data-1:"+ str(SQLtemp[nSQLm1][1]).rjust(15)+ " data-2:" +str(SQLtemp[nSQLm2][1]).rjust(15)+ " data+1:" +str(SQLtemp[nSQL+1][1]).rjust(15))
 						SQLtemp[nSQL][1]=SQLtemp[nSQLm1][1] # set to last number
 						rejectNumber +=1
 						continue
@@ -12235,14 +11998,12 @@ class Plugin(indigo.PluginBase):
 						continue
 						
 					if SQLtemp[nSQL][1] > 1.5 * SQLtemp[nSQLm1][1] and blibCount < 3 and SQLtemp[nSQLm1][1] > 0.5:
-#						if self.decideMyLog("SQL"): self.indiLOG.log(30, u"1++blip data .. Timestamp " + SQLtemp[nSQL][0].rjust(10) +" data:" + str(SQLtemp[nSQL][1]).rjust(15)+" data-1:"+ str(SQLtemp[nSQLm1][1]).rjust(15)+ " data-2:" +str(SQLtemp[nSQLm2][1]).rjust(15)+ " data+1:" +str(SQLtemp[nSQL+1][1]).rjust(15))
 						SQLtemp[nSQL][1]=SQLtemp[nSQLm1][1] # set to last number
 						blibCount +=1
 						rejectNumber +=1
 						continue
 						
 					if SQLtemp[nSQL+1][1] <= SQLtemp[nSQLm1][1]:
-#						if self.decideMyLog("SQL"): self.indiLOG.log(30, u"1+blip data ... Timestamp " + SQLtemp[nSQL][0].rjust(10) +" data:" + str(SQLtemp[nSQL][1]).rjust(15)+" data-1:"+ str(SQLtemp[nSQLm1][1]).rjust(15)+ " data-2:" +str(SQLtemp[nSQLm2][1]).rjust(15)+ " data+1:" +str(SQLtemp[nSQL+1][1]).rjust(15))
 						SQLtemp[nSQL][1]=SQLtemp[nSQLm1][1] # set to last number
 						rejectNumber +=1
 						continue
@@ -12253,7 +12014,7 @@ class Plugin(indigo.PluginBase):
 
 		sqlData.append(SQLtemp[nrecs-1])
 
-		if self.decideMyLog("SQL"): self.indiLOG.log(30, u"nrec out of  check " + str(nrecs+1).rjust(5) + " rejects" + str(rejectNumber).rjust(5) )
+		if self.decideMyLog("SQL"): self.indiLOG.log(20, u"nrec out of  check {}".format(nrecs+1).rjust(5) + " rejects{}".format(rejectNumber).rjust(5) )
 
 		return sqlData, rejectNumber, rejectRange
 	
@@ -12275,16 +12036,16 @@ class Plugin(indigo.PluginBase):
 
 		#get gnuPlotVersion
 		cmd="'"+self.gnuPlotBinary+"' --version"
-		ret=subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0].strip("\n")
+		ret, err = self.readPopen(cmd)
 		self.gnuVersion=""
 		if ret.find("patchlevel") > -1:
 			try:
 				self.gnuVersion= ret.split()[1]
 			except:
-				self.indiLOG.log(30,' gnuplot is not installed '+ret)
+				self.indiLOG.log(40,' gnuplot is not installed '+ret)
 				return
 		else:
-			self.indiLOG.log(30,' gnuplot is not installed '+ret)
+			self.indiLOG.log(40,' gnuplot is not installed '+ret)
 			return
 		
 
@@ -12298,9 +12059,9 @@ class Plugin(indigo.PluginBase):
 			return
 		if self.gnuORmat =="mat": return  # no more if we do matplot
 		cmd="'"+self.gnuPlotBinary+"'  '"+self.userIndigoPluginDir+"temp/test.gnu'"
-		ret=subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[1]
-		if len(ret) > 10:
-			self.indiLOG.log(30,' gnuplot is not (yet) installed with proper font support, please select option "(re)INSTALL gnuplot.. or TrueTypeFonts will not be available or wait until install is finished"')
+		ret, err = self.readPopen(cmd)
+		if len(err) > 10:
+			self.indiLOG.log(40,' gnuplot is not (yet) installed with proper font support, please select option "(re)INSTALL gnuplot.. or TrueTypeFonts will not be available or wait until install is finished"')
 
 		try:
 			os.remove(self.userIndigoPluginDir+"temp/test.gnu")  # and clean up
@@ -12311,7 +12072,7 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def procUPtime(self,process):
 
-		CPUtime = subprocess.Popen("ps -ef | grep '"+process+"' | grep -v grep | awk '{print $7}'" ,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()[0]
+		CPUtime, err = self.readPopen("ps -ef | grep '"+process+"' | grep -v grep | awk '{print $7}'")
 		#501   672   655   0 12:04PM ??         1:27.53 /Library/Application Support/Perceptive Automation/Indigo 6/IndigoPluginHost.app/Contents/MacOS/IndigoPluginHost -p1176 -fSQL Logger.indigoPlugin
 		if len(CPUtime) < 4 or len(CPUtime) > 10: return -1 # not found
 		else:
@@ -12323,7 +12084,7 @@ class Plugin(indigo.PluginBase):
 			except:
 				CPUtime =0.
 			## cputime in seconds.. require 100 seconds cpu consumption to be up long enough
-		self.indiLOG.log(30,"sql logger used " + str(CPUtime)+" secs CPU so far")
+		self.indiLOG.log(20,"sql logger used {}".format(CPUtime)+" secs CPU so far")
 		return CPUtime
 
 
@@ -12336,16 +12097,11 @@ class Plugin(indigo.PluginBase):
 ######################################################################################
 
 	def triggerStartProcessing(self, trigger):
-		#		if self.decideMyLog("General"): self.indiLOG.log(30,u"<<-- entering triggerStartProcessing: %s (%d)" % (trigger.name, trigger.id) )iDeviceHomeDistance
 		self.triggerList.append(trigger.id)
-		#		if self.decideMyLog("General"): self.indiLOG.log(30,u"exiting triggerStartProcessing -->>")
 	
 	def triggerStopProcessing(self, trigger):
-			#		if self.decideMyLog("General"): self.indiLOG.log(30,u"<<-- entering triggerStopProcessing: %s (%d)" % (trigger.name, trigger.id))
 			if trigger.id in self.triggerList:
-				#			if self.decideMyLog("General"): self.indiLOG.log(30,u"TRIGGER FOUND")
 				self.triggerList.remove(trigger.id)
-		#		if self.decideMyLog("General"): self.indiLOG.log(30, u"exiting triggerStopProcessing -->>")
 
 	#def triggerupdatesd(self, origDev, newDev):
 	#	self.logger.log(2, u"<<-- entering triggerupdatesd: %s" % origDev.name)
@@ -12358,7 +12114,6 @@ class Plugin(indigo.PluginBase):
 ######################################################################################
 
 	def triggerEvent(self, eventId):
-		#		if self.decideMyLog("General"): self.indiLOG.log(30,u"<<-- entering triggerEvent: %s " % eventId)
 		for trigId in self.triggerList:
 			trigger = indigo.triggers[trigId]
 			if trigger.pluginTypeId == eventId:
@@ -12417,6 +12172,35 @@ class Plugin(indigo.PluginBase):
 		indigo.server.log(u"--------------------------------------------------------------------------------------------------------------")
 		return True
 
+####-------------------------------------------------------------------------####
+	def readPopen(self, cmd):
+		try:
+			ret, err = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+			return ret.decode('utf_8'), err.decode('utf_8')
+		except Exception as e:
+			self.exceptionHandler(40,e)
+
+####-----------------  exception logging ---------
+	def exceptionHandler(self, level, exception_error_message):
+
+		try:
+			try: 
+				if u"{}".format(exception_error_message).find("None") >-1: return exception_error_message
+			except: 
+				pass
+
+			filename, line_number, method, statement = traceback.extract_tb(sys.exc_info()[2])[-1]
+			#module = filename.split('/')
+			log_message = "'{}'".format(exception_error_message )
+			log_message +=  "\n{} @line {}: '{}'".format(method, line_number, statement)
+			if level > 0:
+				self.indiLOG.log(level, log_message)
+			return "'{}'".format(log_message )
+		except Exception as e:
+			indigo.server.log( "{}".format(e))
+
+
+
 ########################################
 ########################################
 ####-----------------  logging ---------
@@ -12429,7 +12213,7 @@ class Plugin(indigo.PluginBase):
 		if   self.logFileActive =="standard":	self.logFile = ""
 		elif self.logFileActive =="indigo":		self.logFile = self.indigoPath.split("Plugins/")[0]+"Logs/"+self.pluginId+"/plugin.log"
 		else:									self.logFile = self.indigoPreferencesPluginDir +"plugin.log"
-		self.indiLOG.log(30,"myLogSet setting parameters -- logFileActive= "+ unicode(self.logFileActive) + "; logFile= "+ unicode(self.logFile)+ ";  debugLevel= "+ unicode(self.debugLevel) )
+		self.indiLOG.log(30,"myLogSet setting parameters -- logFileActive= {}".format(self.logFileActive) + "; logFile= {}".format(self.logFile)+ ";  debugLevel= {}".format(self.debugLevel) )
 
 			
 	####-----------------	 ---------
@@ -12439,9 +12223,8 @@ class Plugin(indigo.PluginBase):
 			if msgLevel	 == ""	 and u"all" not in self.debugLevel:	 return False
 			if msgLevel in self.debugLevel:							 return True
 			return False
-		except	Exception, e:
-			if len(unicode(e)) > 5:
-				self.indiLOG.log(40,u"decideMyLog in Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except	Exception as e:
+			self.indiLOG.log(40,u"decideMyLog in Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 		return False
 
 	####-----------------  print to logfile or indigo log  ---------
@@ -12472,8 +12255,8 @@ class Plugin(indigo.PluginBase):
 				try:
 					if len(self.logFile) < 3: return # not properly defined
 					f =	 open(self.logFile,"a")
-				except	Exception, e:
-					self.indiLOG.log(40,u"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+				except	Exception as e:
+					self.indiLOG.log(40,u"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
 					try:
 						f.close()
 					except:
@@ -12498,18 +12281,17 @@ class Plugin(indigo.PluginBase):
 					return
 				if showDate: ts = datetime.datetime.now().strftime(u"%H:%M:%S")
 				if mType == u"":
-					f.write((ts+u" " +u" ".ljust(25)  +u"-" + text + u"\n").encode("utf8"))
+					f.write(u"{} {:25} -{}\n".format(ts, " ", text))
 				else:
-					f.write((ts+u" " +mType.ljust(25) +u"-" + text + u"\n").encode("utf8"))
+					f.write(u"{} {:25} -{}\n".format(ts, mType, text))
 				### print calling function 
-				#f.write(u"_getframe:   1:" +sys._getframe(1).f_code.co_name+"   called from:"+sys._getframe(2).f_code.co_name+" @ line# %d"%(sys._getframe(1).f_lineno) ) # +"    trace# "+unicode(sys._getframe(1).f_trace)+"\n" )
+				#f.write(u"_getframe:   1:" +sys._getframe(1).f_code.co_name+"   called from:"+sys._getframe(2).f_code.co_name+" @ line# %d"%(sys._getframe(1).f_lineno) ) # +"    trace# {}".format(sys._getframe(1).f_trace)+"\n" )
 				f.close()
 				return
 
 
-		except	Exception, e:
-			if len(unicode(e)) > 5:
-				self.indiLOG.log(40,u"myLog in Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+		except	Exception as e:
+				self.indiLOG.log(40,u"myLog in Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 				indigo.server.log(text)
 				try: f.close()
 				except: pass

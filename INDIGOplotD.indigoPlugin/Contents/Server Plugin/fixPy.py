@@ -1,5 +1,11 @@
 import sys,os
 from datetime import datetime
+try:
+	unicode("x")
+except:
+	unicode = str
+
+
 #print "hello"
 fileDir = sys.argv[1]
 logFile = fileDir+"fixpy"

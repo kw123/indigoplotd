@@ -4,6 +4,11 @@ import time
 import json
 import getNumber as GT
 #print "hello"
+try:
+	unicode("x")
+except:
+	unicode = str
+
 
 def makeEvents():
 	return 
@@ -42,7 +47,7 @@ else:
 #remove duplicates, ie same SQL ID    &     samedate and same value
 
 if  not os.path.isfile(fileDir+inputFile):
-	print "inputFile "+fileDir+inputFile+" does not exist"
+	print ("inputFile "+fileDir+inputFile+" does not exist")
 	
 	exit()
 f=open(fileDir+inputFile,"r")

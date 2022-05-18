@@ -15,7 +15,11 @@ mlp.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.dates  import DateFormatter,WeekdayLocator, HourLocator,DayLocator, MonthLocator
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-import scipy.interpolate
+try:
+	import scipy.interpolate
+	scipyInstalled = True
+except:
+	scipyInstalled = False
 import copy
 #import numpy as np
 #import gc
@@ -24,6 +28,11 @@ import resource
 import logging.handlers
 global logging, logger
 
+
+try:
+	unicode("x")
+except:
+	unicode = str
 
 #
 ########################################
@@ -137,8 +146,8 @@ def readPlotParameters():
 				xxxx=""
 				input=""
 				return True
-			except  Exception, e:
-				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+			except  Exception as e:
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 				time.sleep(1)
 		return False
 	else:
@@ -215,8 +224,8 @@ def getEventData():
 						#print " read done", theCol, eventIndex[str(theCol)], eventData[str(theCol)][0:2]
 						errorC =0
 						break
-					except  Exception, e:
-						logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+					except  Exception as e:
+						logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 						logger.log(10,"DEVICE " + unicode(DEVICE[str(devNo)]["Id"])+";  col#:"+ str(theCol)+" no event data ?" )
 						time.sleep(4)
 						errorC +=1
@@ -422,6 +431,23 @@ def plotNow(filenamesToPlot):
 	return
 
 
+def comparePLOT(oldPlot, newPlot):
+
+	try:
+		if sys.version_info[0] < 3:
+			return cmp(oldPlot, newPlot)
+		for kk in oldPlot:
+			if kk not in newPlot: return False
+			if type(oldPlot[kk]) == type({}):
+				for ll in oldPlot[kk]:
+					if ll not in newPlot[kk]: return False
+					if oldPlot[kk][ll] != newPlot[kk][ll]: return False
+			else:
+				if oldPlot[kk] != newPlot[kk]: return False
+	except  Exception as e:
+		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
+		return False
+	return True
 
 def do_nPlot(nPlot,filenamesToPlot):
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
@@ -449,8 +475,8 @@ def do_nPlot(nPlot,filenamesToPlot):
 				if plotN["PlotType"] == "dataFromTimeSeries" and newData: doPLOT=True
 
 				if nPlot in oldPLOT:
-					if cmp(oldPLOT[nPlot],PLOT[nPlot]) !=0:
-						oldPLOT[nPlot]=copy.deepcopy(plotN)
+					if not comparePLOT(oldPLOT[nPlot], PLOT[nPlot]):
+						oldPLOT[nPlot] = copy.deepcopy(plotN)
 						logger.log(10,"-- oldplot!=newplot"+ plotN["DeviceNamePlot"])
 						doPLOT=True
 					else:
@@ -469,7 +495,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 									if not os.path.isfile(DeviceNamePlotpng0+"-"+plotSizeNames[ss]+".png"): doPLOT=True
 
 				else:
-					oldPLOT[nPlot]=copy.deepcopy(PLOT[nPlot])
+					oldPLOT[nPlot] = copy.deepcopy(PLOT[nPlot])
 					doPLOT=True
 		#		else:
 		#			doPLOT=True
@@ -577,10 +603,10 @@ def do_nPlot(nPlot,filenamesToPlot):
 
 		#		t1 = time.time()
 				for tType in range(0,numberOfTimeTypes):					# this is for the day/hour/minute names
-					do_PlottType( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor)
+					do_PlottType( plotN, filenamesToPlot, XisDate, tType, colOffset, BorderColor)
 
-	except  Exception, e:
-		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+	except  Exception as e:
+		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 	## end of plot loop
 
 					
@@ -589,7 +615,7 @@ def do_PlottType( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor)
 
 	anyData = do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor)
 
-	if anyData>0: do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor)
+	if anyData > 0: do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor)
 
 
 
@@ -949,22 +975,22 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 													yIsText=True   
 											
 											if  plotN["PlotType"] == "dataFromTimeSeries":
-												if yy !="" and yy != None : firstData=True
+												if yy !="" and yy is not None : firstData=True
 												if not firstData: continue	# skip first sets of data if there is nothing, need at least one !=0 number to start
 											if yIsText:   
 												theValue=yy
-											elif yy != None:      
+											elif yy is not None:
 												theValue= yy*mul+off
 											countTimeBinsWithData+=1
 											#logger.log(10,"step3")
 
 											if colToPlotB[col][1] !=0:
 												if not yIsText:
-												   if suppressPoint>0:  
+													if suppressPoint>0:  
 														yy = None 
 														theValue = yy
 														weight.append(yy)
-												   else:
+													else:
 														try:
 															yy = float(dataToPlot[jj][colToPlotB[col][0]+colOffset])
 														except:
@@ -978,7 +1004,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 														elif (plotN["lines"][lCol]["lineFunc"] =="C" or
 															  plotN["lines"][lCol]["lineFunc"] =="E" or
 															  plotN["lines"][lCol]["lineFunc"] =="S" ) :
-															  weight.append(yy)
+															weight.append(yy)
 
 											if suppressPoint<1: 
 												if plotN["lines"][lCol]["lineType"].find("DOT")==0:
@@ -1145,9 +1171,11 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 							#					logger.log(10, u" xtimeForOneCol 0-10"+ str(xtimeForOneCol[:10]), 1)
 
 
-							if  (  plotN["lines"][lCol]["lineSmooth"] =="soft"
-								or plotN["lines"][lCol]["lineSmooth"] =="medium"
-								or plotN["lines"][lCol]["lineSmooth"] =="strong" ):
+							if	( scipyInstalled and 
+									(  plotN["lines"][lCol]["lineSmooth"] =="soft"
+									or plotN["lines"][lCol]["lineSmooth"] =="medium"
+									or plotN["lines"][lCol]["lineSmooth"] =="strong" )
+								):
 
 								if    plotN["lines"][lCol]["lineSmooth"] =="strong"    : smooth = 1200.
 								elif  plotN["lines"][lCol]["lineSmooth"] == "medium" :   smooth = 200.
@@ -1189,14 +1217,17 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 												xx.append(tt)
 												xxT.append(tt)
 								try:
-									splineParams, fp,ier,msg= scipy.interpolate.splrep (xx1, theColumnValues, k=3, s=smooth , full_output=1)  #  smooth factor 50  least smoothing
-									logger.log(10, u" smoothing plot: \""+ plotN["TitleText"]+"\" line# " + str(lCol)+", ierr:"+ str(ier)+", msg: "+str(msg), 1)
-									logger.log(10, u" smoothing plot: fp "+ str(fp), 1)
-									yy = scipy.interpolate.splev(xx,splineParams)  # y values
-									yyL = len(yy)
-									yyNAM = str(yy).count("nan")
-								except  Exception, e:
-									logger.log(10,"interpolate '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e),0)
+									if scipyInstalled:
+										#splineParams, fp,ier,msg= scipy.interpolate.splrep (xx1, theColumnValues, k=3, s=smooth , full_output=1)  #  smooth factor 50  least smoothing
+										logger.log(10, u" smoothing plot: \""+ plotN["TitleText"]+"\" line# " + str(lCol)+", ierr:"+ str(ier)+", msg: "+str(msg), 1)
+										logger.log(10, u" smoothing plot: fp "+ str(fp), 1)
+										yy = scipy.interpolate.splev(xx,splineParams)  # y values
+										yyL = len(yy)
+										yyNAM = str(yy).count("nan")
+									else:
+										yy = xx
+								except  Exception as e:
+									logger.log(10,"interpolate '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e),0)
 									yyL =0
 									yyNAM =5
 								if yyL<=yyNAM:
@@ -1275,8 +1306,8 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 		for nn in xtimeCol:
 			anyData=max(anyData,len(nn))
 		logger.log(10,"type: "+str(tType)+", now graphing # of datapoints: "+str(anyData) + "; #ofBins "+str(countTimeBinsMax)+ "; Ymin/max L: "+str(yMinL)+" "+str(yMaxL)+" ..R: "+str(yMinR)+" "+str(yMaxR) )
-	except  Exception, e:
-				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+	except  Exception as e:
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 	return anyData
 
 
@@ -1326,8 +1357,8 @@ def getminMaxPerTimeperiod(minMax,timePeriod,xtimeForOneCol,theColumnValues,weig
 		if timePeriod != "": return xvals, yvals, weight
 		else:                return [X], [Y], [W]
 
-	except  Exception, e:
-		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+	except  Exception as e:
+		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 	return [],[],[]
 
 
@@ -1408,9 +1439,9 @@ def do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColo
 				do_polar(plotN, xres,yres,  DeviceNamePlotpng, xMax,xMin, tType)
 
 		
-	except  Exception, e:
-				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
-   #### end do plot              
+	except  Exception as e:
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
+#### end do plot
 
 
 
@@ -1430,7 +1461,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 			ax.patch.set_alpha(1.0)
 		else:
 			fig.patch.set_alpha(1.0)
-			ax = fig.add_subplot(111, axisbg=plotN["Background"])
+			ax = fig.add_subplot(111, facecolor=plotN["Background"])
 		if textSize> 12.: delYTitle=  1.+0.02*max(1,textSize/12.)*4./yres   
 		else : delYTitle=1.
 		
@@ -1453,7 +1484,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 
 		# y axis
 
-		ax.set_ylabel(plotN["LeftLabel"],color=plotN["TextColor"])
+		ax.set_ylabel(plotN["LeftLabel"], color=plotN["TextColor"])
 		Yformat = True
 		if plotN["LeftLog"] =="1" or plotN["LeftLog"].upper() =="LOG":
 			ax.set_yscale('log')
@@ -1502,18 +1533,18 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 		if plotN["Grid"] !="0" and plotN["Grid"].find("y2")==-1:
 			if plotN["Grid"].find("-") ==-1:
 					ax.set_axisbelow(True)
-					zorder=-1
+					zorder = -1
 			else:
 					ax.set_axisbelow(False)
-					zorder=99
+					zorder = 99
 
 
-			ls=":" ; lw=0.5
-			if	 plotN["Grid"].find("1")>-1 : ls=":" ; lw=0.5
-			elif plotN["Grid"].find("3")>-1 : ls="-" ; lw=1
-			else:							  ls="-" ; lw=0.5
+			ls = ":" ; lw  = 0.5
+			if	 plotN["Grid"].find("1") > -1 : ls = ":" ; lw = 0.5
+			elif plotN["Grid"].find("3") > -1 : ls = "-" ; lw = 1
+			else:							  	ls = "-" ; lw = 0.5
 
-			if plotN["Grid"].find("-") ==-1:
+			if plotN["Grid"].find("-") == -1:
 				ax.set_axisbelow(True)
 				zorder=-99
 			else:
@@ -1521,10 +1552,10 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 				zorder=+99
 
 
-			if plotN["Grid"].find("onlyx")==-1:
+			if plotN["Grid"].find("onlyx") == -1:
 				ax.yaxis.grid(True,zorder=zorder, which="major", linestyle=ls,linewidth= lw, color=plotN["TextColor"])
 
-			if plotN["Grid"].find("onlyy")==-1:
+			if plotN["Grid"].find("onlyy") == -1:
 				ax.xaxis.grid(True,zorder=zorder, which="major", linestyle=ls,linewidth= lw, color=plotN["TextColor"])
 				if not XisDate:
 					if tType==0:
@@ -1544,8 +1575,12 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 
 
 		# y2 axis
-		ax2 = ax.twinx()
-		if  y2 or len(plotN["RightScaleTics"]) >0 or len(plotN["RightScaleRange"]) > 2:
+		logger.log(10,"y2:{}, RightScaleTics:{},  RightScaleRange:{}".format(y2, len(plotN["RightScaleTics"]), len(plotN["RightScaleRange"]) ))
+		
+		doax2 = False
+		if  y2 or len(plotN["RightScaleTics"]) > 0 or len(plotN["RightScaleRange"]) > 2:
+			ax2 = ax.twinx()
+			doax2= True
 			ax.set_zorder(ax2.get_zorder()+1) # put ax in front of ax2
 			ax.patch.set_visible(False) # hide the 'canvas'
 			Yformat = True
@@ -1639,15 +1674,17 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 				ax2.grid(False)#, which="major", linestyle=" ",linewidth= 0,color=plotN["Background"] )
 
 		try:
-			if int(plotN["RightScaleDecPoints"]) >=0 and y2 and Yformat :
-				if not(plotN["RightLog"] == "1" or plotN["RightLog"].upper() =="LOG"):	ax2.yaxis.set_major_formatter(FormatStrFormatter("%."+plotN["RightScaleDecPoints"]+"f"))
-				else:																	ax2.yaxis.set_major_formatter(mlp.ticker.FormatStrFormatter("%."+plotN["RightScaleDecPoints"]+"f"))
+			if doax2:
+				if int(plotN["RightScaleDecPoints"]) >= 0 and y2 and Yformat :
+					if not(plotN["RightLog"] == "1" or plotN["RightLog"].upper() =="LOG"):	ax2.yaxis.set_major_formatter(FormatStrFormatter("%."+plotN["RightScaleDecPoints"]+"f"))
+					else:																	ax2.yaxis.set_major_formatter(mlp.ticker.FormatStrFormatter("%."+plotN["RightScaleDecPoints"]+"f"))
 		except:
 			pass
 		try:
-			if len(plotN["RightScaleRange"]) > 2:
-				yRange= plotN["RightScaleRange"].split(":")
-				ax2.set_ylim( float(yRange[0]), float(yRange[1]) )
+			if doax2:
+				if len(plotN["RightScaleRange"]) > 2:
+					yRange= plotN["RightScaleRange"].split(":")
+					ax2.set_ylim( float(yRange[0]), float(yRange[1]) )
 		except:
 			pass
 			
@@ -1671,8 +1708,8 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 					lt =         plotN["lines"][ll]["lineType"]
 					lw =  float( plotN["lines"][ll]["lineWidth"])
 					lw2= lw/2
-				except  Exception, e:
-					logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+				except  Exception as e:
+					logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 					logger.log(10,"colsToPlot "+ str(colsToPlot) +"  llo " +str(ll0)+" columnsToPlot "+str(columnsToPlot))
 					continue
 				if columnsToPlot[ll0][0] > 0:
@@ -1696,7 +1733,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 					continue # skip empty lines
 
 				######### right axis lines
-				if lr == "Right" and y2:
+				if lr == "Right" and y2 and doax2:
 					axx = ax2
 				if lr == "Left" and y1:
 					axx = ax
@@ -1762,7 +1799,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 						axx.scatter(xtimeCol[ll0],columnDataToPlot[ll0],marker=lt[3:],zorder=zorder, color=lc,edgecolor=lc,lw=lw2, label=lk)
 
 					elif lt =="FilledCurves":
-						yLimit = ax2.get_ylim()
+						yLimit = ax.get_ylim()
 						axx.fill_between(xtimeCol[ll0],columnDataToPlot[ll0],yLimit[0],zorder=zorder,facecolor=lc,color=lc, alpha=la, lw=0.)
 						if len(lk) > 0:
 							ypp= 0.8 - ll0*0.05
@@ -1797,8 +1834,8 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 							elif lt =="Histogram4":	[bar.set_hatch("\\") for bar in bars]
 							elif lt =="Histogram5":	[bar.set_hatch("/")  for bar in bars]
 		
-			except  Exception, e:
-				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+			except  Exception as e:
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 
 		# not needed ,seems to work with out due to zorder
 		#					if str(plotN["TransparentBackground"]) == "0.0":		plt.savefig(DeviceNamePlotpng,transparent=True,              edgecolor='none')
@@ -1831,7 +1868,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 						elif int(plotN["MHDDays"][0]) ==7:  fraction = 0.5
 						elif int(plotN["MHDDays"][0]) < 15: fraction = 1
 						elif int(plotN["MHDDays"][0]) < 31: fraction = 11
-						else : 							    fraction = 11
+						else : 								fraction = 11
 
 						if fraction < 10:
 							ax.xaxis.set_major_formatter(DateFormatter("%a"))  # weekday
@@ -2011,8 +2048,8 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 
 
 
-	except  Exception, e:
-				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+	except  Exception as e:
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 	return
 
  
@@ -2042,7 +2079,7 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 			ax.patch.set_alpha(1.0)
 		else:
 			fig.patch.set_alpha(1.0)
-			ax = fig.add_subplot(111, axisbg=plotN["Background"], polar=True)
+			ax = fig.add_subplot(111, facecolor=plotN["Background"], polar=True)
 
 		for ll0 in range(colsToPlot):
 			if len(xtimeCol[ll0])< 1: continue # skip empty lines
@@ -2158,8 +2195,8 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 
 
 
-	except  Exception, e:
-				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+	except  Exception as e:
+				logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 	return
 
 
@@ -2190,8 +2227,8 @@ def set_border(BordOff, ax, ax2=""):
 			if BordOff[3] =="0":
 				ax2.tick_params( axis="y", which="both", right="off")
 				ax2.spines["right"].set_visible(False)
-	except  Exception, e:
-		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+	except  Exception as e:
+		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 
 
 
@@ -2213,20 +2250,9 @@ def save_plot(DeviceNamePlotpng, fig, plt, TransparentBackground, compressPNGfil
 				os.rename((DeviceNamePlotpng.strip(".png")+".xxx").encode('utf8'),(DeviceNamePlotpng).encode('utf8') )
 
 
-	except  Exception, e:
-		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e))
+	except  Exception as e:
+		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 		logger.log(40,"savefig error some parameters are wrong for " +DeviceNamePlotpng)
-
-
-
-
-def dump_garbage():
-	gc.collect()
-	for x in gc.garbage:
-		s = str(x)
-		if len(s)<2: return
-		if len(s) > 80: s = s[:80]
-		print type(x),"\nGARBAGE OBJECTS:  ", s
 
 
 

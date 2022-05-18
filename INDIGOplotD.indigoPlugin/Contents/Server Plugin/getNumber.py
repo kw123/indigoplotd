@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # by Karl Wachs
+try:
+	unicode("x")
+except:
+	unicode = str
+
 def getNumber(val):
 	# test if a val contains a valid number, if not return ""
 	# return the number if any meaningful number (with letters before and after return that number)
