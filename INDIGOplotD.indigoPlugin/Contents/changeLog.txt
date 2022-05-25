@@ -1,3 +1,11 @@
+ changes in v7.20.74 @ 2021-05-25
+===================================================
+
+1. fixed:
+sql produced file with bad data 
+   INDIGOplotD Error               'could not convert string to float: 
+
+
  changes in v7.20.73 @ 2021-01-01
 ===================================================
 

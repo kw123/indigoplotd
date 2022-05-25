@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import datetime
 import json
 import getNumber as GT
 #print "hello"
@@ -15,7 +16,7 @@ def makeEvents():
 
 
 d0 = time.time()
-
+myPid = os.getpid()
 
 params      = json.loads(sys.argv[1])
 fileDir     = params["fileDir"]
@@ -42,6 +43,25 @@ if inputFile==outputFile:
 else:
 	sameFile=False
 
+##### do logfile output 
+logF = open(logFile+".log","a")
+logF.seek(0,2)
+size = logF.tell()
+if size > 500000:
+	try:
+		logF.close()
+		try:			# error if it does not exit
+			os.remove( logFile+".1.log" )
+		except:
+			pass
+		try:			# error if it does not exit
+			os.rename( logFile+".log", logFile+".1.log")
+		except:
+			pass
+		logF= open( logFile+".log" , "a")
+	except:
+		pass
+logF.write(u"\n{} .. PID:{}\n".format(datetime.datetime.now(), myPid))
 
 
 #remove duplicates, ie same SQL ID    &     samedate and same value
@@ -125,8 +145,8 @@ for line in f.readlines():
 			g.write(lastLine)
 			outCount+=1
 	else: dateCount+=1
-	lastLine =l[0]+";"+l[1]+";"+l[2]+"\n"
-	lastID =id
+	lastLine = l[0]+";"+l[1]+";"+l[2]+"\n"
+	lastID = id
 	lastDate = l1
 	lastValue = l[2]
 		
@@ -136,24 +156,6 @@ if lastID >0:				# write out last record
 	outCount+=1
 
 
-##### do logfile output 
-logF=open(logFile+".log","a")
-logF.seek(0,2)
-size = logF.tell()
-if size > 500000:
-	try:
-		logF.close()
-		try:			# error if it does not exit
-			os.remove( logFile+".1.log" )
-		except:
-			pass
-		try:			# error if it does not exit
-			os.rename( logFile+".log", logFile+".1.log")
-		except:
-			pass
-		logF= open( logFile+".log" , "a")
-	except:
-		pass
 outLog = {}
 outLog["output"]        = outputFile
 outLog["startID"]       = startID
@@ -168,7 +170,7 @@ outLog["valCountBAD"]   = valCountBAD
 outLog["dateCount"]     = dateCount
 outLog["nBytes"]        = nBytes
 outLog["elapseTime"]    = str(time.time()-d0)[:6]
-logF.write(inputFile+"+++"+json.dumps(outLog)+"\n")
+logF.write(u"{}+++{}\n".format( inputFile, json.dumps(outLog)))
 #####
 
 
