@@ -32,10 +32,6 @@ try:
 except:
 	unicode = str
 
-
-
-import codecs
-
 ###hardwired constants:
 dataOffsetInTimeDataNumbers =   5
 noOfTimeTypes				=	3
@@ -671,7 +667,7 @@ class Plugin(indigo.PluginBase):
 		### check if we need to updates SQL data files..
 		SQLNeedsupdates=False
 		if os.path.isfile(self.userIndigoPluginDir+"sql/version"):
-			f=open(self.userIndigoPluginDir+"sql/version","r")
+			f=self.openEncoding(self.userIndigoPluginDir+"sql/version","r")
 			if f.read().find("3")==-1:
 				SQLNeedsupdates=True
 			f.close()
@@ -738,7 +734,7 @@ class Plugin(indigo.PluginBase):
 			### check if we need to updates SQL data files..
 			SQLNeedsupdates=False
 			if os.path.isfile(self.userIndigoPluginDir+"sql/version"):
-				f=open(self.userIndigoPluginDir+"sql/version","r")
+				f=self.openEncoding(self.userIndigoPluginDir+"sql/version","r")
 				if f.read().find("3")==-1:
 					SQLNeedsupdates=True
 				f.close()
@@ -747,7 +743,7 @@ class Plugin(indigo.PluginBase):
 			
 			if SQLNeedsupdates:
 				self.fixSQLFiles(wait=True)
-				f=open(self.userIndigoPluginDir+"sql/version","w")
+				f=self.openEncoding(self.userIndigoPluginDir+"sql/version","w")
 				f.write("sql version   3   installed")
 				f.close()
 				self.myLog( text=" updating SQL files to version 2")
@@ -941,7 +937,7 @@ class Plugin(indigo.PluginBase):
 
 	def startColumnData(self):
 		if self.colDataON:
-			f=open(self.userIndigoPluginDir+"data/columns/command","w")
+			f=self.openEncoding(self.userIndigoPluginDir+"data/columns/command","w")
 			f.write(json.dumps(self.sqlColListStatus)+"\n")
 			f.write(json.dumps(self.sqlHistListStatus)+"\n")
 			f.write(json.dumps(self.sqlDynamic)+"\n")
@@ -1041,7 +1037,7 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def createInstallGnuplotScpt(self):
-		f= open( self.userIndigoPluginDir+"gnu/installgnuplot.scpt" , "w")
+		f= self.openEncoding( self.userIndigoPluginDir+"gnu/installgnuplot.scpt" , "w")
 		f.write('--  \n')
 		f.write('-- install gnuplot properly with font support, use homebrew to do the intall \n')
 		f.write('--             Karl Wachs, March 3, 2014  \n')
@@ -1140,7 +1136,7 @@ class Plugin(indigo.PluginBase):
 				else:
 					xxyy[nPlot][key]= self.convertVariableOrDeviceStateToText(xxyy[nPlot][key])
 		out ={"PLOT":xxyy,"DEVICE":self.DEVICE,"dataColumnToDevice0Prop1Index":self.dataColumnToDevice0Prop1Index,"dataOffsetInTimeDataNumbers":dataOffsetInTimeDataNumbers,"PNGdir":self.indigoPNGdir}
-		f= open( self.matPLOTParameterFile, "w")
+		f=self.openEncoding( self.matPLOTParameterFile, "w")
 		f.write(json.dumps(out,sort_keys=True, indent=2))
 		f.close()
 
@@ -1194,7 +1190,7 @@ class Plugin(indigo.PluginBase):
 
 		
 		try:
-			f=open(self.userIndigoPluginDir+"data/consumptionCost","r")
+			f=self.openEncoding(self.userIndigoPluginDir+"data/consumptionCost","r")
 			self.consumptionCostData =json.loads(f.read())
 			f.close()
 		except:
@@ -1222,7 +1218,7 @@ class Plugin(indigo.PluginBase):
 		self.consumedDuringPeriod ={}
 
 		try:
-			f=open(self.userIndigoPluginDir+"data/consumedDuringPeriod","r")
+			f=self.openEncoding(self.userIndigoPluginDir+"data/consumedDuringPeriod","r")
 			self.consumedDuringPeriod =json.loads(f.read())
 			f.close()
 		except  Exception as e:
@@ -1240,7 +1236,7 @@ class Plugin(indigo.PluginBase):
 		
 
 		try:
-			f=open(self.userIndigoPluginDir+"data/valuesFromIndigo","r")
+			f=self.openEncoding(self.userIndigoPluginDir+"data/valuesFromIndigo","r")
 			self.valuesFromIndigo  =json.loads(f.read())
 			f.close()
 			self.initBy		="file"
@@ -1297,10 +1293,10 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def putconsumedDuringPeriod(self):
 		try:
-			f=open(self.userIndigoPluginDir+"data/consumedDuringPeriod","w")
+			f=self.openEncoding(self.userIndigoPluginDir+"data/consumedDuringPeriod","w")
 			f.write(json.dumps(self.consumedDuringPeriod))
 			f.close()
-			f=open(self.userIndigoPluginDir+"data/valuesFromIndigo","w")
+			f=self.openEncoding(self.userIndigoPluginDir+"data/valuesFromIndigo","w")
 			f.write(json.dumps(self.valuesFromIndigo))
 			f.close()
 		except  Exception as e:
@@ -1311,7 +1307,7 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def putConsumptionCostData(self):
 		try:
-			f=open(self.userIndigoPluginDir+"data/consumptionCost","w")
+			f=self.openEncoding(self.userIndigoPluginDir+"data/consumptionCost","w")
 			f.write(json.dumps(self.consumptionCostData))
 			f.close()
 		except  Exception as e:
@@ -1436,7 +1432,7 @@ class Plugin(indigo.PluginBase):
 		self.dataColumnCount=0
 		
 		try:
-			f=open(self.userIndigoPluginDir+"data/indexes","r")
+			f=self.openEncoding(self.userIndigoPluginDir+"data/indexes","r")
 			line = f.readline()
 			f.close()
 			if len(line)>2:
@@ -1456,7 +1452,7 @@ class Plugin(indigo.PluginBase):
 
 		if self.dataColumnCount >0:
 			try:
-				f=open(self.userIndigoPluginDir+"data/devices","r")
+				f=self.openEncoding(self.userIndigoPluginDir+"data/devices","r")
 				line = f.readline()
 				f.close()
 				if len(line)>10:
@@ -1597,10 +1593,10 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def putDeviceParametersToFile(self,calledfrom=""):
 		
-		f=open(self.userIndigoPluginDir+"data/indexes","w")
+		f=self.openEncoding(self.userIndigoPluginDir+"data/indexes","w")
 		f.write(json.dumps(self.dataColumnToDevice0Prop1Index)+"\n")
 		f.close()
-		f=open(self.userIndigoPluginDir+"data/devices","w")
+		f=self.openEncoding(self.userIndigoPluginDir+"data/devices","w")
 		f.write(json.dumps(self.DEVICE)+"\n")
 		f.close()
 #		self.pluginPrefs["dataColumnToDevice0Prop1Index"]	=	json.dumps(self.dataColumnToDevice0Prop1Index)
@@ -1733,7 +1729,7 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def PrintPlotData(self,plotId):
 	
-		out = "\n"
+		out = u"\n"
 		for nPlot in self.PLOT:
 			if nPlot=="0": continue
 			try:
@@ -1771,16 +1767,16 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def PrintDeviceData(self):
 		try:
-			out = "\n"
+			out = u"\n"
 			#		  1234  1234567 123456789012345 1234567890123456789012345 123456
-			out += "\nDev#, dev/var ID============= Name                      Status" 
+			out += u"\nDev#, dev/var ID============= Name                      Status" 
 			#			 12345678901234567890 12345678901234567890 1234567890 1234567890 1234567890 1234567890 12345 123456 123456789012
-			out += "\n   ---------------State Measurement              offset    multipl   minValue   maxValue   Col filGps    resetType nickName" 
+			out += u"\n   ---------------State Measurement              offset    multipl   minValue   maxValue   Col filGps    resetType nickName" 
 			for nn in range (1,999):
 				devNo  =str(nn)
 				if devNo not in self.DEVICE: continue
 				DEV = self.DEVICE[devNo]
-				out += "\n{:4}  {:7} {:15} {:>20} ok:{}".format(devNo, DEV["devOrVar"], DEV["Id"], DEV["Name"], DEV["deviceNumberIsUsed"])
+				out += u"\n{:4}  {:7} {:15} {:>20} ok:{}".format(devNo, DEV["devOrVar"], DEV["Id"], DEV["Name"], DEV["deviceNumberIsUsed"])
 				for i in range(1,noOfStatesPerDeviceG+1):
 					if DEV["state"][i] == "None": continue
 					out+= u"\n{:2} {:>20} {:<20} {:>10} {:>10} {:>10} {:>10} {:>5} {:>6} {:>12} {:>50}".format(i, DEV["state"][i], DEV["measurement"][i], DEV["offset"][i], DEV["multiplier"][i], DEV["minValue"][i], DEV["maxValue"][i], DEV["stateToIndex"][i], DEV["fillGaps"][i], DEV["resetType"][i].strip("{u"), DEV["nickName"][i])
@@ -1856,7 +1852,7 @@ class Plugin(indigo.PluginBase):
 		for TTI in range(noOfTimeTypes):
 			if self.decideMyLog("Plotting"): self.indiLOG.log(10, ("PlotType# "+ binTypeNames[TTI]).ljust(25)+"  Data Columns  ...")
 
-			out="c;w;m;y;-;-;"
+			out = u"c;w;m;y;-;-;"
 			for theCol in range(1+dataOffsetInTimeDataNumbers,self.dataColumnCount+1+dataOffsetInTimeDataNumbers):
 				out += str(theCol).rjust(7)+";"
 
@@ -1885,7 +1881,7 @@ class Plugin(indigo.PluginBase):
 							if self.decideMyLog("Plotting"): self.indiLOG.log(10,("break  ").ljust(25)+"   ................... ")
 						continue
 					if self.decideMyLog("Plotting"): self.indiLOG.log(10,(str(self.timeBinNumbers[TTI][j]).ljust(14)+str(self.timeDataNumbers[TTI][j][0]).rjust(4)+": ").ljust(25) +out)
-			out="c;w;m;y;-;-;"
+			out =u"c;w;m;y;-;-;"
 			for theCol in range(1+dataOffsetInTimeDataNumbers,self.dataColumnCount+1+dataOffsetInTimeDataNumbers):
 				out += str(theCol).rjust(7)+";"
 			if self.decideMyLog("Plotting"): self.indiLOG.log(10,("Date       #M").ljust(25)+ out,)
@@ -1897,11 +1893,11 @@ class Plugin(indigo.PluginBase):
 		if self.decideMyLog("General"): self.indiLOG.log(10," printing data to formatted file")
 		try:
 			for TTI in range(noOfTimeTypes):
-				f=open(self.fileData[TTI]+".formatted", "w")
+				f=self.openEncoding(self.fileData[TTI]+".formatted", "w")
 				out = ""
 				for theCol in range(1,self.dataColumnCount+1):
 					out += str(theCol).rjust(7)+";"
-				f.write("Date           #dat;W;M;Y;-;   n;{}\n".format(out))
+				f.write(u"Date           #dat;W;M;Y;-;   n;{}\n".format(out))
 				goodLines=0
 				for j in range(self.noOfTimeBins[TTI]):
 					out=""
@@ -1932,8 +1928,8 @@ class Plugin(indigo.PluginBase):
 				out=""
 				for theCol in range(1,self.dataColumnCount+1):
 					out += str(theCol).rjust(7)+";"
-				f.write("Date           #dat;W;M;Y;-;   n;"+out+"\n")
-				f.write("\nCurrent measurement values: \n")
+				f.write(u"Date           #dat;W;M;Y;-;   n;"+out+"\n")
+				f.write(u"\nCurrent measurement values: \n")
 				xxx=["currentValues.","lastMeasurem./T","#ofMeasuremts/LastM","LastT","TBI","FirstM-1","FirstT-1","LastM-1","LastT-1","TBI-1","LastM-2","LastT-2","TBI-2","13","14","15","16","17","18","19","20","21","22"]
 				for NV in range(noOfValuesMeasured):
 					out=(xxx[NV]+":").ljust(14+5+4+dataOffsetInTimeDataNumbers*2)
@@ -2300,10 +2296,7 @@ class Plugin(indigo.PluginBase):
 		nn=0
 		ff = u"{}py/{}".format(self.userIndigoPluginDir, self.BackupFileSelected)
 		self.indiLOG.log(20,u" BackupFileSelected {}".format(ff))
-		if sys.version_info[0]  > 2:
-			f = open( ff ,"r", encoding="utf-8")
-		else:
-			f = codecs.open( ff ,"r", "utf-8")
+		f=self.openEncoding( ff ,"r")
 
 		pyCommands = ""
 		for line in f.readlines():
@@ -2395,10 +2388,7 @@ class Plugin(indigo.PluginBase):
 	#		if os.path.isfile(self.userIndigoPluginDir+"py/examplesToCreateAndManagePlots.py"):
 	#			os.rename(self.userIndigoPluginDir+"py/examplesToCreateAndManagePlots.py", self.userIndigoPluginDir+"py/examplesToCreateAndManagePlots-"+d0+"-.py")
 				
-			if sys.version_info[0]  > 2:
-				f = open(self.userIndigoPluginDir+fName , "w", encoding="utf-8")
-			else:
-				f = codecs.open(self.userIndigoPluginDir+fName , "w", "utf-8")
+			f=self.openEncoding(self.userIndigoPluginDir+fName , "w")
 
 			if aType=="exportMini":
 				kk = 0
@@ -3168,10 +3158,10 @@ class Plugin(indigo.PluginBase):
 
 			if os.path.isfile(self.fileData[TTI]):
 			
-				f=open(self.fileData[TTI], "r")
+				f=self.openEncoding(self.fileData[TTI], "r")
 
 				f.close()
-				f=open(self.fileData[TTI], "r")
+				f=self.openEncoding(self.fileData[TTI], "r")
 				line = f.readline()
 				if len(line) < 11+(2-TTI)*2: return  # checking length of first 2 item. its the date string YYYYMMDD +HH + MM so 8 10 12 +";0.0" +4 = 12 14 16
 				f.close()
@@ -3186,7 +3176,7 @@ class Plugin(indigo.PluginBase):
 					self.indiLOG.log(40," read file "+self.fileData[TTI] +" bad data "+line)
 					return # junk data
 
-				f= open( self.fileData[TTI] , "r")
+				f=self.openEncoding( self.fileData[TTI] , "r")
 				theIndex=0
 				for line in f.readlines():
 						test = line.strip("\n").strip(" ").strip(" "+sep).split(sep)
@@ -3215,7 +3205,7 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def putDiskData(self,TTI):
-		f= open( self.fileData[TTI] , "w")
+		f=self.openEncoding( self.fileData[TTI] , "w")
 		for ii in range (0,self.noOfTimeBins[TTI]):
 			# date;#of entries;weekday;lastdayinmonth=1;lastdayinyear=1;0; columns 1...n
 			f.write( str(self.timeBinNumbers[TTI][ii])+
@@ -3947,7 +3937,7 @@ class Plugin(indigo.PluginBase):
 		try:
 			
 			if self.decideMyLog("Plotting") and self.gnuORmat =="gnu": self.indiLOG.log(10,"lines: {}".format(theLines))
-			f= open( gnuFile , "w")
+			f=self.openEncoding( gnuFile , "w")
 			f.write((u"#!'" + gnuFile+u"'   \n").encode('utf8'))					# just a comment
 			f.write(u'set datafile separator ";" \n')
 		
@@ -5825,7 +5815,7 @@ class Plugin(indigo.PluginBase):
 	def isMATRunning(self):
 		oldPID =0
 		try:
-			pidHandle= open( self.matplotPid , "r")
+			pidHandle= self.openEncoding( self.matplotPid , "r")
 			oldPID = pidHandle.readline()
 			pidHandle.close()
 		except:
@@ -5914,12 +5904,12 @@ class Plugin(indigo.PluginBase):
 			try:
 				self.listOfLinesForFileOrVari =[(0,"None")]
 				lines =""
-				f=open(self.userIndigoPluginDir+"data/"+FileOrVariName,"r")
+				f=self.openEncoding(self.userIndigoPluginDir+"data/"+FileOrVariName,"r")
 				buff =f.read()
 				f.close()
 				
 				if buff.find("\r")>-1 or buff.find("\t")>-1:
-					f=open(self.userIndigoPluginDir+"data/"+FileOrVariName,"w")
+					f=self.openEncoding(self.userIndigoPluginDir+"data/"+FileOrVariName,"w")
 					if buff.find("\t")>-1:
 						buff=buff.replace("\t",";")
 					if buff.find("\r")>-1:
@@ -9506,12 +9496,12 @@ class Plugin(indigo.PluginBase):
 				if not( createNow =="" or self.PLOT[nPlot]["DeviceNamePlot"] == createNow) : continue
 
 			if ShowOnly == "":
-				f = open( self.matplotcommand , "w")
+				f=self.openEncoding( self.matplotcommand , "w")
 				if createNow == "":	f.write(json.dumps("do all plots"))
 				else:				f.write(json.dumps(createNow))
 				f.close()
 
-				f = open( self.matplotcommand , "r")
+				f=self.openEncoding( self.matplotcommand , "r")
 				self.indiLOG.log(10,f.read())    
 				f.close()
 
@@ -9718,7 +9708,7 @@ class Plugin(indigo.PluginBase):
 						out2 = self.calcMinMax(8,10, out, -1)
 						
 					if len(out2) > 0:
-						f=open(u"{}data/{}-{}-{}.dat".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], binTypeFileNames[TTI], nLine),"w")
+						f=self.openEncoding(u"{}data/{}-{}-{}.dat".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], binTypeFileNames[TTI], nLine),"w")
 						f.write(out2)
 					try:    f.close()
 					except: pass
@@ -9775,7 +9765,7 @@ class Plugin(indigo.PluginBase):
 			if self.gnuORmat == "gnu":
 				if os.path.isfile((Fname+'.err').encode('utf8')):
 					if os.path.getsize((Fname+'.err').encode('utf8')) >0:
-						f=open((Fname+'.err').encode('utf8'),"r")
+						f=self.openEncoding(Fname+'.err',"r")
 						lines = f.read()
 						f.close()
 						if len(lines) >0:
@@ -10640,11 +10630,13 @@ class Plugin(indigo.PluginBase):
 
 
 		
-		outCMD += (("echo finished > '"+self.userIndigoPluginDir+"sql/sqlcmd.done' \n"))  # all sql commands finished
-		f= open( self.userIndigoPluginDir+"sql/sqlcmd.sh" , "w")
+		outCMD += ("echo finished > '"+self.userIndigoPluginDir+"sql/sqlcmd.done' \n")  # all sql commands finished
+
+		ff = self.userIndigoPluginDir+"sql/sqlcmd.sh" 
+		f = self.openEncoding(ff,"w")
 		f.write(outCMD)
 		f.close()
-		if self.decideMyLog("SQL"): self.indiLOG.log(10, "\n\n==================\n\n{}\n\n==================\n\n".format(outCMD)) 
+		if self.decideMyLog("SQL"): self.indiLOG.log(10,u"\n\n==================\n\n{}\n\n==================\n\n".format(outCMD)) 
 		self.sqlNumbOfRecsRead  = 0
 		#xx = subprocess.Popen( "sh '"+self.userIndigoPluginDir+"sql/sqlcmd.sh' ", shell=True).pid
 		#self.indiLOG.log(10, u"pid {}".format(xx, ))
@@ -10652,13 +10644,21 @@ class Plugin(indigo.PluginBase):
 		self.checkFileExistsErrorMessageCounter =99
 		if self.decideMyLog("SQL"): self.indiLOG.log(10, u"sql commands launched {} waiting for SQL tasks to end to read data into {} pid={}".format(datetime.datetime.now(), self.pluginName, self.pidSQL))
 
+	########################################
+	def openEncoding(self, ff, readOrWrite):
+
+		if sys.version_info[0]  > 2:
+			return open( ff, readOrWrite, encoding="utf-8")
+		else:
+			return codecs.open( ff ,readOrWrite, "utf-8")
+
 
 	########################################
 	def fixSQLFiles(self,wait=True):
 		try:
 		#remove doublicates, ie same SQL ID    &     samedate and same value
 			d0 = time.time()
-			f= open( self.userIndigoPluginDir+"sql/fixSQL.sh" , "w")
+			f=self.openEncoding( self.userIndigoPluginDir+"sql/fixSQL.sh" , "w")
 
 			f.write("echo ' '  >> '"+ self.userIndigoPluginDir+"sql/sqlFix.log' \n")  # all sql commands finished
 			f.write("echo 'post import fixSQLFiles started at'  >> '"+ self.userIndigoPluginDir+"sql/sqlFix.log' \n")  # all sql commands finished
@@ -11049,7 +11049,7 @@ class Plugin(indigo.PluginBase):
 				self.sleep(0.2) 
 				fSize = fSize2
 
-			f = open(sqlfile, "r")
+			f=self.openEncoding(sqlfile, "r")
 			recId = -1
 			for line  in f.readlines():
 				sqlHistoryData = line.strip("\n").strip(" ").split(";")
@@ -12068,7 +12068,7 @@ class Plugin(indigo.PluginBase):
 		
 
 		try:
-			f= open( self.userIndigoPluginDir+"temp/test.gnu", "w")
+			f=self.openEncoding( self.userIndigoPluginDir+"temp/test.gnu", "w")
 			ret=f.write('set terminal png enhanced medium  font "/Library/Fonts/Arial Unicode.ttf" 12   size 800,350 dashlength 0.5 \n')
 			f.close()
 		except:
@@ -12272,7 +12272,7 @@ class Plugin(indigo.PluginBase):
 				ts =""
 				try:
 					if len(self.logFile) < 3: return # not properly defined
-					f =	 open(self.logFile,"a")
+					f =	 self.openEncoding(self.logFile,"a")
 				except	Exception as e:
 					self.indiLOG.log(40,u"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
 					try:
