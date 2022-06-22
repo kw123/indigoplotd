@@ -4,6 +4,8 @@ import time
 import datetime
 import json
 import getNumber as GT
+import codecs
+
 #print "hello"
 try:
 	unicode("x")

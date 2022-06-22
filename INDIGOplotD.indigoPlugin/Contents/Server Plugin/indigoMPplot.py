@@ -7,9 +7,12 @@
 # karlwachs@me.com
 # please use as you see fit, no warrenty
 import os, pwd, subprocess, sys
+import codecs
 import time
 import datetime
 import json
+import traceback
+
 import matplotlib as mlp
 mlp.use("Agg")
 import matplotlib.pyplot as plt
@@ -73,7 +76,7 @@ def main():
 	while not quitNOW:
 		fNamesToPlot=[""]
 		time.sleep(waitTime)
-		if thePlotCount > 300: break			#  reboot every 300 times to clear memory.
+		if thePlotCount > 300: break	#  reboot every 300 times to clear memory.
 		
 		timeCount +=1
 		if timeCount > 720./waitTime: break	# nothing has changed in the last 12 minutes .. exit
@@ -81,16 +84,18 @@ def main():
 		if os.path.isfile(matplotcommand):
 			logger.log(10,"new matplot input command found")
 			try:
-				f = open (matplotcommand,"r")
-				fNamesToPlot = json.loads(f.read())
+				f = openEncoding(matplotcommand,"r")
+				xx = f.read()
 				f.close()
+				logger.log(10,u"matplot input command read >>{}<<".format(xx))
+				fNamesToPlot = json.loads(xx)
 				if isinstance(fNamesToPlot, str) or isinstance(fNamesToPlot, unicode):
-					fNamesToPlot=[fNamesToPlot]
+					fNamesToPlot = [fNamesToPlot]
 				for fn in fNamesToPlot:
-					logger.log(10,"matplot input command read >>{}<<".format(fn))
+					logger.log(10,u"matplot input command read >>{}<<".format(fn))
 				os.remove( matplotcommand )
-			except:
-				logger.log(10,"matplot input command file present, but empty, can't read ")
+			except  Exception as e:
+				logger.log(20,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 				try:
 					f.close()
 					os.remove( matplotcommand )
@@ -113,6 +118,7 @@ def main():
 
 	logger.log(10,"stopping program, no new data for too long, # of plots since new data: {};  # of cycles:{}".format(thePlotCount, timeCount))
 	# exit program
+	# let indigoplotd restart me 
 	return
 
 
@@ -445,7 +451,7 @@ def comparePLOT(oldPlot, newPlot):
 			else:
 				if oldPlot[kk] != newPlot[kk]: return False
 	except  Exception as e:
-		logger.log(40,"Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
+		logger.log(40,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 		return False
 	return True
 
@@ -467,7 +473,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 				plotN = PLOT[nPlot]
 				if plotN["NumberIsUsed"] !=1: return
 				if "enabled" in plotN and  plotN["enabled"] !="True": return
-				if not( filenamesToPlot[0] =="" or filenamesToPlot[0] =="do all plots" or plotN["DeviceNamePlot"] in filenamesToPlot  ): return
+				if not( filenamesToPlot[0] =="" or filenamesToPlot[0] == "do all plots" or plotN["DeviceNamePlot"] in filenamesToPlot  ): return
 		
 				#### check if there is anything new in the PLOT definition
 				doPLOT=False
@@ -2255,6 +2261,13 @@ def save_plot(DeviceNamePlotpng, fig, plt, TransparentBackground, compressPNGfil
 		logger.log(40,"savefig error some parameters are wrong for " +DeviceNamePlotpng)
 
 
+####-------------------------------------------------------------------------####
+def openEncoding( ff, readOrWrite):
+
+		if sys.version_info[0]  > 2:
+			return open( ff, readOrWrite, encoding="utf-8")
+		else:
+			return codecs.open( ff ,readOrWrite, "utf-8")
 
 
 	########################################	########################################	########################################	########################################	########################################
@@ -2308,14 +2321,14 @@ else:
 
 
 
-logger.log(20,"INDIGO matplot started Version 6.8;  pid:{};    at: {}".format(myPID, datetime.datetime.now()))
+logger.log(20,"{}  ---- INDIGO matplot started Version 6.8;  pid:{};    {} ------".format(datetime.datetime.now(), myPID, sys.version_info))
 
 
 PLOT={}
 
 # kill old program if still running..
 try:
-	pidHandle= open( prefsDir+"matplot/matplot.pid" , "r")
+	pidHandle= openEncoding( prefsDir+"matplot/matplot.pid" , "r")
 	oldPID = pidHandle.readline()
 	pidHandle.close()
 	if str(myPID) != oldPID:
@@ -2324,7 +2337,7 @@ try:
 except:
 	pass
 # register new pid for next time
-pidHandle= open( prefsDir+"matplot/matplot.pid" , "w")
+pidHandle= openEncoding( prefsDir+"matplot/matplot.pid" , "w")
 pidHandle.write(str(myPID))
 pidHandle.close()
 

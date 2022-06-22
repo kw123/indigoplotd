@@ -21,6 +21,10 @@ import cProfile
 import pstats
 import logging
 import traceback
+import platform
+from checkIndigoPluginName import checkIndigoPluginName 
+
+
 try:
 	import json
 except:
@@ -232,72 +236,92 @@ class Plugin(indigo.PluginBase):
 		## = /Library/Application Support/Perceptive Automation/Indigo 7.2/Plugins/INDIGOPLOTD.indigoPlugin/Contents/Server Plugin
 		self.pluginShortName 			= "INDIGOplotD"
 		self.quitNow					= ""
+
+###############  common for all plugins ############
 		self.getInstallFolderPath		= indigo.server.getInstallFolderPath()+"/"
 		self.indigoPath					= indigo.server.getInstallFolderPath()+"/"
-		self.indigoRootPath 			= indigo.server.getInstallFolderPath().split("Indigo")[0]
+		self.indigoRootPath 			= indigo.server.getInstallFolderPath().split(u"Indigo")[0]
+		self.pathToPlugin 				= self.completePath(os.getcwd())
 
-		major, minor, release 			= map(int, indigo.server.version.split("."))
+		major, minor, release 			= map(int, indigo.server.version.split(u"."))
 		self.indigoVersion 				= float(major)+float(minor)/10.
-		if self.indigoVersion < 7.3:
-			import versionCheck as VS
+		self.indigoRelease 				= release
 
 		self.pluginVersion				= pluginVersion
 		self.pluginId					= pluginId
 		self.pluginName					= pluginId.split(".")[-1]
 		self.myPID						= os.getpid()
-		self.pluginState				= "init"
+		self.pluginState				= u"init"
 
 		self.myPID 						= os.getpid()
 		self.MACuserName				= pwd.getpwuid(os.getuid())[0]
 
 		self.MAChome					= os.path.expanduser(u"~")
-		self.userIndigoDir				= self.MAChome + "/indigo/"
-		self.indigoPreferencesPluginDir = self.getInstallFolderPath+"Preferences/Plugins/"+self.pluginId+"/"
+		self.userIndigoDir				= self.MAChome + u"/indigo/"
+		self.indigoPreferencesPluginDir = self.getInstallFolderPath+u"Preferences/Plugins/"+self.pluginId+"/"
 		self.indigoPluginDirOld			= self.userIndigoDir + self.pluginShortName+"/"
-		self.PluginLogFile				= indigo.server.getLogsFolderPath(pluginId=self.pluginId) +"/plugin.log"
-		self.userIndigoPluginDir		= self.indigoPreferencesPluginDir
+		self.PluginLogFile				= indigo.server.getLogsFolderPath(pluginId=self.pluginId) +u"/plugin.log"
 
-		formats=	{   logging.THREADDEBUG: "%(asctime)s %(msg)s",
-						logging.DEBUG:       "%(asctime)s %(msg)s",
-						logging.INFO:        "%(asctime)s %(msg)s",
-						logging.WARNING:     "%(asctime)s %(msg)s",
-						logging.ERROR:       "%(asctime)s.%(msecs)03d\t%(levelname)-12s\t%(name)s.%(funcName)-25s %(msg)s",
-						logging.CRITICAL:    "%(asctime)s.%(msecs)03d\t%(levelname)-12s\t%(name)s.%(funcName)-25s %(msg)s" }
+		formats=	{   logging.THREADDEBUG: u"%(asctime)s %(msg)s",
+						logging.DEBUG:       u"%(asctime)s %(msg)s",
+						logging.INFO:        u"%(asctime)s %(msg)s",
+						logging.WARNING:     u"%(asctime)s %(msg)s",
+						logging.ERROR:       u"%(asctime)s.%(msecs)03d\t%(levelname)-12s\t%(name)s.%(funcName)-25s %(msg)s",
+						logging.CRITICAL:    u"%(asctime)s.%(msecs)03d\t%(levelname)-12s\t%(name)s.%(funcName)-25s %(msg)s" }
 
-		date_Format = { logging.THREADDEBUG: "%d %H:%M:%S",
-						logging.DEBUG:       "%d %H:%M:%S",
-						logging.INFO:        "%H:%M:%S",
-						logging.WARNING:     "%H:%M:%S",
-						logging.ERROR:       "%Y-%m-%d %H:%M:%S",
-						logging.CRITICAL:    "%Y-%m-%d %H:%M:%S" }
-		formatter = LevelFormatter(fmt="%(msg)s", datefmt="%Y-%m-%d %H:%M:%S", level_fmts=formats, level_date=date_Format)
+		date_Format = { logging.THREADDEBUG: u"%Y-%m-%d %H:%M:%S",		# 5
+						logging.DEBUG:       u"%Y-%m-%d %H:%M:%S",		# 10
+						logging.INFO:        u"%Y-%m-%d %H:%M:%S",		# 20
+						logging.WARNING:     u"%Y-%m-%d %H:%M:%S",		# 30
+						logging.ERROR:       u"%Y-%m-%d %H:%M:%S",		# 40
+						logging.CRITICAL:    u"%Y-%m-%d %H:%M:%S" }		# 50
+		formatter = LevelFormatter(fmt=u"%(msg)s", datefmt=u"%Y-%m-%d %H:%M:%S", level_fmts=formats, level_date=date_Format)
 
 		self.plugin_file_handler.setFormatter(formatter)
-		self.indiLOG = logging.getLogger("Plugin")  
+		self.indiLOG = logging.getLogger(u"Plugin")  
 		self.indiLOG.setLevel(logging.THREADDEBUG)
 
 		self.indigo_log_handler.setLevel(logging.INFO)
-		indigo.server.log("initializing	 ... ")
 
-		indigo.server.log(  u"path To files:        =================")
-		indigo.server.log(  u"indigo                "+self.indigoRootPath)
-		indigo.server.log(  u"installFolder         "+self.indigoPath)
-		indigo.server.log(  u"plugin.py             "+self.pathToPlugin)
-		indigo.server.log(  u"Plugin params         "+self.indigoPreferencesPluginDir)
+		self.indiLOG.log(20,u"initializing  ... ")
+		self.indiLOG.log(20,u"path To files:          =================")
+		self.indiLOG.log(10,u"indigo                  {}".format(self.indigoRootPath))
+		self.indiLOG.log(10,u"installFolder           {}".format(self.indigoPath))
+		self.indiLOG.log(10,u"plugin.py               {}".format(self.pathToPlugin))
+		self.indiLOG.log(10,u"indigo                  {}".format(self.indigoRootPath))
+		self.indiLOG.log(20,u"detailed logging        {}".format(self.PluginLogFile))
+		self.indiLOG.log(20,u"testing logging levels, for info only: ")
+		self.indiLOG.log( 0,u"logger  enabled for     0 ==> TEST ONLY ")
+		self.indiLOG.log( 5,u"logger  enabled for     THREADDEBUG    ==> TEST ONLY ")
+		self.indiLOG.log(10,u"logger  enabled for     DEBUG          ==> TEST ONLY ")
+		self.indiLOG.log(20,u"logger  enabled for     INFO           ==> TEST ONLY ")
+		self.indiLOG.log(30,u"logger  enabled for     WARNING        ==> TEST ONLY ")
+		self.indiLOG.log(40,u"logger  enabled for     ERROR          ==> TEST ONLY ")
+		self.indiLOG.log(50,u"logger  enabled for     CRITICAL       ==> TEST ONLY ")
+		self.indiLOG.log(10,u"Plugin short Name       {}".format(self.pluginShortName))
+		self.indiLOG.log(10,u"my PID                  {}".format(self.myPID))	 
+		self.indiLOG.log(10,u"Achitecture             {}".format(platform.platform()))	 
+		self.indiLOG.log(10,u"OS                      {}".format(platform.mac_ver()[0]))	 
+		self.indiLOG.log(10,u"indigo V                {}".format(indigo.server.version))	 
+		self.indiLOG.log(10,u"python V                {}.{}.{}".format(sys.version_info[0], sys.version_info[1] , sys.version_info[2]))	 
 
-		indigo.server.log(  u"(testing logger;  ...  see >{}<   for detailed logging".format(self.PluginLogFile))
-		self.indiLOG.log( 0, "!!!!INFO ONLY!!!!  logger  enabled for   0             !!!!INFO ONLY!!!!")
-		self.indiLOG.log( 5, "!!!!INFO ONLY!!!!  logger  enabled for   THREADDEBUG   !!!!INFO ONLY!!!!")
-		self.indiLOG.log(10, "!!!!INFO ONLY!!!!  logger  enabled for   DEBUG         !!!!INFO ONLY!!!!")
-		self.indiLOG.log(20, "!!!!INFO ONLY!!!!  logger  enabled for   INFO          !!!!INFO ONLY!!!!")
-		self.indiLOG.log(30, "!!!!INFO ONLY!!!!  logger  enabled for   WARNING       !!!!INFO ONLY!!!!")
-		self.indiLOG.log(40, "!!!!INFO ONLY!!!!  logger  enabled for   ERROR         !!!!INFO ONLY!!!!")
-		self.indiLOG.log(50, "!!!!INFO ONLY!!!!  logger  enabled for   CRITICAL      !!!!INFO ONLY!!!!")
-		indigo.server.log(  u"Plugin short Name       {}".format(self.pluginShortName))
-		indigo.server.log(  u"my PID                  {}".format(self.myPID))	 
-		indigo.server.log(  u"set params for indigo V {}, indigo_API V:{}, python V:{}.{}.{}".format(self.indigoVersion, indigo.server.apiVersion, sys.version_info[0], sys.version_info[1] , sys.version_info[2]))	 
+		self.pythonPath = ""
+		if sys.version_info[0] >2:
+			if os.path.isfile(u"/Library/Frameworks/Python.framework/Versions/Current/bin/python3"):
+				self.pythonPath				= u"/Library/Frameworks/Python.framework/Versions/Current/bin/python3"
+		else:
+			if os.path.isfile(u"/usr/local/bin/python"):
+				self.pythonPath				= u"/usr/local/bin/python"
+			elif os.path.isfile(u"/usr/bin/python2.7"):
+				self.pythonPath				= u"/usr/bin/python2.7"
+		if self.pythonPath == "":
+				self.indiLOG.log(40,u"FATAL error:  none of python versions 2.7 3.x is installed  ==>  stopping {}".format(self.pluginId))
+				self.quitNOW = "none of python versions 2.7 3.x is installed "
+				exit()
+		self.indiLOG.log(20,u"using '{}' for utily programs".format(self.pythonPath))
 
-
+###############  END common for all plugins ############
+		self.userIndigoPluginDir		= self.indigoPreferencesPluginDir
 
 
 ####-----------------             ---------
@@ -309,30 +333,13 @@ class Plugin(indigo.PluginBase):
 	
 ####----------------- @ startup set global parameters, create directories etc ---------
 	def startup(self):
-		if self.pathToPlugin.find("/"+self.pluginName+".indigoPlugin/")==-1:
-			self.indiLOG.log(50,u"--------------------------------------------------------------------------------------------------------------" )
-			self.indiLOG.log(50,u"The pluginname is not correct, please reinstall or rename")
-			self.indiLOG.log(50,u"It should be   /Libray/....../Plugins/"+self.pluginName+".indigPlugin")
-			p=max(0,self.pathToPlugin.find("/Contents/Server"))
-			self.indiLOG.log(50,u"It is: "+self.pathToPlugin[:p])
-			self.indiLOG.log(50,u"please check your download folder, delete old *.indigoPlugin files or this will happen again during next updates")
-			self.indiLOG.log(50,u"---------------------------------------------------------------------------------------------------------------" )
-			self.sleep(100)
-			exit(1)
-			return
+		if not checkIndigoPluginName(self, indigo): 
+			exit() 
 			
+		self.debugLevel = []
+		for d in ["Restore","General","Initialize","Plotting","Matplot","SQL","Special","all"]:
+			if self.pluginPrefs.get(u"debug"+d, False): self.debugLevel.append(d)
 
-		if not self.checkPluginPath(self.pluginName,  self.pathToPlugin):
-			exit()
-	
-
-		if not self.moveToIndigoPrefsDir(self.indigoPluginDirOld, self.indigoPreferencesPluginDir):
-			exit()
-
-
-
-
-		### indigo.server.log(indigo.server.getInstallFolderPath())
 
 
 		self.justSaved	= False
@@ -352,16 +359,6 @@ class Plugin(indigo.PluginBase):
 
 		if len(self.indigoPNGdir)<6:	self.indigoPNGdir  =	self.userIndigoPluginDir
 		if self.indigoPNGdir[-1] !="/": self.indigoPNGdir +="/"  # add a / if not there
-
-
-
-
-		self.debugLevel = []
-		for d in ["Restore","General","Initialize","Plotting","Matplot","SQL","Special","all"]:
-			if self.pluginPrefs.get(u"debug"+d, False): self.debugLevel.append(d)
-		self.setLogfile(self.pluginPrefs.get("logFileActive2", "standard"))
-
-
 
 
 		try: 
@@ -573,9 +570,9 @@ class Plugin(indigo.PluginBase):
 			return
 
 			
-		if False and  os.path.isfile(u"/Library/Frameworks/Python.framework/Versions/Current/bin/python3"):
+		if os.path.isfile(u"/Library/Frameworks/Python.framework/Versions/Current/bin/python3"):
 			self.pythonPath				= u"/Library/Frameworks/Python.framework/Versions/Current/bin/python3"
-		if os.path.isfile(u"/usr/local/bin/python"):
+		elif os.path.isfile(u"/usr/local/bin/python"):
 			self.pythonPath				= u"/usr/local/bin/python"
 		elif os.path.isfile(u"/usr/bin/python2.7"):
 			self.pythonPath				= u"/usr/bin/python2.7"
@@ -585,7 +582,7 @@ class Plugin(indigo.PluginBase):
 			return
 		
 		#self.pythonPath				= u"/usr/local/bin/python"
-		self.indiLOG.log(20,u"using '" +self.pythonPath +"' for utily programs")
+		self.indiLOG.log(10,u"using '" +self.pythonPath +"' for utily programs")
 		
 		self.checkcProfile()
 
@@ -649,7 +646,6 @@ class Plugin(indigo.PluginBase):
 		self.indigoCommand					=	[]
 
 		self.eventSQLjobState               = "" 
-#		self.myLog( text=" startup sqlLastID  after sync with plot{}".format(self.sqlLastID))
 
 # clear memmory
 		self.resetDeviceParameters()
@@ -682,7 +678,6 @@ class Plugin(indigo.PluginBase):
 			dataVersion = self.pluginPrefs.get(u"dataVersion", "0")
 			if str(dataVersion) == "0":
 				temp =0
-			self.myLog( text="dataversion {}".format(dataVersion) +"  dataOffsetInTimeDataNumbers:{}".format(dataOffsetInTimeDataNumbers))
 			self.indiLOG.log(10,"dataversion {}".format(dataVersion) +"  dataOffsetInTimeDataNumbers:{}".format(dataOffsetInTimeDataNumbers))
 			self.getDiskData(0,temp)
 			self.getDiskData(1,temp)
@@ -746,7 +741,6 @@ class Plugin(indigo.PluginBase):
 				f=self.openEncoding(self.userIndigoPluginDir+"sql/version","w")
 				f.write("sql version   3   installed")
 				f.close()
-				self.myLog( text=" updating SQL files to version 2")
 				self.indiLOG.log(20," updating SQL files to version 2")
 			else:
 				self.sleep(5)
@@ -1729,65 +1723,66 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def PrintPlotData(self,plotId):
 	
-		out = u"\n"
-		for nPlot in self.PLOT:
-			if nPlot=="0": continue
-			try:
-				theName= indigo.devices[int(nPlot)].name
-			except:
-				continue
-			if nPlot!= plotId and plotId !="": continue
-			out += u"\nPLOT:: {:25s} deviceID: {}".format(theName, nPlot)
+		try:
+			out = u"\n"
+			for nPlot in self.PLOT:
+				if nPlot=="0": continue
+				try:
+					theName= indigo.devices[int(nPlot)].name
+				except:
+					continue
+				if nPlot!= plotId and plotId !="": continue
+				out += u"\nPLOT:: {:25s} deviceID: {}".format(theName, nPlot)
 			
-			keylist = self.PLOT[nPlot].keys()
-			keylist.sort()
-			for key in keylist:
-				if key =="lines": 		continue
-				if key =="errorCount":	continue
-				out += u"\n{:>25}>>{}<<".format(key, self.PLOT[nPlot][key])
+				keylist = sorted(self.PLOT[nPlot].keys())
+				for key in keylist:
+					if key == "lines": 		continue
+					if key == "errorCount":	continue
+					out += u"\n{:>25}>>{}<<".format(key, self.PLOT[nPlot][key])
 			
-			for nLine in range(1,50):
-				line = str(nLine)
-				if line in self.PLOT[nPlot]["lines"]:
-					keylist = self.PLOT[nPlot]["lines"][line].keys()
-					keylist.sort()
-					out2 = ""
-					for k in keylist:
-						if k == "lineKey": continue
-						if k.find("line") == 0:
-							out2 += "{}>{}<; ".format(k[4:], self.PLOT[nPlot]["lines"][line][k])
-						else:
-							out2 += " {}>{}< ".format(k, self.PLOT[nPlot]["lines"][line][k])
-					out += u"\n-l# {}/{:>25s}: {}".format(nLine, self.PLOT[nPlot]["lines"][line]["lineKey"], out2.strip(";"))
-		self.indiLOG.log(10,out)
-		self.indiLOG.log(20,"print dev/ state config : check plugin.log file")
+				for nLine in range(1,50):
+					line = str(nLine)
+					if line in self.PLOT[nPlot]["lines"]:
+						keylist = sorted(self.PLOT[nPlot]["lines"][line].keys())
+						out2 = ""
+						for k in keylist:
+							if k == "lineKey": continue
+							if k.find("line") == 0:
+								out2 += u"{}>{}<; ".format(k[4:], self.PLOT[nPlot]["lines"][line][k])
+							else:
+								out2 += u" {}>{}< ".format(k, self.PLOT[nPlot]["lines"][line][k])
+						out += u"\n-l# {}/{:>25s}: {}".format(nLine, self.PLOT[nPlot]["lines"][line]["lineKey"], out2.strip(";"))
+			self.indiLOG.log(10,u"{}".format(out))
+			self.indiLOG.log(20,"print dev/ state config : check plugin.log file")
+		except  Exception as e:
+			self.indiLOG.log(40,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 
 		return
 	########################################
 	########################################
 	def PrintDeviceData(self):
 		try:
-			out = u"\n"
+			outLog = u"\n"
 			#		  1234  1234567 123456789012345 1234567890123456789012345 123456
-			out += u"\nDev#, dev/var ID============= Name                      Status" 
+			outLog+= u"\nDev#, dev/var ID============= Name                      Status" 
 			#			 12345678901234567890 12345678901234567890 1234567890 1234567890 1234567890 1234567890 12345 123456 123456789012
-			out += u"\n   ---------------State Measurement              offset    multipl   minValue   maxValue   Col filGps    resetType nickName" 
-			for nn in range (1,999):
-				devNo  =str(nn)
+			outLog+= u"\n   ---------------State Measurement              offset    multipl   minValue   maxValue   Col filGps    resetType nickName" 
+			for nn in range (1,10):
+				devNo  = str(nn)
 				if devNo not in self.DEVICE: continue
 				DEV = self.DEVICE[devNo]
-				out += u"\n{:4}  {:7} {:15} {:>20} ok:{}".format(devNo, DEV["devOrVar"], DEV["Id"], DEV["Name"], DEV["deviceNumberIsUsed"])
+				outLog += u"\n{:4}  {:7} {:15} {:>20} ok:{}".format(devNo, DEV["devOrVar"], DEV["Id"], DEV["Name"], DEV["deviceNumberIsUsed"])
 				for i in range(1,noOfStatesPerDeviceG+1):
 					if DEV["state"][i] == "None": continue
-					out+= u"\n{:2} {:>20} {:<20} {:>10} {:>10} {:>10} {:>10} {:>5} {:>6} {:>12} {:>50}".format(i, DEV["state"][i], DEV["measurement"][i], DEV["offset"][i], DEV["multiplier"][i], DEV["minValue"][i], DEV["maxValue"][i], DEV["stateToIndex"][i], DEV["fillGaps"][i], DEV["resetType"][i].strip("{u"), DEV["nickName"][i])
+					outLog += u"\n{:2} {:>20} {:<20} {:>10} {:>10} {:>10} {:>10} {:>5} {:>6} {:>12} {:>50}".format(i, DEV["state"][i], DEV["measurement"][i], DEV["offset"][i], DEV["multiplier"][i], DEV["minValue"][i], DEV["maxValue"][i], DEV["stateToIndex"][i], DEV["fillGaps"][i], DEV["resetType"][i].strip("{u"), DEV["nickName"][i])
 				
-			out += u"\nIndex list for dataColumn to Device#/State# "
-			out += u"\nColumn=Dev#/St#    Column=Dev#/St#    Column=Dev#/St#    Column=Dev#/St#    Column=Dev#/St#    "
+			outLog+= u"\nIndex list for dataColumn to Device#/State# "
+			outLog+= u"\nColumn=Dev#/St#    Column=Dev#/St#    Column=Dev#/St#    Column=Dev#/St#    Column=Dev#/St#    "
 			for jCol in range(1,self.dataColumnCount+1,5):
 				for theCol in range( jCol,min(jCol+5,self.dataColumnCount+1),1):
-					out+= u"\n{:>6d}={:>4}/{:>3}  ".format( theCol, self.dataColumnToDevice0Prop1Index[theCol][0], self.dataColumnToDevice0Prop1Index[theCol][1])
+					outLog+= u"\n{:>6d}={:>4}/{:>3}  ".format( theCol, self.dataColumnToDevice0Prop1Index[theCol][0], self.dataColumnToDevice0Prop1Index[theCol][1])
 
-			out += "\n" 
+			outLog+= "\n" 
 
 			mapDayNumerToDayName=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday","EveryDay"]
 			for consumptionType in self.consumptionCostData:
@@ -1797,7 +1792,7 @@ class Plugin(indigo.PluginBase):
 					self.indiLOG.log(40,"error, consumption type malformed: {}".format(consumptionType))
 					continue
 				try:
-					out += u"\nConsumption Cost data;    type {}".format(consumptionType)+" {}".format(self.periodTypeForConsumptionType[consumptionType])
+					outLog+= u"\nConsumption Cost data;    type {}".format(consumptionType)+" {}".format(self.periodTypeForConsumptionType[consumptionType])
 				except  Exception as e:
 					self.indiLOG.log(40,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 				oneline = False
@@ -1837,12 +1832,12 @@ class Plugin(indigo.PluginBase):
 							self.indiLOG.log(40,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 
 					if len(outStr) > 0:
-						out += "\n" 
-						out += outStr
+						outLog+= "\n" 
+						outLog+= outStr
 
-				out += " ...not defined"
-			self.indiLOG.log(10, out)
-			self.indiLOG.log(20,"print dev/ state config : check plugin.log file")
+				outLog+= " ...not defined"
+			self.indiLOG.log(10, outLog)
+			self.indiLOG.log(20,"print dev/ state config done, check plugin.log file")
 		except  Exception as e:
 			self.indiLOG.log(40,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 
@@ -2490,12 +2485,11 @@ class Plugin(indigo.PluginBase):
 				f.write(u'######### \n')
 				f.write(u'\n')
 				f.write(u'ppp ={\n')
-				f.write(u'     "debugLevel":               u\''+json.dumps(self.debugLevel)+'\'           ### All,Restore,SQL,Initial, ...\n')
+				f.write(u'     "debugLevel":               u\''+json.dumps(self.debugLevel)+'\'                ### All,Restore,SQL,Initial, ...\n')
 				f.write(u'    ,"gnuPlotBin":               u\'{}'.format(self.gnuPlotBinary)+'\'               ### path to GNUplot binary  could be eg /usr/local/bin/gnuplot\n')
 				f.write(u'    ,"gnuORmat":                 u\'{}'.format(self.gnuORmat)+'\'                    ### mat or gnu\n')
 				f.write(u'    ,"sqlDynamic":               u\'{}'.format(self.sqlDynamic)+'\'                  ###  batch or batch2Days or None \n')
 				f.write(u'    ,"indigoPNGdir":             u\'{}'.format(self.indigoPNGdir)+'\'                ### psetConfigParametersath to plotdirectory  \n')
-				f.write(u'    ,"logFileActive":            u\'{}'.format(self.logFileActive)+'\'            ### logFileActive   \n')
 
 
 				for consumptionType in self.consumptionCostData:
@@ -2939,8 +2933,8 @@ class Plugin(indigo.PluginBase):
 				days -=1
 				for hh in range(0,24):
 					for mm in range(0,60,5):
-						self.timeDataNumbers[0][theIndex] = self.timeDataNumbers[0][theIndex+24*(60/5)][:]
-						self.timeBinNumbers[0][theIndex] = copy.deepcopy(self.timeBinNumbers[0][theIndex+24*(60/5)])
+						self.timeDataNumbers[0][theIndex] = self.timeDataNumbers[0][theIndex+24*(60//5)][:]
+						self.timeBinNumbers[0][theIndex] = copy.deepcopy(self.timeBinNumbers[0][theIndex+24*(60//5)])
 						theIndex+=1
 			zeroNumbers =["" for i in range(0,self.dataColumnCount+1+dataOffsetInTimeDataNumbers)]
 			theDay = datetime.date.today()
@@ -2979,8 +2973,8 @@ class Plugin(indigo.PluginBase):
 			theDay = datetime.date.today()
 			dateString = theDay.strftime("%Y%m%d")
 			for hh in range(0,24):								## fill up today with datestring and 0 0 0 0 0 ..
-					self.timeDataNumbers[1][theIndex]	 = zeroNumbers[:]						## reset Todays bucket, which is "new yesterday"
-					self.timeBinNumbers[1][theIndex]		 = dateString+self.padzero(hh)+"0000"
+					self.timeDataNumbers[1][theIndex]	= zeroNumbers[:]						## reset Todays bucket, which is "new yesterday"
+					self.timeBinNumbers[1][theIndex]	= dateString+self.padzero(hh)+"0000"
 					theIndex +=1
 
 			self.initHourDataIndex()
@@ -3445,8 +3439,8 @@ class Plugin(indigo.PluginBase):
 												yValue2 =":($"+colB+"/(max"+colB+"-min"+colB+")*10)"
 												lineType=" with points lt 1 pt 7 ps variable"
 												linewidth=""
-												if len(PLTline["lineKey"]) >0:
-													title =" title \""+PLTline["lineKey"].encode('utf8')+"\"  "
+												if len(PLTline["lineKey"]) > 0:
+													title = " title \""+PLTline["lineKey"]+"\"  "
 											elif multFunc[ii] =="C": # blob color plot
 												yValue1 = "(${}".format(columns[ii]+ colOffset[ii])+ "*(" +mult+ ")+(" +ofs+ "))"
 												colB = str(columnsB[ii]+colOffset[ii])
@@ -3737,7 +3731,7 @@ class Plugin(indigo.PluginBase):
 
 
 		#						if columns[ii] <0:
-		#							outl = outl+";;"+PLTline["lineKey"].encode('utf8') +";;{}".format(columns[ii])       
+		#							outl = outl+";;"+PLTline["lineKey"] +";;{}".format(columns[ii])       
  
 								outl=using
 								if fixedTime !="":
@@ -3938,131 +3932,132 @@ class Plugin(indigo.PluginBase):
 			
 			if self.decideMyLog("Plotting") and self.gnuORmat =="gnu": self.indiLOG.log(10,"lines: {}".format(theLines))
 			f=self.openEncoding( gnuFile , "w")
-			f.write((u"#!'" + gnuFile+u"'   \n").encode('utf8'))					# just a comment
-			f.write(u'set datafile separator ";" \n')
+			outGnu = u""
+			outGnu += u"#!'" + gnuFile+u"'   \n"					# just a comment
+			outGnu += u'set datafile separator ";" \n'
 		
 			### calc min and max of weight
 			if len(weight)>0:
-				f.write(u"### calculate min and max of scatter plot weight\n")
-				f.write(u"set yrange [0:1];set output '/dev/null'\n")
+				outGnu += u"### calculate min and max of scatter plot weight\n"
+				outGnu += u"set yrange [0:1];set output '/dev/null'\n"
 				for nn in range(len(weight)):
 					WN=weight[nn]
-					f.write(("ismax"+WN+"(x) = (x>max"+WN+")?max"+WN+"=x:0 ;ismin"+WN+"(x) = (x<min"+WN+")?min"+WN+"=x:0;max"+WN+"=-1e38;min"+WN+"=+1e38\n").encode('utf8'))
-					f.write(("plot '"+Fnamedata+"' u "+WN+":(ismax"+WN+"($"+WN+")*ismin"+WN+"($"+WN+"))\n").encode('utf8'))
-				f.write("unset yrange\n")
-				f.write("###\n")
+					outGnu += u"ismax"+WN+"(x) = (x>max"+WN+")?max"+WN+"=x:0 ;ismin"+WN+"(x) = (x<min"+WN+")?min"+WN+"=x:0;max"+WN+"=-1e38;min"+WN+"=+1e38\n"
+					outGnu += u"plot '"+Fnamedata+"' u "+WN+":(ismax"+WN+"($"+WN+")*ismin"+WN+"($"+WN+"))\n"
+				outGnu += u"unset yrange\n"
+				outGnu += u"###\n"
 
 			if colorbar:
-				f.write("###  set colorbar size and positions \n")
-				f.write("set colorbox vertical user origin 0.98, 0.1 size  0.02, .8\n")
-				f.write("set cbtics axis nomirror out offset -7.5 left\n")
-				f.write("set rmargin  12\n")
-				f.write("###\n")
+				outGnu += u"###  set colorbar size and positions \n"
+				outGnu += u"set colorbox vertical user origin 0.98, 0.1 size  0.02, .8\n"
+				outGnu += u"set cbtics axis nomirror out offset -7.5 left\n"
+				outGnu += u"set rmargin  12\n"
+				outGnu += u"###\n"
 
 		
-			f.write("set output '" + plotFile.encode('utf8')+"'   \n")			# output file
+			outGnu += u"set output '" + plotFile+"'   \n"			# output file
 
 			for cmd in numberCommands: # for min max for numbers lines
-				f.write(cmd)
+				outGnu += cmd
 		
 
-	#		f.write("#  font selected:"+textFont+" size:"+textSize+" \n")
+	#		outGnu += "#  font selected:"+textFont+" size:"+textSize+" \n"
 			if str(TransparentBackground) =="0.0":	TBack ="transparent"
 			else:									TBack =""
 		
 			if len(textFont) <3 or textFont=="System-font":
-				f.write("set terminal png truecolor enhanced "+TBack+" medium  size " + res+ " dashlength 0.5      background rgb \""+background+"\"\n")
+				outGnu += "set terminal png truecolor enhanced "+TBack+" medium  size " + res+ " dashlength 0.5      background rgb \""+background+"\"\n"
 			else:
-				if textSize =="0":  	f.write(("set terminal png truecolor enhanced  "+TBack+" medium  font \""+self.theFontDir+textFont+"\" "                       + res+ " dashlength 0.5     background rgb \""+background+"\"\n").encode('utf8'))
-				else:					f.write(("set terminal png truecolor enhanced  "+TBack+" medium  font \""+self.theFontDir+textFont+"\" " +textSize + "  size " + res+ " dashlength 0.5     background rgb \""+background+"\"\n").encode('utf8'))
+				if textSize =="0":  	outGnu += u"set terminal png truecolor enhanced  "+TBack+" medium  font \""+self.theFontDir+textFont+"\" "                       + res+ " dashlength 0.5     background rgb \""+background+"\"\n"
+				else:					outGnu += u"set terminal png truecolor enhanced  "+TBack+" medium  font \""+self.theFontDir+textFont+"\" " +textSize + "  size " + res+ " dashlength 0.5     background rgb \""+background+"\"\n"
 
 
 
 			## this is for plotting dos and specific times, need current time..
 
-			f.write("\n### time now in secs, etc parameters \n")
-			f.write("binSecs= {}".format(noOfMinutesInTimeBins[TTI]*60)+"\n")
-			f.write("timeNow=time(0)-({}".format(self.UTCdelta)+") # dif to UTC \n")
-			f.write("timeNowSec= timeNow/binSecs*binSecs\n")
+			outGnu += "\n### time now in secs, etc parameters \n"
+			outGnu += "binSecs= {}".format(noOfMinutesInTimeBins[TTI]*60)+"\n"
+			outGnu += "timeNow=time(0)-({}".format(self.UTCdelta)+") # dif to UTC \n"
+			outGnu += "timeNowSec= timeNow/binSecs*binSecs\n"
 
 			secs 	= time.mktime(datetime.datetime.strptime(lastDay, "%Y%m%d%H%M%S").timetuple())
-			f.write("secsLastBin={}".format(int(secs))+"-({}".format(int(self.gnuOffset))+")-({}".format(self.UTCdelta)+")\n")# for v4 Millenium-epoch seconds\n")
+			outGnu += "secsLastBin={}".format(int(secs))+"-({}".format(int(self.gnuOffset))+")-({}".format(self.UTCdelta)+")\n"# for v4 Millenium-epoch seconds\n"
 			secs2	= time.mktime(datetime.datetime.strptime(earliestDay, "%Y%m%d%H%M%S").timetuple())
-			f.write("secsFirstBin={}".format(int(secs2))+"-({}".format(int(self.gnuOffset))+")-({}".format(self.UTCdelta)+")\n") # for v4 Millenium-epoch seconds\n\n")
+			outGnu += "secsFirstBin={}".format(int(secs2))+"-({}".format(int(self.gnuOffset))+")-({}".format(self.UTCdelta)+")\n" # for v4 Millenium-epoch seconds\n\n"
 
 
 
 			if XYvPolar =="polar":
-				f.write("set key textcolor rgb \""+textColor+"\" \n" )
-				if len(title) > 1: f.write(("set title \""+title+"\" offset 0,0.3  textcolor  rgb \""+textColor+"\" \n").encode('utf8'))
+				outGnu += "set key textcolor rgb \""+textColor+"\" \n" 
+				if len(title) > 1: outGnu += "set title \""+title+"\" offset 0,0.3  textcolor  rgb \""+textColor+"\" \n"
 
 
 				if len(ExtraText) > 1:
 					if len(textFont) <3 or textFont=="System-font":
-						f.write(("set label \""+ExtraText+"\"  at screen "+ ExtraTextX+", screen "+ExtraTextY+" rotate by "+ExtraTextRotate+"  "+ExtraTextFrontBack+" \n").encode('utf8'))
+						outGnu += "set label \""+ExtraText+"\"  at screen "+ ExtraTextX+", screen "+ExtraTextY+" rotate by "+ExtraTextRotate+"  "+ExtraTextFrontBack+" \n"
 					else:
-						f.write(("set label \""+ExtraText+"\"  at screen "+ ExtraTextX+", screen "+ExtraTextY+" rotate by "+ExtraTextRotate+"  "+ExtraTextFrontBack+" font \""+self.theFontDir+textFont+ "," +ExtraTextSize + "\"  textcolor  rgb \""+ExtraTextColorRGB+"\" \n").encode('utf8'))
+						outGnu += "set label \""+ExtraText+"\"  at screen "+ ExtraTextX+", screen "+ExtraTextY+" rotate by "+ExtraTextRotate+"  "+ExtraTextFrontBack+" font \""+self.theFontDir+textFont+ "," +ExtraTextSize + "\"  textcolor  rgb \""+ExtraTextColorRGB+"\" \n"
 
 
 
 
 		
-				f.write(u'unset xlabel \n')
-				f.write(u'unset ylabel \n')
-				f.write(u'unset ytics \n')
-				f.write(u'unset xtics \n')
-				f.write(u'unset border \n')
-				f.write(u'set polar\n')
-				f.write(u'set angles radian\n')
-				f.write(u'set clip\n')
-				f.write(u'set lmargin 2\n')
-				f.write(u'set rmargin 2\n')
+				outGnu += u'unset xlabel \n'
+				outGnu += u'unset ylabel \n'
+				outGnu += u'unset ytics \n'
+				outGnu += u'unset xtics \n'
+				outGnu += u'unset border \n'
+				outGnu += u'set polar\n'
+				outGnu += u'set angles radian\n'
+				outGnu += u'set clip\n'
+				outGnu += u'set lmargin 2\n'
+				outGnu += u'set rmargin 2\n'
 				if len(title) > 1:
-					f.write('set tmargin 2.5\n')
+					outGnu += 'set tmargin 2.5\n'
 				else:
-					f.write('set tmargin 2\n')
-				f.write('set bmargin 2\n')
-				f.write('set size square\n')
+					outGnu += 'set tmargin 2\n'
+				outGnu += 'set bmargin 2\n'
+				outGnu += 'set size square\n'
 
 				if   str(grid).find("-1")==0:
-					f.write('set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n')
-					f.write('set grid polar '+str(math.pi/6.)+'front ls 100 \n')
+					outGnu += 'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n'
+					outGnu += 'set grid polar '+str(math.pi/6.)+'front ls 100 \n'
 				elif str(grid).find("-3")==0:
-					f.write('set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n')
-					f.write('set grid polar '+str(math.pi/6.)+' front ls 100 \n')
+					outGnu += 'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n'
+					outGnu += 'set grid polar '+str(math.pi/6.)+' front ls 100 \n'
 				elif str(grid).find("-2")==0:
-					f.write('set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n')
-					f.write('set grid polar '+str(math.pi/6.)+' front ls 100 \n')
+					outGnu += 'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n'
+					outGnu += 'set grid polar '+str(math.pi/6.)+' front ls 100 \n'
 				elif str(grid).find("1")==0:
-					f.write('set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n')
-					f.write('set grid polar '+str(math.pi/6.)+' back ls 100 \n')
+					outGnu += 'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n'
+					outGnu += 'set grid polar '+str(math.pi/6.)+' back ls 100 \n'
 				elif str(grid).find("3")==0:
-					f.write('set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n')
-					f.write('set grid polar '+str(math.pi/6.)+' back ls 100 \n')
+					outGnu += 'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n'
+					outGnu += 'set grid polar '+str(math.pi/6.)+' back ls 100 \n'
 				elif str(grid).find("2")==0:
-					f.write('set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n')
-					f.write('set grid polar '+str(math.pi/6.)+' back ls 100 \n')
+					outGnu += 'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n'
+					outGnu += 'set grid polar '+str(math.pi/6.)+' back ls 100 \n'
 				else:
-					f.write('unset grid \n')
+					outGnu += 'unset grid \n'
 					if len(ticsX)<3  :
-						f.write('unset raxis \n')
-						f.write('unset rtics \n')
+						outGnu += 'unset raxis \n'
+						outGnu += 'unset rtics \n'
 
 
 
-				if XScaleFormat !="":			f.write("set format r \""+XScaleFormat+"\" \n")
-				elif XDec !="" and XDec!="-":	f.write("set format r \"%."+XDec+"f\"    \n")
+				if XScaleFormat !="":			outGnu += "set format r \""+XScaleFormat+"\" \n"
+				elif XDec !="" and XDec!="-":	outGnu += "set format r \"%."+XDec+"f\"    \n"
 				if len(ticsX)  > 2:
-					f.write("set rtics ("+ticsX+") \n")
+					outGnu += "set rtics ("+ticsX+") \n"
 				else:
-					f.write("unset raxis \n")  # no ticks given  then no x-axis if no grid (goes with grid settings)
-				if XLog == "1"or XLog.upper()=="LOG":			f.write("set logscale r \n")
+					outGnu += "unset raxis \n"  # no ticks given  then no x-axis if no grid (goes with grid settings)
+				if XLog == "1"or XLog.upper()=="LOG":			outGnu += "set logscale r \n"
 
 				if  len(rangeX)> 2 and rangeX.count(":")==1 :
 					rrange =rangeX.split(":")
 					if float(rrange[1])>0:
 				
-						f.write("set rrange ["+rangeX+"]   \n")
+						outGnu += "set rrange ["+rangeX+"]   \n"
 						xx = float(rrange[1])*1.08
 						xx1= float(rrange[0])*1.08
 						dx = (xx-xx1)/20.
@@ -4080,35 +4075,35 @@ class Plugin(indigo.PluginBase):
 						else:											polarLabels=["N","E","S","W"]
 
 						if labelY.count(",")==3 or labelY.count(",")==0:  ## North/East/South/West labels
-								f.write((u'set label "'  +polarLabels[0]+  u'" at +(' +str(0)+     u'),+('+str(xx)+   u') center textcolor rgb "'+textColor+u'"\n').encode('utf8'))
-								f.write((u'set label "'  +polarLabels[1]+  u'" at +(' +str(xx*1.)+ u'),-('  +str(0)+  u') center textcolor rgb "'+textColor+u'"\n').encode('utf8'))
-								f.write((u'set label "'  +polarLabels[2]+  u'" at -(' +str(0)+     u'),-('  +str(xx)+ u') center textcolor rgb "'+textColor+u'"\n').encode('utf8'))
-								f.write((u'set label "'  +polarLabels[3]+  u'" at -(' +str(xx*1.)+ u'),+('  +str(0)+  u') center textcolor rgb "'+textColor+u'"\n').encode('utf8'))
+								outGnu += u'set label "'  +polarLabels[0]+  u'" at +(' +str(0)+     u'),+('+str(xx)+   u') center textcolor rgb "'+textColor+u'"\n'
+								outGnu += u'set label "'  +polarLabels[1]+  u'" at +(' +str(xx*1.)+ u'),-('  +str(0)+  u') center textcolor rgb "'+textColor+u'"\n'
+								outGnu += u'set label "'  +polarLabels[2]+  u'" at -(' +str(0)+     u'),-('  +str(xx)+ u') center textcolor rgb "'+textColor+u'"\n'
+								outGnu += u'set label "'  +polarLabels[3]+  u'" at -(' +str(xx*1.)+ u'),+('  +str(0)+  u') center textcolor rgb "'+textColor+u'"\n'
 								for i in [30,60,120,150,210,240,300,330]:
-									f.write('set label sprintf("%d",'+str(i)+') at '      +str(xx)+  '*cos((450 -'+str(i)+')*'+str(math.pi/180.)+'),  '+str(xx)+  '*sin((450-'+str(i)+')*'+str(math.pi/180.)+') center  textcolor rgb "'+textColor+'"\n')
-								#f.write('set for[i=0:330:30] label sprintf("%d",i) at '  +str(xx)+  '*cos((450 -i)*'+str(math.pi/180.)+'),  '         +str(xx)+  '*sin((450-i)*'+str(math.pi/180.)+') center  textcolor rgb "'+textColor+'"\n')
+									outGnu += 'set label sprintf("%d",'+str(i)+') at '      +str(xx)+  '*cos((450 -'+str(i)+')*'+str(math.pi/180.)+'),  '+str(xx)+  '*sin((450-'+str(i)+')*'+str(math.pi/180.)+') center  textcolor rgb "'+textColor+'"\n'
+								#outGnu += 'set for[i=0:330:30] label sprintf("%d",i) at '  +str(xx)+  '*cos((450 -i)*'+str(math.pi/180.)+'),  '         +str(xx)+  '*sin((450-i)*'+str(math.pi/180.)+') center  textcolor rgb "'+textColor+'"\n'
 								lOffset= max(  0., (len(labelX)-5)*dxL/10.*float(textSize)  )
-								f.write((u'set label "'  +labelX+  u'" at '  +str(xx-(dxL*(1.+lOffset))*float(textSize)/10.)+  u',' +str(dx*2)+ u' center textcolor rgb "'+textColor+u'"\n').encode('utf8'))
+								outGnu += u'set label "'  +labelX+  u'" at '  +str(xx-(dxL*(1.+lOffset))*float(textSize)/10.)+  u',' +str(dx*2)+ u' center textcolor rgb "'+textColor+u'"\n'
 						elif  len(labelY) > 6 and labelY.count(",")==11:
 							for i in range (0,12):
-								f.write(("set label '"+polarLabels[i]+"' at {}".format(xx*math.cos((450 -i*30)*math.pi/180.))+",{}".format(xx*math.sin((450-i*30)*math.pi/180.))+u" center  textcolor rgb \""+textColor+u"\"\n").encode('utf8'))
+								outGnu += "set label '"+polarLabels[i]+"' at {}".format(xx*math.cos((450 -i*30)*math.pi/180.))+",{}".format(xx*math.sin((450-i*30)*math.pi/180.))+u" center  textcolor rgb \""+textColor+u"\"\n"
 
-				f.write(rawCmd+" \n")
+				outGnu += rawCmd+" \n"
 				firstL =False
-				f.write(theLines[0].encode('utf8'))
+				outGnu += theLines[0]
 				for ii in range (1,numberOfLines ):
 					if theLines[ii].find("#")!=0:
 						if not firstL:
-							f.write((theLines[ii].strip(",")).encode('utf8'))
+							outGnu += theLines[ii].strip(",")
 						else:
-							f.write(theLines[ii].encode('utf8'))
+							outGnu += theLines[ii]
 						firstL = True
 
 
 
 			else:  ## not polar but x/y
 		
-				f.write('set style fill transparent solid '+str(TransparentBlocks)+' \n')
+				outGnu += 'set style fill transparent solid '+str(TransparentBlocks)+' \n'
 				if theType =="Xscale": ##free defined x scale
 					if XScaleFormat.find("%Y")>-1 or XScaleFormat.find("%d")>-1 or XScaleFormat.find("%m")>-1:			# assume it is date format
 						xsplit = XScaleFormat.split("+")
@@ -4117,88 +4112,88 @@ class Plugin(indigo.PluginBase):
 							format = xsplit[1]
 						else:
 							format = "%d"
-						f.write((u"set xdata time  \n").encode('utf8'))
-						f.write((u"set timefmt \""+timefmt+u"\" \n").encode('utf8'))						# yyyymmdd x axis input data format
-						f.write((u"set format x \""+format+u"\" \n").encode('utf8'))							# x axis dat format on plot
+						outGnu += u"set xdata time  \n"
+						outGnu += u"set timefmt \""+timefmt+u"\" \n"						# yyyymmdd x axis input data format
+						outGnu += u"set format x \""+format+u"\" \n"							# x axis dat format on plot
 						if len(rangeX)> 3 and rangeX.count(":")>0:
-							f.write((u"set xrange [\""+rangeX.split(":")[0]+u"\":\""+rangeX.split(":")[1]+u"\"]   \n").encode('utf8'))
+							outGnu += u"set xrange [\""+rangeX.split(":")[0]+u"\":\""+rangeX.split(":")[1]+u"\"]   \n"
 					else:
-						if XScaleFormat !="":				f.write((u"set format x \""+XScaleFormat+u"\" \n").encode('utf8'))
-						elif XDec !="" and XDec!="-":		f.write((u"set format x \"%."+XDec+u"f\"    \n").encode('utf8'))
-						if len(ticsX)  > 1: 				f.write((u"set xtics ("+ticsX+u") \n").encode('utf8'))
-						if len(rangeX)> 3 and rangeX.count(":")>0 :f.write((u"set xrange ["+rangeX+u"]   \n").encode('utf8'))
-						if XLog == "1"or XLog.upper()=="LOG":	f.write((u"set logscale x \n").encode('utf8'))
-					if len(labelX) > 1: 					f.write((u"set xlabel \""+labelX+u"\"  textcolor rgb \""+textColor+u"\"  \n").encode('utf8'))
+						if XScaleFormat !="":				outGnu += u"set format x \""+XScaleFormat+u"\" \n"
+						elif XDec !="" and XDec!="-":		outGnu += u"set format x \"%."+XDec+u"f\"    \n"
+						if len(ticsX)  > 1: 				outGnu += u"set xtics ("+ticsX+u") \n"
+						if len(rangeX)> 3 and rangeX.count(":")>0 :outGnu += u"set xrange ["+rangeX+u"]   \n"
+						if XLog == "1"or XLog.upper()=="LOG":	outGnu += u"set logscale x \n"
+					if len(labelX) > 1: 					outGnu += u"set xlabel \""+labelX+u"\"  textcolor rgb \""+textColor+u"\"  \n"
 			
 				else:  ## this is the default y vs time
-					f.write((u"set xdata time  \n").encode('utf8'))
+					outGnu += u"set xdata time  \n"
 					if am24 =="24": formatH = u"%H:%M"
 					else:			formatH = u"%l:%M%p"
 
 					if theType ==u"day":
-						f.write((u"set timefmt \"%Y%m%d\" \n").encode('utf8'))						# yyyymmdd x axis input data format
-						if int(self.PLOT[nPlot]["MHDDays"][2]) >0:	f.write((u"set xrange[\""+earliestDay+u"\":\""+lastDay+u"\"]\n").encode('utf8'))
+						outGnu += u"set timefmt \"%Y%m%d\" \n"						# yyyymmdd x axis input data format
+						if int(self.PLOT[nPlot]["MHDDays"][2]) >0:	outGnu += u"set xrange[\""+earliestDay+u"\":\""+lastDay+u"\"]\n"
 
 
 						if MHDFormat.lower() !="off":
 							if len(overWriteXFormat[0]) > 1: 
-								f.write((u"set format x \""+ overWriteXFormat[0] +"\"  \n").encode('utf8'))							# x axis dat format on plot
+								outGnu += u"set format x \""+ overWriteXFormat[0] +"\"  \n"							# x axis dat format on plot
 							else:
-								f.write((u"set format x \"%b\" \n").encode('utf8'))							# x axis date format on plot
+								outGnu += u"set format x \"%b\" \n"							# x axis date format on plot
 							if len(overWriteXFormat[1]) > 0 : 
 						
-								f.write((u"set xtics "+ overWriteXFormat[1] +" \n").encode('utf8'))				# x axis dat format on plot
+								outGnu += u"set xtics "+ overWriteXFormat[1] +" \n"				# x axis dat format on plot
 
 
 					if theType =="hour":
-						f.write((u"set timefmt \"%Y%m%d%H\"    \n").encode('utf8'))						# yyyymmddhh
-						if int(self.PLOT[nPlot]["MHDDays"][1]) >0:	f.write((u"set xrange[\""+earliestDay+u"\":\""+lastDay+u"\"]\n").encode('utf8'))
+						outGnu += u"set timefmt \"%Y%m%d%H\"    \n"						# yyyymmddhh
+						if int(self.PLOT[nPlot]["MHDDays"][1]) >0:	outGnu += u"set xrange[\""+earliestDay+u"\":\""+lastDay+u"\"]\n"
 						
 						if MHDFormat.lower() !="off":
 							if len(overWriteXFormat[0]) > 1 : 
-								f.write((u"set format x \""+ overWriteXFormat[0] +"\"  \n").encode('utf8'))							# x axis dat format on plot
+								outGnu += u"set format x \""+ overWriteXFormat[0] +"\"  \n"							# x axis dat format on plot
 							else:
-								if int(self.PLOT[nPlot]["MHDDays"][1]) <7: 	f.write((u"set format x \""+formatH+u"\\n%a\"    \n").encode('utf8'))
-								else:										f.write((u"set format x \"%a\"    \n").encode('utf8'))
+								if int(self.PLOT[nPlot]["MHDDays"][1]) <7: 	outGnu += u"set format x \""+formatH+u"\\n%a\"    \n"
+								else:										outGnu += u"set format x \"%a\"    \n"
 						
 							if len(overWriteXFormat[1]) > 0 : 
-								f.write((u"set xtics "+ overWriteXFormat[1] +" \n").encode('utf8'))				# x axis dat format on plot
+								outGnu += u"set xtics "+ overWriteXFormat[1] +" \n"				# x axis dat format on plot
 
 
 
 					if theType =="minute":
-						f.write((u"set timefmt \"%Y%m%d%H%M\"    \n").encode('utf8'))					# yyyymmddhhmm
-						if int(self.PLOT[nPlot]["MHDDays"][0]) >0: f.write((u"set xrange[\""+earliestDay+u"\":\""+lastDay+u"\"]\n").encode('utf8'))
+						outGnu += u"set timefmt \"%Y%m%d%H%M\"    \n"					# yyyymmddhhmm
+						if int(self.PLOT[nPlot]["MHDDays"][0]) >0: outGnu += u"set xrange[\""+earliestDay+u"\":\""+lastDay+u"\"]\n"
 	
 						if MHDFormat.lower() !="off":
 							if len(overWriteXFormat[0]) > 1: 
-								f.write((u"set format x \""+ overWriteXFormat[0] +"\" \n").encode('utf8'))				# x axis dat format on plot
+								outGnu += u"set format x \""+ overWriteXFormat[0] +"\" \n"				# x axis dat format on plot
 							
 							else:
-								if   nDays ==1:								f.write((u"set format x \""+formatH+"\" \n").encode('utf8'))
-								elif nDays ==2 or nDays== 3:				f.write((u"set format x \""+formatH+"\\n%a\"    \n").encode('utf8'))
-								else :										f.write((u"set format x \"%a\"    \n").encode('utf8'))
+								if   nDays ==1:								outGnu += u"set format x \""+formatH+"\" \n"
+								elif nDays ==2 or nDays== 3:				outGnu += u"set format x \""+formatH+"\\n%a\"    \n"
+								else :										outGnu += u"set format x \"%a\"    \n"
 							if len(overWriteXFormat[1]) > 0 : 
-								f.write((u"set xtics "+ overWriteXFormat[1] +" \n").encode('utf8'))				# x axis dat format on plot
+								outGnu += u"set xtics "+ overWriteXFormat[1] +" \n"				# x axis dat format on plot
 						
 
 
 
-				if len(rangeY) > 1: 		f.write((u"set yrange ["+rangeY+"]   \n").encode('utf8'))
-				if LDec !="" and LDec!="-":	f.write((u"set format y \"%."+LDec+"f\"    \n").encode('utf8'))
-				if len(ticsY)  > 1: 		f.write((u"set ytics ("+ticsY+") nomirror   \n").encode('utf8'))
-				if len(labelY) > 1: 		f.write((u"set ylabel \""+labelY+"\"  textcolor rgb \""+textColor+"\"  \n").encode('utf8'))
-				if LLog == "1"or LLog.upper()=="LOG":     f.write((u"set logscale y \n").encode('utf8'))
+				if len(rangeY) > 1: 		outGnu += u"set yrange ["+rangeY+"]   \n"
+				if LDec !="" and LDec!="-":	outGnu += u"set format y \"%."+LDec+"f\"    \n"
+				if len(ticsY)  > 1: 		outGnu += u"set ytics ("+ticsY+") nomirror   \n"
+				if len(labelY) > 1: 		outGnu += u"set ylabel \""+labelY+"\"  textcolor rgb \""+textColor+"\"  \n"
+				if LLog == "1"or LLog.upper()=="LOG":     outGnu += u"set logscale y \n"
 
-				if RDec !="" and RDec!="-":	f.write((u"set format y2 \"%."+RDec+"f\"    \n").encode('utf8'))
-				if len(rangeY2)> 1: 		f.write((u"set y2range["+rangeY2+"]     \n").encode('utf8'))
-				if len(ticsY2) > 1: 		f.write((u"set y2tics ("+ticsY2+")    \n").encode('utf8'))
-				if len(labelY2)> 1:			f.write((u"set y2label \""+labelY2+"\" textcolor rgb \""+textColor+"\" \n").encode('utf8'))
-				if RLog == "1"or RLog.upper()=="LOG":     f.write((u"set logscale y2 \n").encode('utf8'))
+				if RDec !="" and RDec!="-":	outGnu += u"set format y2 \"%."+RDec+"f\"    \n"
+				if len(rangeY2)> 1: 		outGnu += u"set y2range["+rangeY2+"]     \n"
+				if len(ticsY2) > 1: 		outGnu += u"set y2tics ("+ticsY2+")    \n"
+				if len(labelY2)> 1:			outGnu += u"set y2label \""+labelY2+"\" textcolor rgb \""+textColor+"\" \n"
+				if RLog == "1"or RLog.upper()=="LOG":     outGnu += u"set logscale y2 \n"
 
-				f.write("set key inside center top horizontal Right noreverse enhanced autotitles nobox\n")
+				outGnu += "set key inside center top horizontal Right noreverse enhanced autotitles nobox\n"
 
-		#		if len(background) > 2: f.write("set object 1 rectangle from screen 0,0 to screen 1,1 fillcolor "+background+" behind\n")
+		#		if len(background) > 2: outGnu += "set object 1 rectangle from screen 0,0 to screen 1,1 fillcolor "+background+" behind\n"
 
 
 				if grid.find("0")==-1:
@@ -4210,49 +4205,49 @@ class Plugin(indigo.PluginBase):
 						if grid.find("y2")>-1:		gridxyy2 =" xtics y2tics"
 						else:						gridxyy2 =" xtics ytics "
 					if   str(grid).find("-1")==0:
-						f.write((u'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n').encode('utf8'))
-						f.write((u"set grid "+gridxyy2+" front ls 100 \n").encode('utf8'))
+						outGnu += u'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n'
+						outGnu += u"set grid "+gridxyy2+" front ls 100 \n"
 					elif str(grid).find("-2")==0:
-						f.write((u'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n').encode('utf8'))
-						f.write((u"set grid "+gridxyy2+" front ls 100 \n").encode('utf8'))
+						outGnu += u'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n'
+						outGnu += u"set grid "+gridxyy2+" front ls 100 \n"
 					elif str(grid).find("-3")==0:
-						f.write((u'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n').encode('utf8'))
-						f.write((u"set grid "+gridxyy2+" front ls 100 \n").encode('utf8'))
+						outGnu += u'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n'
+						outGnu += u"set grid "+gridxyy2+" front ls 100 \n"
 					elif str(grid).find("1")==0:
-						f.write((u'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n').encode('utf8'))
-						f.write((u"set grid "+gridxyy2+" back ls 100 \n").encode('utf8'))
+						outGnu += u'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n'
+						outGnu += u"set grid "+gridxyy2+" back ls 100 \n"
 					elif str(grid).find("3")==0:
-						f.write((u'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n').encode('utf8'))
-						f.write((u"set grid "+gridxyy2+" back ls 100 \n").encode('utf8'))
+						outGnu += u'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n'
+						outGnu += u"set grid "+gridxyy2+" back ls 100 \n"
 					elif str(grid).find("2")==0:
-						f.write((u'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n').encode('utf8'))
-						f.write((u"set grid "+gridxyy2+" back ls 100 \n").encode('utf8'))
+						outGnu += u'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n'
+						outGnu += u"set grid "+gridxyy2+" back ls 100 \n"
 				else:
-					f.write("unset grid \n")
+					outGnu += "unset grid \n"
 				
 				BonOff= Border.split("+")
 				if len(BonOff) ==4:
-					f.write((u'set border '+Border+' \n').encode('utf8'))
-					if BonOff[0] =="0":	f.write((u'unset xtics \n').encode('utf8'))
-					if BonOff[1] =="0":	f.write((u'unset ytics \n').encode('utf8'))
+					outGnu += u'set border '+Border+' \n'
+					if BonOff[0] =="0":	outGnu += u'unset xtics \n'
+					if BonOff[1] =="0":	outGnu += u'unset ytics \n'
 					if BonOff[2] =="0":
-										f.write((u'set  xtics nomirror \n').encode('utf8'))
-										f.write((u'unset x2tics \n').encode('utf8'))
-					if BonOff[3] =="0":	f.write((u'unset y2tics \n').encode('utf8'))
+										outGnu += u'set  xtics nomirror \n'
+										outGnu += u'unset x2tics \n'
+					if BonOff[3] =="0":	outGnu += u'unset y2tics \n'
 
-				f.write((u"set border linecolor rgb \""+textColor+"\" \n").encode('utf8'))
-				f.write((u"set key textcolor rgb \""+textColor+"\" \n" ).encode('utf8'))
-				if len(title) > 1: f.write(("set title \""+title+"\" textcolor  rgb \""+textColor+"\" \n").encode('utf8'))
+				outGnu += u"set border linecolor rgb \""+textColor+"\" \n"
+				outGnu += u"set key textcolor rgb \""+textColor+"\" \n" 
+				if len(title) > 1: outGnu += "set title \""+title+"\" textcolor  rgb \""+textColor+"\" \n"
 				if len(ExtraText) > 1:
 					if len(textFont) <3 or textFont=="System-font":
-						f.write(("set label \""+ExtraText+"\"  at screen "+ ExtraTextX+", screen "+ExtraTextY+" rotate by "+ExtraTextRotate+"  "+ExtraTextFrontBack+ "  textcolor  rgb \""+ExtraTextColorRGB+"\" \n").encode('utf8'))
+						outGnu += "set label \""+ExtraText+"\"  at screen "+ ExtraTextX+", screen "+ExtraTextY+" rotate by "+ExtraTextRotate+"  "+ExtraTextFrontBack+ "  textcolor  rgb \""+ExtraTextColorRGB+"\" \n"
 					else:
-						f.write(("set label \""+ExtraText+"\"  at screen "+ ExtraTextX+", screen "+ExtraTextY+" rotate by "+ExtraTextRotate+"  "+ExtraTextFrontBack+" font \""+self.theFontDir+textFont+ "," +ExtraTextSize + "\"  textcolor  rgb \""+ExtraTextColorRGB+"\" \n").encode('utf8'))
-		#		f.write("set obj 1 rectangle behind from screen -0.01,-0.01 to screen 1.01,1.01 \n")
-		#		f.write("set obj 1 fillstyle solid 1.0 fillcolor rgb \""+background+"\" \n")
+						outGnu += "set label \""+ExtraText+"\"  at screen "+ ExtraTextX+", screen "+ExtraTextY+" rotate by "+ExtraTextRotate+"  "+ExtraTextFrontBack+" font \""+self.theFontDir+textFont+ "," +ExtraTextSize + "\"  textcolor  rgb \""+ExtraTextColorRGB+"\" \n"
+		#		outGnu += "set obj 1 rectangle behind from screen -0.01,-0.01 to screen 1.01,1.01 \n"
+		#		outGnu += "set obj 1 fillstyle solid 1.0 fillcolor rgb \""+background+"\" \n"
 			
 
-				f.write(u"set boxwidth  "+boxWidth+" relative \n" )
+				outGnu += u"set boxwidth  "+boxWidth+" relative \n"
 
 	#			for ii in range (numberOfLines ):
 	#				if theLines[ii].find(";;")>-1:
@@ -4260,36 +4255,37 @@ class Plugin(indigo.PluginBase):
 	#					pos = theLines[ii].split(";;")[2]
 
 				for arrow in arrows:
-					f.write(arrow+" \n")
+					outGnu += arrow+" \n"
 				
 
-				f.write(rawCmd+" \n")
-				f.write(theLines[0])
+				outGnu += rawCmd+" \n"
+				outGnu += theLines[0]
 				firstL =False
-				for ii in range (1,numberOfLines ):
+				for ii in range (1,numberOfLines):
 					if theLines[ii].find("#")!=0:
 						if not firstL:
-							f.write((theLines[ii].strip(",")).encode('utf8'))
+							outGnu += theLines[ii].strip(",")
 						else:
-							f.write(theLines[ii].encode('utf8'))
+							outGnu += theLines[ii]
 						firstL = True
 
-				if str(drawZeroLine).upper() =="TRUE":
+				if str(drawZeroLine).upper() == "TRUE":
 
 
 					if len(rangeY) > 1: 		y = rangeY.split(":")[0]
 					else: y ="0"
 					tx = y+"  with  lines  linetype 0    linewidth 1   linecolor  rgb \""+background+"\"   title \"\"  axis x1y1\n"
 					if numberOfLines  !=1:
-						f.write((u" , "+tx).encode('utf8'))
+						outGnu += u" , "+tx
 					else:
-						f.write(tx)
+						outGnu += tx
 				else:
-					f.write((u" ,\n").encode('utf8'))
-				
+					outGnu += u" ,\n"
+
+			f.write(outGnu)	
 			f.close()
 		except  Exception as e:
-			self.indiLOG.log(40,"Line '%s' has error='%s'error in createGNUfile" % (sys.exc_info()[2].tb_lineno, e))
+			self.indiLOG.log(40,u"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
 
 	########################################
 	def convertVariableOrDeviceStateToText(self,textIn):
@@ -5832,7 +5828,7 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def startMAT(self):
 		try:
-			self.MPlogfhandle= open(self.MPlogfile,"a")
+			self.MPlogfhandle = self.openEncoding(self.MPlogfile,"a")
 		except:
 			pass
 		try:
@@ -5842,14 +5838,13 @@ class Plugin(indigo.PluginBase):
 			self.pidMATPLOT = u"{}".format( subprocess.Popen( cmd, shell=True, stdout=self.MPlogfhandle, stderr=self.MPlogfhandle).pid ) 
 
 			if self.decideMyLog("Matplot") or self.decideMyLog("Plotting"): self.indiLOG.log(30,u"(re-)started matplot, PID:{};  cmd:{}".format(self.pidMATPLOT, cmd) )
-			pidHandle= open( self.indigoPreferencesPluginDir+"matplot/matplot.pid" , "w")
+			pidHandle= self.openEncoding( self.indigoPreferencesPluginDir+"matplot/matplot.pid" , "w")
 			pidHandle.write(self.pidMATPLOT)
 			pidHandle.close()
 			self.plotNow(createNow="",showNow="")
 			return True
 		except  Exception as e:
 			self.indiLOG.log(40,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
-			self.indiLOG.log(40,u"error starting matplot")
 			return False
 
 	########################################
@@ -6119,11 +6114,11 @@ class Plugin(indigo.PluginBase):
 	
 	
 		
-		if len(self.listOfPreselectedDevices)==0: 					return [(0,0)]         	# nothing there yet
-		retList=self.listOfPreselectedDevices[:]											# make a copy
-		if self.currentDevNo ==0: 									return retList			# just making sure
-		if not str(self.currentDevNo)in self.DEVICE: 				return retList
-		if int(self.DEVICE[u"{}".format(self.currentDevNo)]["Id"]) == 0:		return retList
+		if len(self.listOfPreselectedDevices) == 0: 						return [(0,0)]         	# nothing there yet
+		retList = self.listOfPreselectedDevices[:]											# make a copy
+		if self.currentDevNo ==0: 											return retList			# just making sure
+		if not str(self.currentDevNo) in self.DEVICE: 						return retList
+		if int(self.DEVICE[u"{}".format(self.currentDevNo)]["Id"]) == 0:	return retList
 
 		retList.append((0,self.DEVICE[u"{}".format(self.currentDevNo)]["Name"])) 					# we have a device id already from indigo use that one as first = default pick in list
 		
@@ -6903,171 +6898,179 @@ class Plugin(indigo.PluginBase):
 	## called just before editor gets opened, check if existing duplicate or new device/Plot
 	def getDeviceConfigUiValues(self, devPluginProps, typeId, devId):
 
-		valuesDict = indigo.Dict(devPluginProps)   # Important to initialize default to devPluginProps
+		try:
+
+			if self.decideMyLog("General"): self.indiLOG.log(20,u"getDeviceConfigUiValues  start")
+
+			valuesDict = indigo.Dict(devPluginProps)   # Important to initialize default to devPluginProps
 
 
-		dev = indigo.devices[devId]
-		if "ExpertsP" in dev.pluginProps:
-			valuesDict["ExpertsP"]				= dev.pluginProps["ExpertsP"]
-		else:
-			valuesDict["ExpertsP"]				= False
+			dev = indigo.devices[devId]
+			if "ExpertsP" in dev.pluginProps:
+				valuesDict["ExpertsP"]				= dev.pluginProps["ExpertsP"]
+			else:
+				valuesDict["ExpertsP"]				= False
 		
-		if self.decideMyLog("General"): self.indiLOG.log(20,u"getDeviceConfigUiValues... devId:{}".format(devId))
+			if self.decideMyLog("General"): self.indiLOG.log(20,u"getDeviceConfigUiValues... devId:{}".format(devId))
 
-		valuesDict["DefinePlots"]			= True
-		valuesDict["DefineLines"]			= False
-#		valuesDict["ExpertsAndPlots"]		= False
-#		valuesDict["ExpertsAndLines"]		= False
-		valuesDict["selectLinesOK"]			= False
-		valuesDict["DefineLinesANotSelect"]	= True
-		valuesDict["DefineLinesASelected"]	= True
-		valuesDict["DefineLinesBNotSelect"]	= True
-		valuesDict["DefineLinesBSelected"]	= True
-		valuesDict["fontsGNUONOFF"]			= False
-		valuesDict["fontsMATONOFF"]			= False
-		valuesDict["TimeseriesAndPlots"]	= True
-		valuesDict["showBins"]				= False
-		valuesDict["showBinsS"]				= False
-#		valuesDict=self.setViewOnOff(valuesDict)
+			valuesDict["DefinePlots"]			= True
+			valuesDict["DefineLines"]			= False
+	#		valuesDict["ExpertsAndPlots"]		= False
+	#		valuesDict["ExpertsAndLines"]		= False
+			valuesDict["selectLinesOK"]			= False
+			valuesDict["DefineLinesANotSelect"]	= True
+			valuesDict["DefineLinesASelected"]	= True
+			valuesDict["DefineLinesBNotSelect"]	= True
+			valuesDict["DefineLinesBSelected"]	= True
+			valuesDict["fontsGNUONOFF"]			= False
+			valuesDict["fontsMATONOFF"]			= False
+			valuesDict["TimeseriesAndPlots"]	= True
+			valuesDict["showBins"]				= False
+			valuesDict["showBinsS"]				= False
+	#		valuesDict=self.setViewOnOff(valuesDict)
 
-		thePlot	= indigo.devices[devId]
-		found	=0
+			thePlot	= indigo.devices[devId]
+			found	=0
 
-		for nPlot in self.PLOT:
-			if nPlot == str(devId):
-				found =1
-				self.PLOT[nPlot]["DeviceNamePlot"] 			= thePlot.name
-				valuesDict["DefinePlots"]			= True
-				valuesDict["text2-1"]				= u"Configuring "+self.PLOT[nPlot]["DeviceNamePlot"]
-				valuesDict["text3-1"]				= u"first confirm Plot, then select Line"
-				self.currentPlotType 				= self.PLOT[nPlot]["PlotType"]
-				valuesDict["PlotType"]				= self.currentPlotType
-				if self.currentPlotType != "dataFromTimeSeries": self.getLinesForFileOrVariPlot(self.PLOT[nPlot]["PlotFileOrVariName"])
-				valuesDict							=self.plotDataTypeCALLBACK(valuesDict)
-				break
-		
-		if found ==0:	# new device, check if brand new or duplicate from old device
 			for nPlot in self.PLOT:
-				if self.PLOT[nPlot]["DeviceNamePlot"]+u" copy" == thePlot.name or self.PLOT[nPlot]["DeviceNamePlot"]+" copy 1" == thePlot.name:
-					self.PLOT[u"{}".format(thePlot.id)] = copy.deepcopy(self.PLOT[nPlot])
-					self.PLOT[u"{}".format(thePlot.id)]["DeviceNamePlot"] = thePlot.name
+				if nPlot == str(devId):
+					found =1
+					self.PLOT[nPlot]["DeviceNamePlot"] 			= thePlot.name
+					valuesDict["DefinePlots"]			= True
 					valuesDict["text2-1"]				= u"Configuring "+self.PLOT[nPlot]["DeviceNamePlot"]
 					valuesDict["text3-1"]				= u"first confirm Plot, then select Line"
-					found =2
+					self.currentPlotType 				= self.PLOT[nPlot]["PlotType"]
+					valuesDict["PlotType"]				= self.currentPlotType
+					if self.currentPlotType != "dataFromTimeSeries": self.getLinesForFileOrVariPlot(self.PLOT[nPlot]["PlotFileOrVariName"])
+					valuesDict							=self.plotDataTypeCALLBACK(valuesDict)
 					break
-
-		if  found ==0 :	# new device,  brand new
-			nPlot=str(thePlot.id)
-			self.PLOT[nPlot]					= copy.deepcopy(emptyPlot)
-			self.PLOT[nPlot]["DeviceNamePlot"]	= thePlot.name
-			self.PLOT[nPlot]["lines"]["0"]		= copy.deepcopy(emptyLine)
-
-
-		if   self.PLOT[nPlot]["LeftLog"]=="0" :	self.PLOT[nPlot]["LeftLog"] = "linear"
-		elif self.PLOT[nPlot]["LeftLog"]=="1" :	self.PLOT[nPlot]["LeftLog"] = "log"
-		valuesDict["LeftLog"]			= self.PLOT[nPlot]["LeftLog"]
 		
-		if   self.PLOT[nPlot]["RightLog"]=="0" :self.PLOT[nPlot]["RightLog"] = "linear"
-		elif self.PLOT[nPlot]["RightLog"]=="1" :self.PLOT[nPlot]["RightLog"] = "log"
-		valuesDict["RightLog"]			= self.PLOT[nPlot]["RightLog"]
+			if found ==0:	# new device, check if brand new or duplicate from old device
+				for nPlot in self.PLOT:
+					if self.PLOT[nPlot]["DeviceNamePlot"]+u" copy" == thePlot.name or self.PLOT[nPlot]["DeviceNamePlot"]+" copy 1" == thePlot.name:
+						self.PLOT[u"{}".format(thePlot.id)] = copy.deepcopy(self.PLOT[nPlot])
+						self.PLOT[u"{}".format(thePlot.id)]["DeviceNamePlot"] = thePlot.name
+						valuesDict["text2-1"]				= u"Configuring "+self.PLOT[nPlot]["DeviceNamePlot"]
+						valuesDict["text3-1"]				= u"first confirm Plot, then select Line"
+						found =2
+						break
+
+			if  found == 0 :	# new device,  brand new
+				nPlot=str(thePlot.id)
+				self.PLOT[nPlot]					= copy.deepcopy(emptyPlot)
+				self.PLOT[nPlot]["DeviceNamePlot"]	= thePlot.name
+				self.PLOT[nPlot]["lines"]["0"]		= copy.deepcopy(emptyLine)
+
+
+			if   self.PLOT[nPlot]["LeftLog"]=="0" :	self.PLOT[nPlot]["LeftLog"] = "linear"
+			elif self.PLOT[nPlot]["LeftLog"]=="1" :	self.PLOT[nPlot]["LeftLog"] = "log"
+			valuesDict["LeftLog"]			= self.PLOT[nPlot]["LeftLog"]
 		
-		if   self.PLOT[nPlot]["XLog"]=="0" :	self.PLOT[nPlot]["XLog"] = "linear"
-		elif self.PLOT[nPlot]["XLog"]=="1" :	self.PLOT[nPlot]["XLog"] = "log"
-		valuesDict["XLog"]				= self.PLOT[nPlot]["XLog"]
+			if   self.PLOT[nPlot]["RightLog"]=="0" :self.PLOT[nPlot]["RightLog"] = "linear"
+			elif self.PLOT[nPlot]["RightLog"]=="1" :self.PLOT[nPlot]["RightLog"] = "log"
+			valuesDict["RightLog"]			= self.PLOT[nPlot]["RightLog"]
+		
+			if   self.PLOT[nPlot]["XLog"]=="0" :	self.PLOT[nPlot]["XLog"] = "linear"
+			elif self.PLOT[nPlot]["XLog"]=="1" :	self.PLOT[nPlot]["XLog"] = "log"
+			valuesDict["XLog"]				= self.PLOT[nPlot]["XLog"]
 
-		valuesDict["PlotType"]			= self.PLOT[nPlot]["PlotType"]
-		valuesDict["XYvPolar"]			= self.PLOT[nPlot]["XYvPolar"]
+			valuesDict["PlotType"]			= self.PLOT[nPlot]["PlotType"]
+			valuesDict["XYvPolar"]			= self.PLOT[nPlot]["XYvPolar"]
 
-		valuesDict["LeftLabel"]			= self.PLOT[nPlot]["LeftLabel"]
-		valuesDict["RightLabel"]		= self.PLOT[nPlot]["RightLabel"]
-		valuesDict["XLabel"]			= self.PLOT[nPlot]["XLabel"]
+			valuesDict["LeftLabel"]			= self.PLOT[nPlot]["LeftLabel"]
+			valuesDict["RightLabel"]		= self.PLOT[nPlot]["RightLabel"]
+			valuesDict["XLabel"]			= self.PLOT[nPlot]["XLabel"]
 
-		valuesDict["Grid"]				= self.PLOT[nPlot]["Grid"]
-		valuesDict["Border"]			= self.PLOT[nPlot]["Border"]
+			valuesDict["Grid"]				= self.PLOT[nPlot]["Grid"]
+			valuesDict["Border"]			= self.PLOT[nPlot]["Border"]
 
-		valuesDict["LeftScaleRange"]	= self.PLOT[nPlot]["LeftScaleRange"]
-		valuesDict["RightScaleRange"]	= self.PLOT[nPlot]["RightScaleRange"]
-		valuesDict["XScaleRange"]		= self.PLOT[nPlot]["XScaleRange"]
+			valuesDict["LeftScaleRange"]	= self.PLOT[nPlot]["LeftScaleRange"]
+			valuesDict["RightScaleRange"]	= self.PLOT[nPlot]["RightScaleRange"]
+			valuesDict["XScaleRange"]		= self.PLOT[nPlot]["XScaleRange"]
 
-		valuesDict["LeftScaleTics"]		= self.PLOT[nPlot]["LeftScaleTics"]
-		valuesDict["RightScaleTics"]	= self.PLOT[nPlot]["RightScaleTics"]
-		valuesDict["XScaleTics"]		= self.PLOT[nPlot]["XScaleTics"]
+			valuesDict["LeftScaleTics"]		= self.PLOT[nPlot]["LeftScaleTics"]
+			valuesDict["RightScaleTics"]	= self.PLOT[nPlot]["RightScaleTics"]
+			valuesDict["XScaleTics"]		= self.PLOT[nPlot]["XScaleTics"]
 
-		valuesDict["LeftScaleDecPoints"]= self.PLOT[nPlot]["LeftScaleDecPoints"]
-		valuesDict["RightScaleDecPoints"]= self.PLOT[nPlot]["RightScaleDecPoints"]
-		valuesDict["XScaleDecPoints"]	= self.PLOT[nPlot]["XScaleDecPoints"]
+			valuesDict["LeftScaleDecPoints"]= self.PLOT[nPlot]["LeftScaleDecPoints"]
+			valuesDict["RightScaleDecPoints"]= self.PLOT[nPlot]["RightScaleDecPoints"]
+			valuesDict["XScaleDecPoints"]	= self.PLOT[nPlot]["XScaleDecPoints"]
 
-		valuesDict["XScaleFormat"]		= self.PLOT[nPlot]["XScaleFormat"]
+			valuesDict["XScaleFormat"]		= self.PLOT[nPlot]["XScaleFormat"]
 
-		valuesDict["resxy0"]			= self.PLOT[nPlot]["resxy"][0]
-		valuesDict["resxy1"]			= self.PLOT[nPlot]["resxy"][1]
-		valuesDict["Textscale21"]		= self.PLOT[nPlot]["Textscale21"]
-		valuesDict["MinuteBinNoOfDays"]	= self.PLOT[nPlot]["MHDDays"][0]
-		valuesDict["HourBinNoOfDays"]	= self.PLOT[nPlot]["MHDDays"][1]
-		valuesDict["DayBinNoOfDays"]	= self.PLOT[nPlot]["MHDDays"][2]
-		valuesDict["MinuteBinShift"]	= self.PLOT[nPlot]["MHDShift"][0]
-		valuesDict["HourBinShift"]		= self.PLOT[nPlot]["MHDShift"][1]
-		valuesDict["DayBinShift"]		= self.PLOT[nPlot]["MHDShift"][2]
+			valuesDict["resxy0"]			= self.PLOT[nPlot]["resxy"][0]
+			valuesDict["resxy1"]			= self.PLOT[nPlot]["resxy"][1]
+			valuesDict["Textscale21"]		= self.PLOT[nPlot]["Textscale21"]
+			valuesDict["MinuteBinNoOfDays"]	= self.PLOT[nPlot]["MHDDays"][0]
+			valuesDict["HourBinNoOfDays"]	= self.PLOT[nPlot]["MHDDays"][1]
+			valuesDict["DayBinNoOfDays"]	= self.PLOT[nPlot]["MHDDays"][2]
+			valuesDict["MinuteBinShift"]	= self.PLOT[nPlot]["MHDShift"][0]
+			valuesDict["HourBinShift"]		= self.PLOT[nPlot]["MHDShift"][1]
+			valuesDict["DayBinShift"]		= self.PLOT[nPlot]["MHDShift"][2]
 
-		valuesDict["MinuteXScaleFormat"]= self.PLOT[nPlot]["MHDFormat"][0]
-		valuesDict["HourXScaleFormat"]  = self.PLOT[nPlot]["MHDFormat"][1]
-		valuesDict["DayXScaleFormat"]   = self.PLOT[nPlot]["MHDFormat"][2]
+			valuesDict["MinuteXScaleFormat"]= self.PLOT[nPlot]["MHDFormat"][0]
+			valuesDict["HourXScaleFormat"]  = self.PLOT[nPlot]["MHDFormat"][1]
+			valuesDict["DayXScaleFormat"]   = self.PLOT[nPlot]["MHDFormat"][2]
 		
 
 
 		
 		
-		valuesDict["Raw"]				= self.PLOT[nPlot]["Raw"]
-		valuesDict["drawZeroLine"]		= self.PLOT[nPlot]["drawZeroLine"]
-		valuesDict["compressPNGfile"]	= self.PLOT[nPlot]["compressPNGfile"]
-		valuesDict["TitleText"]			= self.PLOT[nPlot]["TitleText"]
-		valuesDict["ExtraText"]			= self.PLOT[nPlot]["ExtraText"]
-		valuesDict["ExtraTextXPos"]		= self.PLOT[nPlot]["ExtraTextXPos"]
-		valuesDict["ExtraTextYPos"]		= self.PLOT[nPlot]["ExtraTextYPos"]
-		valuesDict["ExtraTextRotate"]	= self.PLOT[nPlot]["ExtraTextRotate"]
-		valuesDict["ExtraTextFrontBack"]= self.PLOT[nPlot]["ExtraTextFrontBack"]
-		valuesDict["ExtraTextSize"]		= self.PLOT[nPlot]["ExtraTextSize"]
-		rgbINT ,rgbHEX, Error = self.convertoIntAndHexRGB(self.PLOT[nPlot]["ExtraTextColorRGB"],defColor="#000000")
-		valuesDict["ExtraTextColorRGB"]	= rgbINT
-		valuesDict["TextSize"]			= self.PLOT[nPlot]["TextSize"]
-		valuesDict["TextFont"]			= "0"
-		valuesDict["TextMATFont"]		= self.PLOT[nPlot]["TextMATFont"]
-		valuesDict["Background"]		= self.PLOT[nPlot]["Background"].upper()
-		valuesDict["TransparentBlocks"]	= self.PLOT[nPlot]["TransparentBlocks"]
-		valuesDict["ampm"]				= self.PLOT[nPlot]["ampm"]
-		valuesDict["boxWidth"]			= self.PLOT[nPlot]["boxWidth"]
-		valuesDict["text2-1"]			= "Configuring "+self.PLOT[nPlot]["DeviceNamePlot"]
-		valuesDict["text3-1"]			= "first confirm Plot, then select Line"
-		valuesDict["TransparentBackground"]	= self.PLOT[nPlot]["TransparentBackground"]
+			valuesDict["Raw"]				= self.PLOT[nPlot]["Raw"]
+			valuesDict["drawZeroLine"]		= self.PLOT[nPlot]["drawZeroLine"]
+			valuesDict["compressPNGfile"]	= self.PLOT[nPlot]["compressPNGfile"]
+			valuesDict["TitleText"]			= self.PLOT[nPlot]["TitleText"]
+			valuesDict["ExtraText"]			= self.PLOT[nPlot]["ExtraText"]
+			valuesDict["ExtraTextXPos"]		= self.PLOT[nPlot]["ExtraTextXPos"]
+			valuesDict["ExtraTextYPos"]		= self.PLOT[nPlot]["ExtraTextYPos"]
+			valuesDict["ExtraTextRotate"]	= self.PLOT[nPlot]["ExtraTextRotate"]
+			valuesDict["ExtraTextFrontBack"]= self.PLOT[nPlot]["ExtraTextFrontBack"]
+			valuesDict["ExtraTextSize"]		= self.PLOT[nPlot]["ExtraTextSize"]
+			rgbINT ,rgbHEX, Error = self.convertoIntAndHexRGB(self.PLOT[nPlot]["ExtraTextColorRGB"],defColor="#000000")
+			valuesDict["ExtraTextColorRGB"]	= rgbINT
+			valuesDict["TextSize"]			= self.PLOT[nPlot]["TextSize"]
+			valuesDict["TextFont"]			= "0"
+			valuesDict["TextMATFont"]		= self.PLOT[nPlot]["TextMATFont"]
+			valuesDict["Background"]		= self.PLOT[nPlot]["Background"].upper()
+			valuesDict["TransparentBlocks"]	= self.PLOT[nPlot]["TransparentBlocks"]
+			valuesDict["ampm"]				= self.PLOT[nPlot]["ampm"]
+			valuesDict["boxWidth"]			= self.PLOT[nPlot]["boxWidth"]
+			valuesDict["text2-1"]			= "Configuring "+self.PLOT[nPlot]["DeviceNamePlot"]
+			valuesDict["text3-1"]			= "first confirm Plot, then select Line"
+			valuesDict["TransparentBackground"]	= self.PLOT[nPlot]["TransparentBackground"]
 
 
-		rgbINT, rgbHEX, error = self.convertoIntAndHexRGB(self.PLOT[nPlot]["Background"],defColor="#FFFFFF")
+			rgbINT, rgbHEX, error = self.convertoIntAndHexRGB(self.PLOT[nPlot]["Background"],defColor="#FFFFFF")
 
-		valuesDict["BackgroundColorRGB"]		= rgbINT
-		if rgbHEX in stdColors:
-			valuesDict["Background"]			= self.PLOT[nPlot]["Background"]
-			if valuesDict["ExpertsP"]:		valuesDict["showRGBBackground"] 	= True
-			else:							valuesDict["showRGBBackground"] 	= False
-		else:
-			valuesDict["Background"]			= "0"
-			valuesDict["showRGBBackground"]		= True
-
-
-		rgbINT, rgbHEX, error = self.convertoIntAndHexRGB(self.PLOT[nPlot]["TextColor"],defColor="#000000")
-		valuesDict["TextColorRGB"] 				= rgbINT
-		if rgbHEX in stdColors:
-			valuesDict["TextColor"]				= self.PLOT[nPlot]["TextColor"]
-			if valuesDict["ExpertsP"]:			valuesDict["showRGBText"] 		= True
-			else:								valuesDict["showRGBText"] 		= False
-		else:
-			valuesDict["TextColor"]				= "0"
-			valuesDict["showRGBText"] 			= True
+			valuesDict["BackgroundColorRGB"]		= rgbINT
+			if rgbHEX in stdColors:
+				valuesDict["Background"]			= self.PLOT[nPlot]["Background"]
+				if valuesDict["ExpertsP"]:		valuesDict["showRGBBackground"] 	= True
+				else:							valuesDict["showRGBBackground"] 	= False
+			else:
+				valuesDict["Background"]			= "0"
+				valuesDict["showRGBBackground"]		= True
 
 
-		valuesDict["selectedLineSourceA"]		= 0
-		valuesDict["selectedLineSourceB"]		= 0
+			rgbINT, rgbHEX, error = self.convertoIntAndHexRGB(self.PLOT[nPlot]["TextColor"],defColor="#000000")
+			valuesDict["TextColorRGB"] 				= rgbINT
+			if rgbHEX in stdColors:
+				valuesDict["TextColor"]				= self.PLOT[nPlot]["TextColor"]
+				if valuesDict["ExpertsP"]:			valuesDict["showRGBText"] 		= True
+				else:								valuesDict["showRGBText"] 		= False
+			else:
+				valuesDict["TextColor"]				= "0"
+				valuesDict["showRGBText"] 			= True
 
-		valuesDict = self.setViewOnOff( valuesDict)
+
+			valuesDict["selectedLineSourceA"]		= 0
+			valuesDict["selectedLineSourceB"]		= 0
+
+			valuesDict = self.setViewOnOff( valuesDict)
+
+		except  Exception as e:
+			self.indiLOG.log(40,u"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
+
 		return valuesDict
 
 
@@ -7676,12 +7679,12 @@ class Plugin(indigo.PluginBase):
 			
 		nPlot = str(targetId)
 		self.redoParam()
-		xxx=self.waitWithPlotting
-		self.waitWithPlotting =False
-		plot=self.PLOT[nPlot]["DeviceNamePlot"]
+		xxx = self.waitWithPlotting
+		self.waitWithPlotting = False
+		plot = self.PLOT[nPlot]["DeviceNamePlot"]
 		self.plotNow(createNow=plot,showNow="",ShowOnly="")
 		if plot !="" : self.indigoCommand.append("CheckIfPlotOK+++"+plot)
-		self.waitWithPlotting =xxx
+		self.waitWithPlotting = xxx
 		return
 
 	########################################
@@ -7991,7 +7994,6 @@ class Plugin(indigo.PluginBase):
 			if d in self.debugLevel : 	valuesDict["debug"+d]  = True
 			else:						valuesDict["debug"+d]  = False
 
-		valuesDict[u"logFileActive2"]       = self.logFileActive
 		valuesDict[u"supressGnuWarnings"]   = self.supressGnuWarnings
 
 		valuesDict["sqlitepath"]		    = self.indigoSQLliteLogsPath
@@ -8023,8 +8025,6 @@ class Plugin(indigo.PluginBase):
 		self.debugLevel             = []
 		for d in ["Restore","General","Initialize","Plotting","Matplot","SQL","Special","all"]:
 			if valuesDict[u"debug"+d]: self.debugLevel.append(d)
-
-		self.setLogfile(valuesDict[u"logFileActive2"])
 
 		ndays = json.loads(valuesDict["noOfDays"])
 		if ndays != self.noOfDays:
@@ -8651,15 +8651,15 @@ class Plugin(indigo.PluginBase):
 			for ss in range(0,2):
 				if self.PLOT[nPlot]["PlotType"] =="dataFromTimeSeries":
 					for tt in range(0,noOfTimeTypes):
-						Fname= "{}gnu/{}-{}-{}.gnu".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotTimeNames[tt], self.plotSizeNames[ss])
-						ret, err = self.readPopen(" rm '{}'  2>&1 &".format(Fname))
-						Fname= "{}gnu/{}-{}-{}.png".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotTimeNames[tt], self.plotSizeNames[ss])
-						ret, err = self.readPopen(" rm '{}'  2>&1 &".format(Fname))
+						Fname= u"{}gnu/{}-{}-{}.gnu".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotTimeNames[tt], self.plotSizeNames[ss])
+						ret, err = self.readPopen(u" rm '{}'  2>&1 &".format(Fname))
+						Fname= u"{}gnu/{}-{}-{}.png".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotTimeNames[tt], self.plotSizeNames[ss])
+						ret, err = self.readPopen(u" rm '{}'  2>&1 &".format(Fname))
 				else:
-					Fname= "{}gnu/{}-{}.gnu".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotSizeNames[ss])
-					ret, err = self.readPopen(" rm '{}'  2>&1 &".format(Fname))
-					Fname= "{}gnu/{}-{}.png".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotSizeNames[ss])
-					ret, err = self.readPopen(" rm '{}'  2>&1 &".format(Fname))
+					Fname= u"{}gnu/{}-{}.gnu".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotSizeNames[ss])
+					ret, err = self.readPopen(u" rm '{}'  2>&1 &".format(Fname))
+					Fname= u"{}gnu/{}-{}.png".format(self.userIndigoPluginDir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotSizeNames[ss])
+					ret, err = self.readPopen(u" rm '{}'  2>&1 &".format(Fname))
 		except  Exception as e:
 			self.indiLOG.log(40,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 			self.indiLOG.log(40,"... plot files already removed")
@@ -8754,9 +8754,9 @@ class Plugin(indigo.PluginBase):
 			if pri !="": pick = pri
 			else:		 pick = 'cumtime'
 			outFile		= self.userIndigoPluginDir+"timeStats"
-			indigo.server.log(" print time track stats to: "+outFile+".dump / txt  with option: "+pick)
+			self.indiLOG.log(20," print time track stats to: "+outFile+".dump / txt  with option: "+pick)
 			self.pr.dump_stats(outFile+".dump")
-			sys.stdout 	= open(outFile+".txt", "w")
+			sys.stdout 	= self.openEncoding(outFile+".txt", "w")
 			stats 		= pstats.Stats(outFile+".dump")
 			stats.strip_dirs()
 			stats.sort_stats(pick)
@@ -8786,7 +8786,7 @@ class Plugin(indigo.PluginBase):
 			self.cProfileVariableLoaded = 0
 			self.do_cProfile  			= "x"
 			self.timeTrVarName 			= "enableTimeTracking_"+self.pluginName
-			indigo.server.log("testing if variable {} is == on/off/print-option to enable/end/print time tracking of all functions and methods (option:'',calls,cumtime,pcalls,time)".format(self.timeTrVarName))
+			self.indiLOG.log(10,"testing if variable {} is == on/off/print-option to enable/end/print time tracking of all functions and methods (option:'',calls,cumtime,pcalls,time)".format(self.timeTrVarName))
 
 		self.lastTimegetcProfileVariable = time.time()
 
@@ -8794,7 +8794,7 @@ class Plugin(indigo.PluginBase):
 		if self.do_cProfile != cmd:
 			if cmd == "on": 
 				if  self.cProfileVariableLoaded ==0:
-					indigo.server.log("======>>>>   loading cProfile & pstats libs for time tracking;  starting w cProfile ")
+					self.indiLOG.log(10,"======>>>>   loading cProfile & pstats libs for time tracking;  starting w cProfile ")
 					self.pr = cProfile.Profile()
 					self.pr.enable()
 					self.cProfileVariableLoaded = 2
@@ -8831,7 +8831,7 @@ class Plugin(indigo.PluginBase):
 
 		self.sleep(1)
 		if self.quitNow !="":
-			indigo.server.log( u"runConcurrentThread stopping plugin due to:  ::::: {}".format(self.quitNow) + " :::::")
+			self.indiLOG.log(20, u"runConcurrentThread stopping plugin due to:  ::::: {}".format(self.quitNow) + " :::::")
 			serverPlugin = indigo.server.getPlugin(self.pluginId)
 			serverPlugin.restart(waitUntilDone=False)
 		return
@@ -8856,6 +8856,7 @@ class Plugin(indigo.PluginBase):
 		lastHourS                   = theHourS
 		lastSecond                  = theSecond
 		lastMinute                  = int(theMinute)
+		lastMinutex					= 0
 		theMinute5                  = (theMinute//5)*5
 		lastMinute5                 = theMinute5
 		lastMinute5P                = theMinute5
@@ -8969,7 +8970,7 @@ class Plugin(indigo.PluginBase):
 				theHourIndex	= time.strftime("%Y%m%d%H", time.localtime())+"0000"
 				theMinuteIndex	= time.strftime("%Y%m%d%H", time.localtime())+self.padzero(theMinute5)+"00"
 				
-				
+
 				if (60-theSecond)%self.samplingPeriod	<3 :
 					if theMinute != lastMinute:
 						lastMinute = theMinute
@@ -9485,15 +9486,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def plotNow(self, createNow="", showNow="",ShowOnly=""):
 		if self.waitWithPlotting: return
-		self.checkPlot1 =False
-		
-		
+		self.checkPlot1 = False
 		
 		########## matplot  ########
 		if self.gnuORmat == "mat":
 			
 			for nPlot in self.PLOT:
-				if not( createNow =="" or self.PLOT[nPlot]["DeviceNamePlot"] == createNow) : continue
+				if not( createNow == "" or self.PLOT[nPlot]["DeviceNamePlot"] == createNow) : continue
 
 			if ShowOnly == "":
 				f=self.openEncoding( self.matplotcommand , "w")
@@ -9502,7 +9501,7 @@ class Plugin(indigo.PluginBase):
 				f.close()
 
 				f=self.openEncoding( self.matplotcommand , "r")
-				self.indiLOG.log(10,f.read())    
+				self.indiLOG.log(10,u"matplot command: {}".format(f.read()) )   
 				f.close()
 
 				if showNow   == "": return
@@ -9516,22 +9515,22 @@ class Plugin(indigo.PluginBase):
 
 			for nPlot in self.PLOT:
 				if self.PLOT[nPlot]["DeviceNamePlot"]  == "None": continue
-				if self.PLOT[nPlot]["NumberIsUsed"] ==0: continue
-				if "enabled" in self.PLOT[nPlot] and self.PLOT[nPlot]["enabled"] !="True": continue
+				if self.PLOT[nPlot]["NumberIsUsed"] == 0: continue
+				if "enabled" in self.PLOT[nPlot] and self.PLOT[nPlot]["enabled"] != "True": continue
 				if self.PLOT[nPlot]["DeviceNamePlot"] != showNow: continue
 				if self.PLOT[nPlot]["PlotType"] =="dataFromTimeSeries":
 					for tt in range(noOfTimeTypes):					# this is for the day/hour/minute names
-						if int(self.PLOT[nPlot]["MHDDays"][tt]) ==0: continue
+						if int(self.PLOT[nPlot]["MHDDays"][tt]) == 0: continue
 						for ss in range(2):									# this is for s1 / s2 size names
 							if len(str(self.PLOT[nPlot]["resxy"][ss])) < 6: continue	# no proper size given skip this plot
 							PNGname= u"{}{}-{}-{}.png".format(self.indigoPNGdir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotTimeNames[tt], self.plotSizeNames[ss])
-							if os.path.isfile(PNGname): os.system(u"open '{}'".format(PNGname)) 
+							if os.path.isfile(PNGname): os.system(u"open '{}'".format(PNGname).encode('utf-8')) 
 				else:
 					for ss in range(2):									# this is for s1 / s2 size names
 						if len(str(self.PLOT[nPlot]["resxy"][ss])) < 6: continue	# no proper size given skip this plot
 						PNGname= u"{}{}-{}.png".format(self.indigoPNGdir, self.PLOT[nPlot]["DeviceNamePlot"], self.plotSizeNames[ss])
 
-						if os.path.isfile(PNGname.encode('utf8')): os.system(u"open '{}'".format(PNGname)) 
+						if os.path.isfile(PNGname.encode('utf8')): os.system(u"open '{}'".format(PNGname).encode('utf-8')) 
 
 		########## GNUPLOT  #########
 		else:
@@ -9542,7 +9541,7 @@ class Plugin(indigo.PluginBase):
 				if self.PLOT[nPlot]["DeviceNamePlot"]  == "None": continue
 				if self.PLOT[nPlot]["NumberIsUsed"] ==0: continue
 				if "enabled" in self.PLOT[nPlot] and self.PLOT[nPlot]["enabled"] !="True": continue
-				if not( createNow =="" or self.PLOT[nPlot]["DeviceNamePlot"] == createNow) : continue
+				if not( createNow == "" or self.PLOT[nPlot]["DeviceNamePlot"] == createNow) : continue
 				if self.PLOT[nPlot]["PlotType"] =="dataFromTimeSeries":
 					for tt in range(noOfTimeTypes):					# this is for the day/hour/minute names
 						if int(self.PLOT[nPlot]["MHDDays"][tt]) ==0: continue
@@ -9559,7 +9558,7 @@ class Plugin(indigo.PluginBase):
 								PNGname= self.indigoPNGdir+self.PLOT[nPlot]["DeviceNamePlot"]+"-"+self.plotTimeNames[tt]+"-"+self.plotSizeNames[ss]+".png"
 								if ShowOnly =="yes" or self.CheckIfPlotdone(Fname,PNGname,wait=True) ==0:
 									if os.path.isfile(PNGname.encode('utf8')):
-										os.system(u"open '{}'".format(PNGname))  # show plot
+										os.system(u"open '{}'".format(PNGname).encode('utf-8'))  # show plot
 				else:
 						for ss in range(2):									# this is for s1 / s2 size names
 							if len(str(self.PLOT[nPlot]["resxy"][ss])) < 6: continue			# no proper size given skip this plot
@@ -9576,6 +9575,7 @@ class Plugin(indigo.PluginBase):
 									if os.path.isfile(PNGname.encode('utf8')):
 										os.system(u"open '{}'".format(PNGname))  # show plot
 
+		return 
 	########################################
 	def checkExtraData(self,nPlot,TTI):
 		#return
@@ -9799,11 +9799,11 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def CheckIfPlotOK(self,wait=True,checkOnlyThisOne=""):
 		if checkOnlyThisOne !="": 
-			if self.decideMyLog("General"): self.indiLOG.log(20," checking if plot was done successfully: "+ checkOnlyThisOne)
+			if self.decideMyLog("General"): self.indiLOG.log(20,u" checking if plot was done successfully: "+ checkOnlyThisOne)
 		if not self.checkPlotsEnable and checkOnlyThisOne =="": return
 		if self.waitWithPlotting and checkOnlyThisOne =="": return
 		if self.checkPlot1 and checkOnlyThisOne =="": return
-		if self.gnuORmat =="mat" and wait: self.sleep(4)
+		if self.gnuORmat == "mat" and wait: self.sleep(4)
 		if self.checkFileExistsErrorMessageCounter > 50: self.checkFileExistsErrorMessageCounter =0
 		allDone=True
 		for nPlot in self.PLOT:							#
@@ -9875,7 +9875,7 @@ class Plugin(indigo.PluginBase):
 					if theValue == self.PLOT[nPlot]["PlotFileLastupdates"]: continue
 					self.PLOT[nPlot]["PlotFileLastupdates"] = theValue
 							# write it anyway
-				f =open(self.userIndigoPluginDir+"data/"+self.PLOT[nPlot]["PlotFileOrVariName"].encode('utf8'),"w")
+				f=self.openEncoding(self.userIndigoPluginDir+"data/"+self.PLOT[nPlot]["PlotFileOrVariName"],"w")
 				f.write(theValue.replace("|","\n")+"\n")
 				f.close()
 				if testNew:self.plotNow(createNow=self.PLOT[nPlot]["DeviceNamePlot"])
@@ -10644,14 +10644,6 @@ class Plugin(indigo.PluginBase):
 		self.checkFileExistsErrorMessageCounter =99
 		if self.decideMyLog("SQL"): self.indiLOG.log(10, u"sql commands launched {} waiting for SQL tasks to end to read data into {} pid={}".format(datetime.datetime.now(), self.pluginName, self.pidSQL))
 
-	########################################
-	def openEncoding(self, ff, readOrWrite):
-
-		if sys.version_info[0]  > 2:
-			return open( ff, readOrWrite, encoding="utf-8")
-		else:
-			return codecs.open( ff ,readOrWrite, "utf-8")
-
 
 	########################################
 	def fixSQLFiles(self,wait=True):
@@ -11067,7 +11059,7 @@ class Plugin(indigo.PluginBase):
 						sqlData.append([sqlHistoryData[1],float(sqlHistoryData[-1])])# take date field and data field ignore other fields (0=id, 2...x = day/week .. fields last one is data field
 						atLeastOneRecord = 2
 					except  Exception as e:
-						self.exceptionHandler(30, e)
+						self.indiLOG.log(30,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 						self.indiLOG.log(30, u"sql produced file with bad datan dev:{}; state:{}; recs:{};  line:{}".format(theDeviceName, theState, nrecs, line))
 				else:
 					reject2days +=1
@@ -12139,84 +12131,31 @@ class Plugin(indigo.PluginBase):
 		return
 
 
-
-########################################
-########################################
-####----checkPluginPath----
-########################################
-########################################
-	####------ --------
-	def checkPluginPath(self, pluginName, pathToPlugin):
-
-		if pathToPlugin.find("/" + self.pluginName + ".indigoPlugin/") == -1:
-			self.indiLOG.critical(u"--------------------------------------------------------------------------------------------------------------")
-			self.indiLOG.critical(u"The pluginName is not correct, please reinstall or rename")
-			self.indiLOG.critical(u"It should be   /Libray/....../Plugins/" + pluginName + ".indigoPlugin")
-			p = max(0, pathToPlugin.find("/Contents/Server"))
-			self.indiLOG.critical(u"It is: " + pathToPlugin[:p])
-			self.indiLOG.critical(u"please check your download folder, delete old *.indigoPlugin files or this will happen again during next update")
-			self.indiLOG.critical(u"---------------------------------------------------------------------------------------------------------------")
-			self.sleep(100)
-			return False
-		return True
-
-########################################
-########################################
-####----move files to ...indigo x.y/Preferences/Plugins/< pluginID >.----
-########################################
-########################################
-	####------ --------
-	def moveToIndigoPrefsDir(self, fromPath, toPath):
-		if os.path.isdir(toPath): 		
-			return True
-		indigo.server.log(u"--------------------------------------------------------------------------------------------------------------")
-		indigo.server.log("creating plugin prefs directory ")
-		os.mkdir(toPath)
-		if not os.path.isdir(toPath): 	
-			self.indiLOG.critical("| preference directory can not be created. stopping plugin:  "+ toPath)
-			self.indiLOG.critical(u"--------------------------------------------------------------------------------------------------------------")
-			self.sleep(100)
-			return False
-		indigo.server.log("| preference directory created;  all config.. files will be here: "+ toPath)
-			
-		if not os.path.isdir(fromPath): 
-			indigo.server.log(u"--------------------------------------------------------------------------------------------------------------")
-			return True
-		cmd = "cp -R '"+ fromPath+"'  '"+ toPath+"'"
-		os.system(cmd )
-		self.sleep(1)
-		indigo.server.log("| plugin files moved:  "+ cmd)
-		indigo.server.log("| please delete old files")
-		indigo.server.log(u"--------------------------------------------------------------------------------------------------------------")
-		return True
-
 ####-------------------------------------------------------------------------####
 	def readPopen(self, cmd):
 		try:
 			ret, err = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
 			return ret.decode('utf_8'), err.decode('utf_8')
 		except Exception as e:
-			self.exceptionHandler(40,e)
+			self.indiLOG.log(40,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 
-####-----------------  exception logging ---------
-	def exceptionHandler(self, level, exception_error_message):
-
+####-------------------------------------------------------------------------####
+	def openEncoding(self, ff, readOrWrite):
 		try:
-			try: 
-				if u"{}".format(exception_error_message).find("None") >-1: return exception_error_message
-			except: 
-				pass
+			if sys.version_info[0]  > 2:
+				return open( ff, readOrWrite, encoding="utf-8")
+			else:
+				return codecs.open( ff ,readOrWrite, "utf-8")
+		except	Exception as e:
+			self.indiLOG.log(40,u"decideMyLog in Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
+		return ""
 
-			filename, line_number, method, statement = traceback.extract_tb(sys.exc_info()[2])[-1]
-			#module = filename.split('/')
-			log_message = "'{}'".format(exception_error_message )
-			log_message +=  "\n{} @line {}: '{}'".format(method, line_number, statement)
-			if level > 0:
-				self.indiLOG.log(level, log_message)
-			return "'{}'".format(log_message )
-		except Exception as e:
-			indigo.server.log( "{}".format(e))
-
+	####-----------------	 ---------
+	def completePath(self,inPath):
+		if len(inPath) == 0: return ""
+		if inPath == " ":	 return ""
+		if inPath[-1] !="/": inPath +="/"
+		return inPath
 
 
 ########################################
@@ -12224,14 +12163,6 @@ class Plugin(indigo.PluginBase):
 ####-----------------  logging ---------
 ########################################
 ########################################
-
-	####----------------- ---------
-	def setLogfile(self, lgFile):
-		self.logFileActive =lgFile
-		if   self.logFileActive =="standard":	self.logFile = ""
-		elif self.logFileActive =="indigo":		self.logFile = self.indigoPath.split("Plugins/")[0]+"Logs/"+self.pluginId+"/plugin.log"
-		else:									self.logFile = self.indigoPreferencesPluginDir +"plugin.log"
-		self.indiLOG.log(30,"myLogSet setting parameters -- logFileActive= {}".format(self.logFileActive) + "; logFile= {}".format(self.logFile)+ ";  debugLevel= {}".format(self.debugLevel) )
 
 			
 	####-----------------	 ---------
@@ -12241,78 +12172,10 @@ class Plugin(indigo.PluginBase):
 			if msgLevel	 == ""	 and u"all" not in self.debugLevel:	 return False
 			if msgLevel in self.debugLevel:							 return True
 			return False
-		except	Exception as e:
-			self.indiLOG.log(40,u"decideMyLog in Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
+		except  Exception as e:
+			self.indiLOG.log(40,u"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 		return False
 
-	####-----------------  print to logfile or indigo log  ---------
-	def myLog(self,	 text="", mType="", errorType="", showDate=True, destination=""):
-		   
-
-		try:
-			if	self.logFileActive =="standard" or destination.find("standard") >-1:
-				if errorType == u"smallErr":
-					self.indiLOG.error(u"------------------------------------------------------------------------------")
-					self.indiLOG.error(text)
-					self.indiLOG.error(u"------------------------------------------------------------------------------")
-
-				elif errorType == u"bigErr":
-					self.indiLOG.error(u"==================================================================================")
-					self.indiLOG.error(text)
-					self.indiLOG.error(u"==================================================================================")
-
-				elif mType == "":
-					indigo.server.log(text)
-				else:
-					indigo.server.log(text, type=mType)
-
-
-			if	self.logFileActive !="standard":
-
-				ts =""
-				try:
-					if len(self.logFile) < 3: return # not properly defined
-					f =	 self.openEncoding(self.logFile,"a")
-				except	Exception as e:
-					self.indiLOG.log(40,u"Line '{}' has error='{}'".format(sys.exc_info()[2].tb_lineno, e))
-					try:
-						f.close()
-					except:
-						pass
-					return
-
-				if errorType == u"smallErr":
-					if showDate: ts = datetime.datetime.now().strftime(u"%H:%M:%S")
-					f.write(u"----------------------------------------------------------------------------------\n")
-					f.write((ts+u" ".ljust(12)+u"-"+text+u"\n").encode(u"utf8"))
-					f.write(u"----------------------------------------------------------------------------------\n")
-					f.close()
-					return
-
-				if errorType == u"bigErr":
-					if showDate: ts = datetime.datetime.now().strftime(u"%H:%M:%S")
-					ts = datetime.datetime.now().strftime(u"%H:%M:%S")
-					f.write(u"==================================================================================\n")
-					f.write((ts+u" "+u" ".ljust(12)+u"-"+text+u"\n").encode(u"utf8"))
-					f.write(u"==================================================================================\n")
-					f.close()
-					return
-				if showDate: ts = datetime.datetime.now().strftime(u"%H:%M:%S")
-				if mType == u"":
-					f.write(u"{} {:25} -{}\n".format(ts, " ", text))
-				else:
-					f.write(u"{} {:25} -{}\n".format(ts, mType, text))
-				### print calling function 
-				#f.write(u"_getframe:   1:" +sys._getframe(1).f_code.co_name+"   called from:"+sys._getframe(2).f_code.co_name+" @ line# %d"%(sys._getframe(1).f_lineno) ) # +"    trace# {}".format(sys._getframe(1).f_trace)+"\n" )
-				f.close()
-				return
-
-
-		except	Exception as e:
-				self.indiLOG.log(40,u"myLog in Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
-				indigo.server.log(text)
-				try: f.close()
-				except: pass
 
 ##################################################################################################################
 ####-----------------  valiable formatter for differnt log levels ---------
