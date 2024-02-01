@@ -1,4 +1,4 @@
- changes in v2022.21.79 @ 2024-02-02
+ changes in v2022.21.80 @ 2024-02-02
 ===================================================
 
 1. change sqlite path to default directory, removed option in config to change it.
