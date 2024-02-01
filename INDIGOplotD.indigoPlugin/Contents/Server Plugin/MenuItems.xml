@@ -1048,10 +1048,17 @@
     <MenuItem id="menu1">
         <Name>WRITE file paths and name of PLOT.png files to logfile for use in Control Pages</Name>
         <CallbackMethod>inpFnameToLog</CallbackMethod></MenuItem>
+
     <MenuItem id="d30"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
     <MenuItem id="menu3">
         <Name>(re)INSTALL GNUplot with Font support</Name>
-        <CallbackMethod>inpInstallGnuplot</CallbackMethod></MenuItem>
+        <ConfigUI>
+            <Field   id="columnToRemove"  type="label">
+                <Label>use macappstore.org/gnuplot  to install</Label>
+            </Field>
+        </ConfigUI></MenuItem>
+
+
 
     <MenuItem id="d40"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
     <MenuItem id="menu4">

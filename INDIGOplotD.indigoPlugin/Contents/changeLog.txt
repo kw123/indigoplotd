@@ -1,3 +1,22 @@
+ changes in v2022.21.79 @ 2024-02-02
+===================================================
+
+1. change sqlite path to default directory, removed option in config to change it.
+it is now always: /Library/Application Support/Perceptive Automation/Indigo 20xx.y/Logs
+    this removes an issue when indigo changes its directory, i.e. moving from  2023.2 to 2023.3
+    this path is also used if you use psql, not only for sqlite
+
+
+
+
+ changes in v2022.21.78 @ 2024-01-11
+===================================================
+
+1. print explicit error message when certain directories can not be created.
+
+
+
+
  changes in v2022.21.76 @ 2021-06-22
 ===================================================
 
