@@ -125,6 +125,8 @@ emptyPlot={"Grid"				:"0"
 		  ,"XScaleRange"		:""
 		  ,"XScaleTics"			:""
 		  ,"XLabel"				:"x-axis Text"
+		  ,"XLabelPos"			:"0.9,-0.1"
+		  ,"RXNumbers"			:"30"
 		  ,"XLog"				:"linear"
 		  ,"XScaleDecPoints"	:"0"
 		  ,"XScaleFormat"		:""
@@ -463,7 +465,7 @@ class Plugin(indigo.PluginBase):
 		self.matplotcommand						=	self.userIndigoPluginDir+"matplot/matplot.cmd"
 		self.MPlogfile							=	self.userIndigoPluginDir+"matplot/matplot.log"
 		self.matplotPid							=	self.userIndigoPluginDir+"matplot/matplot.pid"
-		self.matPLOTParameterFile				=	self.userIndigoPluginDir+"matplot/matplot.cfg"			# this is the config file name + -plot.cfg and -device.cfg
+		self.matPLOTParameterFile				=	self.userIndigoPluginDir+"matplot/matplot.json"			# this is the config file name + -plot.cfg and -device.cfg
 		self.plotSizeNames						=	["S1","S2"] # file names for size 1 and size 2 of plots
 		self.plotTimeNames						=	["minute","hour","day"] # files name for the different binings
 		self.updateALL							=	False
@@ -2138,7 +2140,7 @@ class Plugin(indigo.PluginBase):
 			if max(self.sqlHistListStatus) > 0: 
 				if self.decideMyLog("SQL"): self.indiLOG.log(30,"waiting for regular SQL job to finish before we do EVENT data: ")    
 				return 
-			devstateList="COL,devID,State: "
+			devstateList = "COL,devID,State: "
 			for tc in colList:
 				theCol = int(tc)
 				devNo= self.dataColumnToDevice0Prop1Index[theCol][0]																			# for shorter typing
@@ -2146,7 +2148,7 @@ class Plugin(indigo.PluginBase):
 				theDeviceId		= "{}".format(self.DEVICE["{}".format(devNo)]["Id"])
 				theState	    = self.DEVICE["{}".format(devNo)]["state"][stateNo]
 				devstateList += tc+"/"+theDeviceId+"/"+theState+";"
-				self.sqlColListStatus[theCol] 	= 10
+				self.sqlColListStatus[theCol] = 10
 				if  os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done"):	os.remove(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+".done")
 				self.devicesAdded = 5
 				self.eventSQLjobState = "requested"
@@ -2523,6 +2525,8 @@ class Plugin(indigo.PluginBase):
 					f.write(u' ,"XScaleTics"           : u\'{}'.format(PL["XScaleTics"])+'\'\n')
 					f.write(u' ,"XLog"                 : u\'{}'.format(PL["XLog"])+'\'\n')
 					f.write(u' ,"XLabel"               : u\'{}'.format(PL["XLabel"])+'\'\n')
+					f.write(u' ,"XLabelPos"            : u\'{}'.format(PL.get("XLabelPos",emptyPlot["XLabelPos"]))+'\'\n')
+					f.write(u' ,"RXNumbers"            : u\'{}'.format(PL.get("RXNumbers",emptyPlot["RXNumbers"]))+'\'\n')
 					f.write(u' ,"XScaleDecPoints"      : u\'{}'.format(PL["XScaleDecPoints"])+'\'\n')
 					f.write(u' ,"XScaleFormat"         : u\'{}'.format(PL["XScaleFormat"])+'\'           ### python / c .. format string for x axis \n')
 					f.write(u' ,"resxy0"               : u\'{}'.format(PL["resxy"][0])+'\'            ### x,y  number of dots in x and y  for plotsize 1\n')
@@ -3718,6 +3722,7 @@ class Plugin(indigo.PluginBase):
 								self.convertVariableOrDeviceStateToText(PLT["XScaleDecPoints"]),    
 								self.convertVariableOrDeviceStateToText(PLT["XLog"]),     
 								self.convertVariableOrDeviceStateToText(PLT["XLabel"]), 
+								self.convertVariableOrDeviceStateToText(PLT["XLabelPos"]), 
 								self.convertVariableOrDeviceStateToText(PLT["XScaleFormat"]), 
 								PLT["boxWidth"],
 								PLT["XYvPolar"],
@@ -6360,9 +6365,9 @@ class Plugin(indigo.PluginBase):
 		self.eventDataPresent = {}
 		for devNo in self.DEVICE:
 			if devNo == "0": continue
-			if self.DEVICE["{}".format(devNo)]["Id"] ==0: continue
+			if self.DEVICE["{}".format(devNo)]["Id"] == 0: continue
 			for stateNo in range (1, noOfStatesPerDeviceG+1):
-				if self.DEVICE[devNo]["measurement"][stateNo].find("event") >-1:
+				if self.DEVICE[devNo]["measurement"][stateNo].find("event") > -1:
 					self.eventDataPresent["{}".format(self.DEVICE[devNo]["stateToIndex"][stateNo])] = [devNo,stateNo]
 
 
@@ -6897,6 +6902,8 @@ class Plugin(indigo.PluginBase):
 			valuesDict["LeftLabel"]			= self.PLOT[nPlot]["LeftLabel"]
 			valuesDict["RightLabel"]		= self.PLOT[nPlot]["RightLabel"]
 			valuesDict["XLabel"]			= self.PLOT[nPlot]["XLabel"]
+			valuesDict["XLabelPos"]			= self.PLOT[nPlot].get("XLabelPos",emptyPlot["XLabelPos"])
+			valuesDict["RXNumbers"]			= self.PLOT[nPlot].get("RXNumbers",emptyPlot["RXNumbers"])
 
 			valuesDict["Grid"]				= self.PLOT[nPlot]["Grid"]
 			valuesDict["Border"]			= self.PLOT[nPlot]["Border"]
@@ -7097,27 +7104,27 @@ class Plugin(indigo.PluginBase):
 			Pos										= valuesDict["ExtraTextXPos"]
 			try:
 				Pos = float(Pos)
-				if Pos ==0.0: Pos =0.01
-				Pos=str(Pos)
+				if Pos == 0.0: Pos = 0.01
+				Pos = str(Pos)
 			except:
-				Pos="0.0"
+				Pos = "0.0"
 			self.PLOT[nPlot]["ExtraTextXPos"] 		= Pos
 			
 			Pos										= valuesDict["ExtraTextYPos"]
 			try:
 				Pos = float(Pos)
-				if Pos ==0.0: Pos =0.01
-				Pos=str(Pos)
+				if Pos ==0.0: Pos = 0.01
+				Pos = str(Pos)
 			except:
-				Pos="0.0"
+				Pos = "0.0"
 			self.PLOT[nPlot]["ExtraTextYPos"] 		= Pos
 			
 			Pos										= valuesDict["ExtraTextRotate"]
 			try:
 				Pos = float(Pos)
-				Pos=str(Pos)
+				Pos = str(Pos)
 			except:
-				Pos="0.0"
+				Pos = "0.0"
 			self.PLOT[nPlot]["ExtraTextRotate"]		= Pos
 			
 			if valuesDict["ExtraTextFrontBack"]=="back":
@@ -7134,8 +7141,8 @@ class Plugin(indigo.PluginBase):
 				valuesDict["ExtraTextColorRGB"]				= rgbINT
 			else:
 				rgbINT ,rgbHEX, Error = self.convertoIntAndHexRGB(valuesDict["ExtraTextColorRGB"],defColor="#000000")
-				valuesDict["ExtraTextColorRGB"]					= rgbINT
-				self.PLOT[nPlot]["ExtraTextColorRGB"]			= rgbHEX
+				valuesDict["ExtraTextColorRGB"]				= rgbINT
+				self.PLOT[nPlot]["ExtraTextColorRGB"]		= rgbHEX
 		
 
 		else:
@@ -7152,6 +7159,8 @@ class Plugin(indigo.PluginBase):
 		self.PLOT[nPlot]["LeftLabel"] 			= valuesDict["LeftLabel"]
 		self.PLOT[nPlot]["RightLabel"]			= valuesDict["RightLabel"]
 		self.PLOT[nPlot]["XLabel"]				= valuesDict["XLabel"]
+		self.PLOT[nPlot]["XLabelPos"]			= valuesDict["XLabelPos"]
+		self.PLOT[nPlot]["RXNumbers"]			= valuesDict["RXNumbers"]
 
 		self.PLOT[nPlot]["LeftScaleTics"]		= valuesDict["LeftScaleTics"]
 		self.PLOT[nPlot]["RightScaleTics"]		= valuesDict["RightScaleTics"]

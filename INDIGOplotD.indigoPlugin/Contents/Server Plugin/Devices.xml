@@ -502,6 +502,15 @@
     <Label>...Label:</Label>
     </Field>
 
+<Field visibleBindingId="showXscale" visibleBindingValue="true" id="XLabelPos"		type="textfield" defaultValue="0.9,-0.1"  tooltip="X Label pos.">
+    <Label>...LabelPos(x,y)[-0.1,1.1] for PolarPlot:</Label>
+    </Field>
+
+
+<Field visibleBindingId="showXscale" visibleBindingValue="true" id="RXNumbers"		type="textfield" defaultValue="30"  tooltip="X numbers pos in degree">
+    <Label>...NumberPos(deg) for PolarPlot:</Label>
+    </Field>
+
 
 
 

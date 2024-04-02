@@ -1,3 +1,12 @@
+ changes in v2022.21.81 @ 2024-04-02
+===================================================
+
+1. added option for polarplots:
+   - position of  R label ( was at ~ 30 deg.)
+   - angle of R tick numbers (was def 30 deg)
+
+
+
  changes in v2022.21.80 @ 2024-02-02
 ===================================================
 

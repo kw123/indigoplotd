@@ -2069,10 +2069,10 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 	try:
 		y1=True
 		fig = plt.figure(facecolor=plotN["Background"],figsize=(xres,yres),dpi=100)
-		fig.suptitle(plotN["TitleText"],y=0.98)
-		if len(plotN["ExtraText"]) >0:
-			if plotN["ExtraTextFrontBack"] == "back": alpaText=0.5
-			else:alpaText=1.0
+		fig.suptitle(plotN["TitleText"], y=0.98)
+		if len(plotN["ExtraText"]) > 0:
+			if plotN["ExtraTextFrontBack"] == "back": alpaText = 0.5
+			else:alpaText = 1.0
 			fig.text(
 				 plotN["ExtraTextXPos"]
 				,plotN["ExtraTextYPos"]
@@ -2089,6 +2089,7 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 		else:
 			fig.patch.set_alpha(1.0)
 			ax = fig.add_subplot(111, facecolor=plotN["Background"], polar=True)
+
 
 		for ll0 in range(colsToPlot):
 			if len(xtimeCol[ll0])< 1: continue # skip empty lines
@@ -2128,6 +2129,7 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 					tx = tx
 				tickNum.append(tn)
 				tickText.append(tx)
+			
 			ax.set_yticks(tickNum)
 			ax.set_yticklabels(tickText)
 
@@ -2184,11 +2186,28 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 				ax.set_yticklabels([""])
 				ax.spines['polar'].set_color(plotN["Background"])
 
+		dir_yaxis = 30.
+		try:
+			dir_yaxis = float(plotN.get("RXNumbers","30"))
+		except: pass
+		#logger.log(20,"dir_yaxis: {} ".format(dir_yaxis))
+
+		ax.set_rlabel_position( dir_yaxis )
+
 		ax.legend(loc= "upper right")
 		ax.set_xlabel(plotN["XLabel"], color =plotN["TextColor"], alpha=1.0)
-		lOffset = max(0,len(plotN["XLabel"])-5)*(0.004*float(plotN["TextSize"])/10.*float(plotN["Textscale21"]))
-		ax.xaxis.set_label_coords(1.05-lOffset,0.72)
 
+		lOffset = max(0,len(plotN["XLabel"])-5)*(0.004*float(plotN["TextSize"])/10.*float(plotN["Textscale21"]))
+		xLpos = [1.05-lOffset, 1.1]
+		xlPos0 = plotN.get("XLabelPos","1.05,1.1").split(",")
+		#logger.log(20,"xlPos0 {} ".format(xlPos0))
+		try:
+			if len(xlPos0) == 2: 
+				xLpos = [float(xlPos0[0]), float(xlPos0[1])]
+		except: pass
+		#logger.log(20,"xlPos {} ".format(xLpos))
+
+		ax.xaxis.set_label_coords(xLpos[0], xLpos[1])
 		save_plot(DeviceNamePlotpng, fig, plt, plotN["TransparentBackground"], plotN["compressPNGfile"])
 		logger.log(10,"Done for "+MHD[tType]+" plot,  .. releasing memory .. cleanup.. ")
 
@@ -2305,8 +2324,8 @@ noOfMinutesInTimeBins		=	[5,60,24*60]
 userName					= pwd.getpwuid( os.getuid() )[ 0 ]
 MAChome                     = os.path.expanduser("~")
 
-parameterFile				= prefsDir+"matplot/matplot.cfg"			# this is the config file name + -plot.cfg and -device.cfg
-parameterFileD				= prefsDir+"matplot/matplotD.cfg"			# this is the config file name + -plot.cfg and -device.cfg
+parameterFile				= prefsDir+"matplot/matplot.json"			# this is the config file name + -plot.cfg and -device.cfg
+parameterFileD				= prefsDir+"matplot/matplotD.json"			# this is the config file name + -plot.cfg and -device.cfg
 matplotcommand				= prefsDir+"matplot/matplot.cmd"
 myPID						= str(os.getpid())
 if not os.path.isdir( prefsDir+"data/" ): 	quitNOW = True
