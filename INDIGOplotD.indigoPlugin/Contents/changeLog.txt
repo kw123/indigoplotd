@@ -1,10 +1,16 @@
- changes in v2022.21.81 @ 2024-04-02
+ changes in v2022.21.82 @ 2024-04-02
+===================================================
+
+1. fixed INDIGOplotD Error Line '3691' has error='Plugin.createGNUfile() takes 55 positional arguments but 56 were given
+
+
+ changes in v2022.21.82 @ 2024-04-02
 ===================================================
 
 1. added option for polarplots:
    - position of  R label ( was at ~ 30 deg.)
    - angle of R tick numbers (was def 30 deg)
-
+2. 
 
 
  changes in v2022.21.80 @ 2024-02-02

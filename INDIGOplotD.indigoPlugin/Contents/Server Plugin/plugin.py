@@ -3731,6 +3731,7 @@ class Plugin(indigo.PluginBase):
 								weight,colorbar,
 								numberCommands,arrows,
 								rawcmd,PLT["drawZeroLine"],ncols+1 ,outLine)
+
 		except  Exception as e:
 			self.indiLOG.log(40,"Line '%s' has error='%s'error in setupGNUPlotFiles" % (sys.exc_info()[2].tb_lineno, e))
 
@@ -3827,12 +3828,12 @@ class Plugin(indigo.PluginBase):
 		,grid,Border,res,background,TransparentBackground,TransparentBlocks,am24
 		,rangeY, ticsY, LDec,LLog,labelY
 		,rangeY2,ticsY2,RDec,RLog,labelY2
-		,rangeX, ticsX, XDec,XLog,labelX,XScaleFormat, boxWidth, XYvPolar
+		,rangeX, ticsX, XDec, XLog, labelX, XLabelPos, XScaleFormat, boxWidth, XYvPolar # XLabelPos not used 
 		,MHDFormat
-		,TTI,earliestDay, lastDay, nDays
-		,weight,colorbar
+		,TTI, earliestDay, lastDay, nDays
+		,weight, colorbar
 		,numberCommands,arrows
-		,rawCmd,drawZeroLine,numberOfLines , theLines ):
+		,rawCmd, drawZeroLine, numberOfLines , theLines ):
 
 
 		if nDays ==0 and theType !="Xscale" : return

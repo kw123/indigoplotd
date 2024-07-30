@@ -96,6 +96,7 @@
 <Field id="liteOrPsqlString"    visibleBindingId="liteOrPsql" visibleBindingValue="psql"   type="textfield" defaultValue="/Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres"     readonly="no">
     <Label>postgre command string </Label>
     </Field>
+
 <Field id="sqlitepath"   visibleBindingId="liteOrPsql" visibleBindingValue="sqlite"   type="textfield" defaultValue=""     readonly="no">
     <Label>Path to sqLite Database(leave empty for default)</Label>
     </Field>
