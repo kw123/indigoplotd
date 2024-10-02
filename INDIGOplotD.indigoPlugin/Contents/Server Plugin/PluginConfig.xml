@@ -97,11 +97,6 @@
     <Label>postgre command string </Label>
     </Field>
 
-<Field id="sqlitepath"   visibleBindingId="liteOrPsql" visibleBindingValue="sqlite"   type="textfield" defaultValue=""     readonly="no">
-    <Label>Path to sqLite Database(leave empty for default)</Label>
-    </Field>
-
-
 <Field id="s1-2-7" type="separator"/>
 
 <Field   id="originalCopySQL" visibleBindingId="liteOrPsql" visibleBindingValue="sqlite"   type="menu" defaultValue="original"

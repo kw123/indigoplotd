@@ -1,3 +1,12 @@
+ changes in v2022.21.84 @ 2024-10-02
+===================================================
+
+1. removed option to set sqlLite path. it is now fixed to : /Library/Application Support/Perceptive Automation/Indigo <theversion numer>/Logs/
+   it was set to be configurable many years ago, but has created mostly confusion. 
+   it now points to the default path in indigo.
+
+
+
  changes in v2022.21.82 @ 2024-04-02
 ===================================================
 

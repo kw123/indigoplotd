@@ -292,14 +292,14 @@ class Plugin(indigo.PluginBase):
 		self.indiLOG.log(10,"plugin.py               {}".format(self.pathToPlugin))
 		self.indiLOG.log(10,"indigo                  {}".format(self.indigoRootPath))
 		self.indiLOG.log(20,"detailed logging        {}".format(self.PluginLogFile))
-		self.indiLOG.log(20,"testing logging levels, for info only: ")
-		self.indiLOG.log( 0,"logger  enabled for     0 ==> TEST ONLY ")
-		self.indiLOG.log( 5,"logger  enabled for     THREADDEBUG    ==> TEST ONLY ")
-		self.indiLOG.log(10,"logger  enabled for     DEBUG          ==> TEST ONLY ")
-		self.indiLOG.log(20,"logger  enabled for     INFO           ==> TEST ONLY ")
-		self.indiLOG.log(30,"logger  enabled for     WARNING        ==> TEST ONLY ")
-		self.indiLOG.log(40,"logger  enabled for     ERROR          ==> TEST ONLY ")
-		self.indiLOG.log(50,"logger  enabled for     CRITICAL       ==> TEST ONLY ")
+		#self.indiLOG.log(20,"testing logging levels, for info only: ")
+		#self.indiLOG.log( 0,"logger  enabled for     0 ==> TEST ONLY ")
+		#self.indiLOG.log( 5,"logger  enabled for     THREADDEBUG    ==> TEST ONLY ")
+		#self.indiLOG.log(10,"logger  enabled for     DEBUG          ==> TEST ONLY ")
+		#self.indiLOG.log(20,"logger  enabled for     INFO           ==> TEST ONLY ")
+		#self.indiLOG.log(30,"logger  enabled for     WARNING        ==> TEST ONLY ")
+		#self.indiLOG.log(40,"logger  enabled for     ERROR          ==> TEST ONLY ")
+		#self.indiLOG.log(50,"logger  enabled for     CRITICAL       ==> TEST ONLY ")
 		self.indiLOG.log(10,"Plugin short Name       {}".format(self.pluginShortName))
 		self.indiLOG.log(10,"my PID                  {}".format(self.myPID))	 
 		self.indiLOG.log(10,"Achitecture             {}".format(platform.platform()))	 
@@ -435,7 +435,6 @@ class Plugin(indigo.PluginBase):
 
 		### and the path to indigo:
 		self.indigoSQLliteLogsPath				=	self.indigoPath+"Logs/"
-		self.pluginPrefs["sqlitepath"]			=	self.indigoSQLliteLogsPath
 		self.liteOrPsql							=	self.pluginPrefs.get("liteOrPsql","sqlite")
 		self.liteOrPsqlString					=	self.pluginPrefs.get("liteOrPsqlString","")
 		if self.liteOrPsql	 == "psql":
@@ -2268,16 +2267,16 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def FnameToLog(self,DeviceName="all"):
-		self.indiLOG.log(10,"IndigoPlot png file names: copy and paste to field <URL:>  below Display: <RefreshingImage URL>")
+		self.indiLOG.log(20,"IndigoPlot png file names: copy and paste to field <URL:>  below Display: <RefreshingImage URL>")
 		for nPlot in self.PLOT:
 			if self.PLOT[nPlot]["NumberIsUsed"] ==1:
 				if DeviceName =="all" or DeviceName == self.PLOT[nPlot]["DeviceNamePlot"]:
 					for tt in range(0,noOfTimeTypes):
 						for ss in range(0,2):
 							Fnamepng= self.indigoPNGdir+self.PLOT[nPlot]["DeviceNamePlot"]+"-"+self.plotTimeNames[tt]+"-"+self.plotSizeNames[ss]+".png"
-							self.indiLOG.log(10,"   file://"+Fnamepng.replace(" ","%20"))
+							self.indiLOG.log(20,"   file://"+Fnamepng.replace(" ","%20"))
 	
-		if DeviceName =="all": self.indiLOG.log(10,"command: write the looong path/filenames of plotfiles to logfile for copy and paste .. DONE")
+		if DeviceName =="all": self.indiLOG.log(20,"command: write the looong path/filenames of plotfiles to logfile for copy and paste .. DONE")
 		return
 
 
@@ -4754,12 +4753,6 @@ class Plugin(indigo.PluginBase):
 				self.gnuPlotBinary = action["gnuPlotBin"]
 				self.pluginPrefs["gnuPlotBin"]=self.gnuPlotBinary
 				self.indiLOG.log(20,"setConfigParameters-- set gnuPlotBin to: {}".format(self.gnuPlotBinary ))
-
-		if  "sqlitepath" 				in action:
-			if len(action["sqlitepath"]) > 10:
-				self.indigoSQLliteLogsPath = action["sqlitepath"]
-				self.pluginPrefs["sqlitepath"] = self.indigoSQLliteLogsPath
-				self.indiLOG.log(20,"setConfigParameters-- set sqlitepath to: {}".format(self.indigoSQLliteLogsPath ))
 
 
 		if  "sqlDynamic" 		in action:
@@ -7923,8 +7916,6 @@ class Plugin(indigo.PluginBase):
 
 		valuesDict["supressGnuWarnings"]   = self.supressGnuWarnings
 
-		valuesDict["sqlitepath"]		    = self.indigoSQLliteLogsPath
-
 		return valuesDict
 
 
@@ -7946,9 +7937,6 @@ class Plugin(indigo.PluginBase):
 				self.liteOrPsqlString =  "/Applications/Postgres.app/Contents/Versions/latest/bin/psql indigo_history -U postgres"
 		self.originalCopySQL                        = valuesDict["originalCopySQL"]
 
-		if len(valuesDict["sqlitepath"]) < 2:
-			self.indigoSQLliteLogsPath = self.indigoPath+"Logs/"
-		if self.indigoSQLliteLogsPath[-1] !="/": self.indigoSQLliteLogsPath+="/"
 
 		self.debugLevel             = []
 		for d in ["Restore","General","Initialize","Plotting","Matplot","SQL","Special","all"]:
@@ -11978,10 +11966,10 @@ class Plugin(indigo.PluginBase):
 			try:
 				self.gnuVersion= ret.split()[1]
 			except:
-				self.indiLOG.log(40,' gnuplot is not installed '+ret)
+				self.indiLOG.log(30,' gnuplot is not installed '+ret)
 				return
 		else:
-			self.indiLOG.log(40,' gnuplot is not installed '+ret)
+			self.indiLOG.log(30,' gnuplot is not installed '+ret)
 			return
 		
 
