@@ -1,3 +1,10 @@
+ changes in v2022.21.85 @ 2025-06-24
+===================================================
+
+1. fix bug sleep(30) -> self.sleep(3) in line 776
+    only occurred during sql read exceptions
+
+
  changes in v2022.21.84 @ 2024-10-02
 ===================================================
 
