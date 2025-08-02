@@ -148,8 +148,8 @@ def readPlotParameters():
 				dataOffsetInTimeDataNumbers     = copy.deepcopy(xxxx["dataOffsetInTimeDataNumbers"])
 				indigoPNGdir                    = copy.deepcopy(xxxx["PNGdir"])
 				logger.log(10," plot   parameters from indigoplotD first     1000 char\n {}".format(json.dumps(PLOT,sort_keys=True, indent=2)[:100]) )
-				xxxx=""
-				input=""
+				xxxx = ""
+				input = ""
 				return True
 			except  Exception as e:
 				logger.log(40,"", exc_info=True)
@@ -169,9 +169,9 @@ def resettimeDataNumbers():
 ########################################
 def getEventData():
 	global eventData, eventIndex, DEVICE, dataColumnToDevice0Prop1Index, eventType
-	eventData  ={}
-	eventIndex ={}
-	eventType  ={}
+	eventData  = {}
+	eventIndex = {}
+	eventType  = {}
 
 	for theCol in range(1,len(dataColumnToDevice0Prop1Index)):
 			devNo= dataColumnToDevice0Prop1Index[theCol][0]
@@ -188,13 +188,13 @@ def getEventData():
 					event="change"
 				elif DEVICE[str(devNo)]["measurement"][stateNo].find("eventCOUNT") >-1:   
 					event="count"
-					if DEVICE[str(devNo)]["resetType"][stateNo].find("0") ==-1:   
+					if DEVICE[str(devNo)]["resetType"][stateNo].find("0") == -1:   
 						resetType = "-"+DEVICE[str(devNo)]["resetType"][stateNo]
-						if   resetType.find("day")   >-1: resetType = "-day" 
-						elif resetType.find("week")  >-1: resetType = "-week" 
-						elif resetType.find("month") >-1: resetType = "-month" 
-						elif resetType.find("year")  >-1: resetType = "-year" 
-						else:                             resetType = "-bin" 
+						if   resetType.find("day")   > -1: resetType = "-day" 
+						elif resetType.find("week")  > -1: resetType = "-week" 
+						elif resetType.find("month") > -1: resetType = "-month" 
+						elif resetType.find("year")  > -1: resetType = "-year" 
+						else:                              resetType = "-bin" 
 					if DEVICE[str(devNo)]["measurement"][stateNo].find("zero") >-1:   
 						zero = "-zero"
 				else:
@@ -204,7 +204,7 @@ def getEventData():
 				eventIndex[str(theCol)] = 0
 				eventType[str(theCol)]  = event+resetType+zero
 				### try it 3 time s
-				errorC =0
+				errorC = 0
 				for ii in range(3):
 					try:
 						#print "doing: ..."+prefsDir+"sql/"+str(DEVICE[str(devNo)]["Id"]) + "-" + DEVICE[str(devNo)]["state"][stateNo]
@@ -213,7 +213,7 @@ def getEventData():
 						nn=0
 						for line in f.readlines():
 							dd=line.strip("\n").split(";")
-							if len(dd)==3:
+							if len(dd) == 3:
 								datax.append([dd[1],1,0,0,0,0,1,float(dd[-1])]) # same format as plotDatastore
 								datax[nn][2] = datetime.datetime.strptime(dd[1],"%Y%m%d%H%M%S").weekday()
 								if nn >0:
@@ -221,20 +221,20 @@ def getEventData():
 										datax[nn-1][3] = 1
 									if dd[1][-10:] == "0101000000":  # last bin  in year
 										datax[nn-1][4] = 1
-							nn+=1         #  0  1 2 3 4 5 6 7 
+							nn += 1         #  0  1 2 3 4 5 6 7 
 						f.close()
 						#print datax
 						eventData[str(theCol)] = datax
-						eventIndex[str(theCol)]= nn
+						eventIndex[str(theCol)] = nn
 						#print " read done", theCol, eventIndex[str(theCol)], eventData[str(theCol)][0:2]
-						errorC =0
+						errorC = 0
 						break
 					except  Exception as e:
 						logger.log(40,"", exc_info=True)
 						logger.log(10,"DEVICE {};  col#:{} no event data ?".format(DEVICE[str(devNo)]["Id"], theCol) )
 						time.sleep(4)
-						errorC +=1
-				if errorC==0: logger.log(10,"read event ...sql/{}-{} ok".format(DEVICE[str(devNo)]["Id"], DEVICE[str(devNo)]["state"][stateNo]))
+						errorC += 1
+				if errorC == 0: logger.log(10,"read event ...sql/{}-{} ok".format(DEVICE[str(devNo)]["Id"], DEVICE[str(devNo)]["state"][stateNo]))
 	return
 
 
@@ -248,8 +248,8 @@ def getDiskData(tType):
 	global dataColumnCount,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeTypes, numberOfTimeBins, timeDataNumbers
 	
 	if os.path.isfile(fileData[tType]):
-		i=0
-		f=open(fileData[tType], "r")
+		i = 0
+		f = open(fileData[tType], "r")
 		for i, l in enumerate(f):
 			pass
 		f.close()
@@ -271,13 +271,13 @@ def getDiskData(tType):
 		if len(line) < 16: return  False # checking length of first 2 item. its the date string YYYYMMDD +HH + MM so 8 10 12 +";0.0" +4 = 12 14 16
 		
 		f.close()
-		sep=";"
+		sep = ";"
 			
 		if len(line.split(sep)[0]) < 8: return False # junk data
 
-		dataColumnCount ==0
+		dataColumnCount == 0
 		f= open( fileData[tType] , "r")
-		theIndex=0
+		theIndex = 0
 		for line in f.readlines():
 			test = line.strip("\n").strip(" ").strip(" "+sep).split(sep)
 			if len(test[0]) < 8: return False
@@ -293,7 +293,7 @@ def getDiskData(tType):
 				timeDataNumbers[tType][line].append("")
 	
 	# check if new data
-	if oldfileData[tType] !=timeDataNumbers[tType]:
+	if oldfileData[tType] != timeDataNumbers[tType]:
 		oldfileData[tType] = copy.deepcopy(timeDataNumbers[tType])
 		newData=True
 	else:
@@ -321,9 +321,9 @@ def firstLastDayToPlot(days, shift,tType):
 	ddn = datetime.datetime.now()
 	earliestDay, lastDay=d,d
 
-	if days ==0: return earliestDay, lastDay
+	if days == 0: return earliestDay, lastDay
 	
-	if tType ==2  or tType ==1 :  ###  for day & hour plot
+	if tType == 2  or tType == 1 :  ###  for day & hour plot
 		if  shift >= 0:
 			earliestDay		= ( dd +datetime.timedelta(1) - datetime.timedelta( days+ shift) )
 			lastDay			= ( dd +datetime.timedelta(1) - datetime.timedelta( shift ) )
@@ -333,7 +333,7 @@ def firstLastDayToPlot(days, shift,tType):
 			lastDay			= ( dd +datetime.timedelta(1) - datetime.timedelta( shift ) )
 			return earliestDay, lastDay
 
-	if tType ==0  :  ###  for minute plot
+	if tType == 0  :  ###  for minute plot
 		if shift == 0:
 			YRIGHT 			= dd+datetime.timedelta(1)
 			lastDay			= YRIGHT 
@@ -363,29 +363,29 @@ def firstLastDayToPlot(days, shift,tType):
 	elif curMonth < 10: firstMonth=7
 	else:				firstMonth=10
 
-	if   shift ==-10: # this is for one fixed week monday - sunday
+	if   shift == -10: # this is for one fixed week monday - sunday
 		earliestDay 	= (dd - datetime.timedelta( curWeekday ) )
 		lastDay 		= (dd + datetime.timedelta( 7-curWeekday ) )
 
-	elif shift ==-11: # this is for TWO fixed week monday - sunday
+	elif shift == -11: # this is for TWO fixed week monday - sunday
 		earliestDay 	= (dd - datetime.timedelta( 7+curWeekday ) )
 		lastDay			= (dd + datetime.timedelta( 7-curWeekday ) )
 
-	elif shift ==-20: # this is for one fixed month
+	elif shift == -20: # this is for one fixed month
 		earliestDay 	= datetime.datetime(curYear, curMonth, 1)
 		if curMonth <12:
 			lastDay 	= datetime.datetime(curYear, curMonth+1, 1)
 		else:
 			lastDay 	= datetime.datetime(curYear+1, 1, 1)
 
-	elif shift ==-30: # this is for one Fixed Quarter
+	elif shift == -30: # this is for one Fixed Quarter
 		earliestDay 	= datetime.datetime(curYear, firstMonth, 1)
 		if firstMonth < 10:
 			lastDay 	= datetime.datetime(curYear, firstMonth+3, 1)
 		else:
 			lastDay 	= datetime.datetime(curYear+1, 1, 1)
 
-	elif shift ==-40: # this is for one Fixed Year
+	elif shift == -40: # this is for one Fixed Year
 		earliestDay 	= datetime.datetime(curYear, 1, 1)
 		lastDay 		= datetime.datetime(curYear+1, 1, 1)
 
@@ -472,11 +472,11 @@ def do_nPlot(nPlot,filenamesToPlot):
 				plotN = PLOT[nPlot]
 				if plotN["NumberIsUsed"] !=1: return
 				if "enabled" in plotN and  plotN["enabled"] !="True": return
-				if not( filenamesToPlot[0] =="" or filenamesToPlot[0] == "do all plots" or plotN["DeviceNamePlot"] in filenamesToPlot  ): return
+				if not( filenamesToPlot[0] == "" or filenamesToPlot[0] == " do all plots" or plotN["DeviceNamePlot"] in filenamesToPlot  ): return
 		
 				#### check if there is anything new in the PLOT definition
 				doPLOT=False
-		#		if  filenamesToPlot[0] =="" or filenamesToPlot[0] =="do all plots":
+		#		if  filenamesToPlot[0] == "" or filenamesToPlot[0] == "do all plots":
 				if plotN["PlotType"] == "dataFromTimeSeries" and newData: doPLOT=True
 
 				if nPlot in oldPLOT:
@@ -485,11 +485,11 @@ def do_nPlot(nPlot,filenamesToPlot):
 						logger.log(10,"-- oldplot!=newplot"+ plotN["DeviceNamePlot"])
 						doPLOT=True
 					else:
-						logger.log(10,"-- oldplot==newplot"+ plotN["DeviceNamePlot"] )
+						logger.log(10,"-- oldplot == newplot"+ plotN["DeviceNamePlot"] )
 					if not doPLOT:				### check if plotfiles already exist, if not need to redo
 						for tType in range(numberOfTimeTypes):
 							if plotN["PlotType"] != "dataFromTimeSeries" and tType>0: continue
-							if plotN["PlotType"] == "dataFromTimeSeries" and plotN["MHDDays"][tType] ==0: continue
+							if plotN["PlotType"] == "dataFromTimeSeries" and plotN["MHDDays"][tType] == 0: continue
 							if plotN["PlotType"] == "dataFromTimeSeries":
 								DeviceNamePlotpng0= indigoPNGdir+plotN["DeviceNamePlot"]+"-"+plotTimeNames[tType]
 							else:
@@ -501,9 +501,9 @@ def do_nPlot(nPlot,filenamesToPlot):
 
 				else:
 					oldPLOT[nPlot] = copy.deepcopy(PLOT[nPlot])
-					doPLOT=True
+					doPLOT = True
 		#		else:
-		#			doPLOT=True
+		#			doPLOT = True
 			
 				if not doPLOT:
 					logger.log(10,"-- no change in data and plot definition and files exist, skipping plotting: "+ plotN["DeviceNamePlot"] )
@@ -511,25 +511,25 @@ def do_nPlot(nPlot,filenamesToPlot):
 
 
 				if plotN["XScaleFormat"].find("%Y")>-1:
-					XisDate=True
+					XisDate = True
 					if plotN["XScaleFormat"].find("+")>-1:
-						XformIN =plotN["XScaleFormat"].split("+")[0].strip('"')
-						Xformat =plotN["XScaleFormat"].split("+")[1].strip('"')
+						XformIN = plotN["XScaleFormat"].split("+")[0].strip('"')
+						Xformat = plotN["XScaleFormat"].split("+")[1].strip('"')
 						if Xformat.find("\\n") >-1:
-							Xfline1=Xformat.split("\\n")[0]
-							Xfline2=Xformat.split("\\n")[1]
+							Xfline1 = Xformat.split("\\n")[0]
+							Xfline2 = Xformat.split("\\n")[1]
 						else:
-							Xfline1=Xformat
-							Xfline2=Xformat=""
+							Xfline1 = Xformat
+							Xfline2 = Xformat=""
 					else:
-						XformIN =plotN["XScaleFormat"].strip('"')
-						Xformat =""
-						Xfline1=Xformat
-						Xfline2=Xformat=""
+						XformIN = plotN["XScaleFormat"].strip('"')
+						Xformat = ""
+						Xfline1 = Xformat
+						Xfline2 = Xformat=""
 				else:
-					XisDate=False
-					XformIN =""
-					Xformat =""
+					XisDate = False
+					XformIN = ""
+					Xformat = ""
 				colsToPlot=0
 				for ll in plotN["lines"]:
 					if plotN["lines"][ll]["lineToColumnIndexA"] !=0:colsToPlot+=1
@@ -560,13 +560,13 @@ def do_nPlot(nPlot,filenamesToPlot):
 
 				BordOff =["1","2","4","8"]
 				try:
-					BordOff =plotN["Border"].split("+")
+					BordOff = plotN["Border"].split("+")
 				except:
 					pass
-				BorderColor=[plotN["TextColor"],plotN["TextColor"],plotN["TextColor"],plotN["TextColor"]]
+				BorderColor = [plotN["TextColor"],plotN["TextColor"],plotN["TextColor"],plotN["TextColor"]]
 				for i in range(4):
-					if BordOff[i] =="0":
-						BorderColor[i]=plotN["Background"]
+					if BordOff[i] == "0":
+						BorderColor[i] = plotN["Background"]
 
 
 				logger.log(10,"" )
@@ -577,14 +577,14 @@ def do_nPlot(nPlot,filenamesToPlot):
 				if plotN["PlotType"]!= "dataFromTimeSeries":
 					colOffset = 1 
 					numberofNonTimeBins=0
-					xTime=[]
-					zeroYColumn=[]
-					plotDatastore =[]
+					xTime = []
+					zeroYColumn = []
+					plotDatastore = []
 					f=open(prefsDir+"data/"+plotN["PlotFileOrVariName"],"r")
 					for line in f.readlines():
 						if len(line) < 2: continue  # skip junk lines
-						if line.find("#")==0: continue # skip first line
-						rows+=1
+						if line.find("#") == 0: continue # skip first line
+						rows += 1
 						test = line.strip("\n").split(";")
 						test.insert(1,1)
 						plotDatastore.append(test)
@@ -647,10 +647,10 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 
 		if  plotN["PlotType"] == "dataFromTimeSeries":
-			if 	plotN["MHDDays"][tType] ==0: return anyData
+			if 	plotN["MHDDays"][tType] == 0: return anyData
 			plotDatastore =timeDataNumbers[tType][:]
-			xTime=[]
-			zeroYColumn=[]
+			xTime = []
+			zeroYColumn = []
 			for ii in range(numberOfTimeBins[tType]):
 				dtString =plotDatastore[ii][0]
 				xTime.append(datetime.datetime(int(dtString[0:4]),int(dtString[4:6]),int(dtString[6:8]),int(dtString[8:10]),int(dtString[10:12]),0))
@@ -664,10 +664,10 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 			DeviceNamePlotpng0= indigoPNGdir+plotN["DeviceNamePlot"]+"-"+plotTimeNames[tType]
 
 		if XisDate:
-			xTime=[]
-			zeroYColumn=[]
+			xTime = []
+			zeroYColumn = []
 			for ii in range(1,numberofNonTimeBins):
-				dtString =plotDatastore[ii][0]
+				dtString = plotDatastore[ii][0]
 				xTime.append(datetime.datetime(int(dtString[0:4]),int(dtString[4:6]),int(dtString[6:8]),int(dtString[8:10]),int(dtString[10:12])))
 				zeroYColumn.append(zeroYValue)
 			DeviceNamePlotpng0= indigoPNGdir+plotN["DeviceNamePlot"]
@@ -675,13 +675,13 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 			last  = plotDatastore[len(plotDatastore)-1][0]
 			firstDaytoPlot = datetime.datetime(int(first[0:4]),int(first[4:6]),int(first[6:8]),int(first[8:10]),int(first[10:12]))
 			lastDaytoPlot =  datetime.datetime(int(last[0:4]) ,int(last[4:6]) ,int(last[6:8]) ,int(last[8:10]) ,int(last[10:12]),59)
-			lastBinTime=last
+			lastBinTime = last
 		y1=False
-		y2=False
-		columnsToPlot  =[]
-		columnsToPlotB =[]
-		colsToPlot =0
-		colsToPlotB =0
+		y2 = False
+		columnsToPlot  = []
+		columnsToPlotB = []
+		colsToPlot = 0
+		colsToPlotB = 0
 		for lli in range(0,100):  # this way we have it generated in sequence if we dor for ll in plot[nPlot][lines]  it is random
 			ll = str(lli)
 			if ll not in plotN["lines"]: continue
@@ -690,7 +690,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 				columnsToPlot.append([theCol,ll])
 				if plotN["lines"][ll]["lineLeftRight"] == "Right": y2=True
 				else:											   y1=True
-				colsToPlot+=1
+				colsToPlot += 1
 				if plotN["lines"][ll]["lineToColumnIndexB"] !=0:
 					columnsToPlotB.append([int(plotN["lines"][ll]["lineToColumnIndexB"]),ll])
 				else:
@@ -700,11 +700,12 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 		xtimeCol		  = [[] for ii in range(colsToPlot)]
 		weightDataToPlot  = [[] for ii in range(colsToPlot)]
 		countTimeBinsMax  = 0
-		countTimeBinsWithDataMax=0
+		countTimeBinsWithDataMax = 0
 		countP=0
 
 
-		if  plotN["XYvPolar"] =="xy":
+		if  plotN["XYvPolar"] == "xy":
+				#logger.log(20,  "plotN:{}".format(plotN))
 
 				xtimeForOneCol=[]
 				for col in range(colsToPlot):
@@ -732,7 +733,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 							if  plotN["PlotType"] == "dataFromTimeSeries" and str(dataCol) in eventIndex:
 									evD = eventData[str(dataCol)]
 									resetType = eventType[str(dataCol)].split("-")[1] ##reset = day/week/month/year/bin
-									showZero  = eventType[str(dataCol)].split("-")[2]=="zero" ## show  zero bins
+									showZero  = eventType[str(dataCol)].split("-")[2] == "zero" ## show  zero bins
 									evType    = eventType[str(dataCol)].split("-")[0] 
 									nData     = eventIndex[str(dataCol)]
 									dataToPlot=[]
@@ -740,20 +741,33 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 									#XisDate =True
 									if   evType == "down":
 										for nn in range(nData):
-											if float(evD[nn][7]) ==0.:
+											if float(evD[nn][7]) == 0.:
 												dataToPlot.append(copy.deepcopy(evD[nn])) 
 												XT.append(datetime.datetime.strptime(evD[nn][0], "%Y%m%d%H%M%S"))
 										nBins =len(XT)
 									elif evType == "up":
 										for nn in range(nData):
 											try:
-												if float(evD[nn][7]) >0.:
+												if float(evD[nn][7]) > 0.:
 													dataToPlot.append(copy.deepcopy(evD[nn]))  
 													XT.append(datetime.datetime.strptime(evD[nn][0], "%Y%m%d%H%M%S"))
 											except:
 												logger.log(10,str(nn) + " "+str(evD))
 												break
 										nBins =len(XT)
+									elif evType == "1":
+										for nn in range(nData):
+											try:
+												if float(evD[nn][7]) > 0.:
+													dataToPlot.append(copy.deepcopy(evD[nn]))  
+													for ii in range(len(evD[nn])):
+														if dataToPlot[ii] > 0: dataToPlot[ii] = 1
+													XT.append(datetime.datetime.strptime(evD[nn][0], "%Y%m%d%H%M%S"))
+											except:
+												logger.log(10,str(nn) + " "+str(evD))
+												break
+										nBins =len(XT)
+										
 									elif evType == "change":
 										last=""
 										for nn in range(nData):
@@ -814,16 +828,16 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 															if resetType == "month" and dataToPlot[-1][3] == 1: reset = True
 															if resetType == "year"  and dataToPlot[-1][4] == 1: reset = True
 													if nn > 0 and reset:
-														if evD[nn-1][-1] ==0:
+														if evD[nn-1][-1] == 0:
 															dataToPlot.append([evD[nn-1][0],1,0,0,0,0,1,0])
 															XT.append(datetime.datetime.strptime(evD[nn-1][0], "%Y%m%d%H%M%S"))
 
 												if resetType == "bin":                           reset = True
 												if lastBinDateSTR[0:8] != currdateINSTR[0:8]: 
 													if resetType == "day":                       reset = True
-													if resetType == "week"  and  evD[nn][2] ==6: reset = True
-													if resetType == "month" and  evD[nn][3] ==1: reset = True
-													if resetType == "year"  and  evD[nn][4] ==1: reset = True
+													if resetType == "week"  and  evD[nn][2] == 6: reset = True
+													if resetType == "month" and  evD[nn][3] == 1: reset = True
+													if resetType == "year"  and  evD[nn][4] == 1: reset = True
 													
 												XT.append(currentBinDate)
 												dataToPlot.append(copy.deepcopy(evD[nn]))  
@@ -839,7 +853,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 											else:
 												if float(evD[nn][-1]) >0.:
 													dataToPlot[-1][-1] += 1 
-											#if tType ==2: print  nn,  tType, col, currentBinDateSTR,reset ,evD[nn], dataToPlot[-1][-1]
+											#if tType == 2: print  nn,  tType, col, currentBinDateSTR,reset ,evD[nn], dataToPlot[-1][-1]
 													 
 											#print currdateIN, currentBinDate, dataToPlot[-1], evD[-1], XT[-1]
 										nBins =len(XT)
@@ -868,10 +882,11 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 							lR = plotN["lines"][lCol]["lineEveryRepeat"]
 							lT = plotN["lines"][lCol]["lineType"]
 							try:
-								lRi=int(lR)
+								lRi = int(lR)
 							except:
-								lRi=""
+								lRi = ""
 								
+							#logger.log(20,  "xxxxxxxx col:{}, colToPlotB:{},  lCol:{}, plotN:{}".format(col, colToPlotB[col], lCol, plotN["lines"][lCol]))
 							for jj in range(nBins):
 										yIsText=False
 										shiftedTime = XT[jj]
@@ -897,7 +912,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 												logger.log(10," error at  col "+ str(col) +"  XisDate "+str(XisDate)+"  PlotType "+str(plotN["PlotType"])+"  firstDaytoPlot "+str(firstDaytoPlot)+"  shiftedTime "+str(shiftedTime)) 
 												continue        
 
-										if dataToPlot[jj][0].find("#") ==0: continue# skip comment lines
+										if dataToPlot[jj][0].find("#") == 0: continue# skip comment lines
 
 										countTimeBins+=1
 										if plotN["PlotType"] == "dataFromTimeSeries" and colToPlot[col][0] < 0:
@@ -914,21 +929,21 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 												if lRi !="" and jj%lRi !=0:
 													suppressPoint = 1
 							
-												elif  lR =="evenMinutes" and int(shifttimeString[11:12])%2 == 1:
+												elif  lR == "evenMinutes" and int(shifttimeString[11:12])%2 == 1:
 													suppressPoint = 2
-												elif  lR =="oddMinutes"  and int(shifttimeString[11:12])%2 == 0:
+												elif  lR == "oddMinutes"  and int(shifttimeString[11:12])%2 == 0:
 													suppressPoint = 2
-												elif  lR =="evenHours"   and int(shifttimeString[9:10])%2 == 1:
+												elif  lR == "evenHours"   and int(shifttimeString[9:10])%2 == 1:
 													suppressPoint = 2
-												elif  lR =="oddHours"    and int(shifttimeString[9:10])%2 == 0:
+												elif  lR == "oddHours"    and int(shifttimeString[9:10])%2 == 0:
 													suppressPoint = 2
-												elif  lR =="evenDays"    and int(shifttimeString[7:8])%2 == 1:
+												elif  lR == "evenDays"    and int(shifttimeString[7:8])%2 == 1:
 													suppressPoint = 2
-												elif  lR =="oddDays"     and int(shifttimeString[7:8])%2 == 0:
+												elif  lR == "oddDays"     and int(shifttimeString[7:8])%2 == 0:
 													suppressPoint = 2
-												elif  lR =="evenMonths"  and int(shifttimeString[4:5])%2 == 1:
+												elif  lR == "evenMonths"  and int(shifttimeString[4:5])%2 == 1:
 													suppressPoint = 2
-												elif  lR =="oddMonths"   and int(shifttimeString[4:5])%2 == 0:
+												elif  lR == "oddMonths"   and int(shifttimeString[4:5])%2 == 0:
 													suppressPoint = 2
 
 												elif  lR == "lastBinOfMonth" and str(dataToPlot[jj][3])  == "0": suppressPoint = 2
@@ -966,12 +981,12 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 											
 												#logger.log(10,lR + " 8: "+ str(dataToPlot[jj][8])+"  9:"+ str(dataToPlot[jj][9]))
 												#logger.log(10,lR + " ok "+ str(dataToPlot[jj][colToPlot[col][0]+colOffset]))
-											if suppressPoint ==2:  
+											if suppressPoint == 2:  
 												if  lT.find("Histogram") >-1:
 													yy = 0; theValue = 0
 												else:
 													yy = None ; theValue = None 
-											elif  suppressPoint ==1:
+											elif  suppressPoint == 1:
 												continue   
 											else: 
 												try:
@@ -993,9 +1008,10 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 											countTimeBinsWithData+=1
 											#logger.log(10,"step3")
 
-											if colToPlotB[col][1] !=0:
+											if colToPlotB[col][1] != 0:
+												logger.log(20,  "col:{}, plotB:{}".format(col, colToPlotB[col] ))
 												if not yIsText:
-													if suppressPoint>0:  
+													if suppressPoint > 0:  
 														yy = None 
 														theValue = yy
 														weight.append(yy)
@@ -1003,52 +1019,53 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 														try:
 															yy = float(dataToPlot[jj][colToPlotB[col][0]+colOffset])
 														except:
-															yy=0.0
-														if plotN["lines"][lCol]["lineFunc"] =="+":		theValue = theValue + ( yy*mul+off )
-														elif plotN["lines"][lCol]["lineFunc"] =="-": 	theValue = theValue - ( yy*mul+off )
-														elif plotN["lines"][lCol]["lineFunc"] =="*": 	theValue = theValue * ( yy*mul+off )
-														elif plotN["lines"][lCol]["lineFunc"] =="/":
-															if yy*mul+off ==0.: 	theValue = 0.
+															yy = 0.0
+														if plotN["lines"][lCol]["lineFunc"] == "+":		theValue = theValue + ( yy*mul+off )
+														elif plotN["lines"][lCol]["lineFunc"] == "-": 	theValue = theValue - ( yy*mul+off )
+														elif plotN["lines"][lCol]["lineFunc"] == "*": 	theValue = theValue * ( yy*mul+off )
+														elif plotN["lines"][lCol]["lineFunc"] == "/":
+															if yy*mul+off == 0.: 	theValue = 0.
 															else:					theValue = theValue / ( yy*mul+off )
-														elif (plotN["lines"][lCol]["lineFunc"] =="C" or
-															  plotN["lines"][lCol]["lineFunc"] =="E" or
-															  plotN["lines"][lCol]["lineFunc"] =="S" ) :
+														elif (plotN["lines"][lCol]["lineFunc"] == "C" or
+															  plotN["lines"][lCol]["lineFunc"] == "E" or
+															  plotN["lines"][lCol]["lineFunc"] == "S" ) :
 															weight.append(yy)
+												#logger.log(20,  "col:{}, plotB:{}, theValue:{}, yy:{}, mul:{}, off:{}".format(col, colToPlotB[col] ,theValue, yy, mul, off))
 
-											if suppressPoint<1: 
-												if plotN["lines"][lCol]["lineType"].find("DOT")==0:
+											if suppressPoint < 1: 
+												if plotN["lines"][lCol]["lineType"].find("DOT") == 0:
 													if plotN["lines"][lCol]["lineLeftRight"] == "Right":	
 														if theValue>  yMaxR or theValue <yMinR: continue
 													else:
 														if theValue>  yMaxL or theValue <yMinL: continue
 												else: # lines and histogarms
 													if plotN["lines"][lCol]["lineLeftRight"] == "Right":
-														dy = (yMaxR - yMinR)*0.3 # if with boundary and >< 50% over or below draw lines  ==do  show only if really outside
+														dy = (yMaxR - yMinR)*0.3 # if with boundary and >< 50% over or below draw lines  == do  show only if really outside
 														if (theValue <=  yMaxR  and theValue >= yMinR ) or (theValue >  yMaxR + dy and theValue < yMinR - dy): 
 															theValue = max(yMinR,min(yMaxR,theValue))
 														else:
 															theValue = None
 													else:
-														dy = (yMaxL - yMinL)*0.3 ## if with boundary and >< 50% over or below draw lines  ==do  show only if really outside
+														dy = (yMaxL - yMinL)*0.3 ## if with boundary and >< 50% over or below draw lines  == do  show only if really outside
 														if (theValue <=  yMaxL  and theValue >= yMinL ) or (theValue >  yMaxL + dy and theValue < yMinL - dy): 
 															theValue = max(yMinL,min(yMaxL,theValue))
 														else:
 															theValue = None
 
-											try:theColumnValues.append(min(9999999.,theValue))
+											try: theColumnValues.append(min(9999999.,theValue))
 											except: theColumnValues.append(0)
 											xtimeForOneCol.append(shiftedTime)
-							#if lR =="oddHours" or lR =="evenHours":
+							#if lR == "oddHours" or lR == "evenHours":
 						
-							countTimeBinsMax=max(countTimeBinsMax, countTimeBins)
-							countTimeBinsWithDataMax=max(countTimeBinsWithDataMax, countTimeBinsWithData)
+							countTimeBinsMax = max(countTimeBinsMax, countTimeBins)
+							countTimeBinsWithDataMax  =max(countTimeBinsWithDataMax, countTimeBinsWithData)
 
 							if plotN["PlotType"] == "dataFromTimeSeries" and colToPlot[col][0] < 0:
 								for ii in range(len(theColumnValues)):
-									theColumnValues[ii]= theColumnValues[ii]/max(1.,float(countTimeBinsWithData))+off
+									theColumnValues[ii]= theColumnValues[ii] / max(1.,float(countTimeBinsWithData))+off
 
-							if len(theColumnValues) ==0:
-									logger.log(10,"theColumnValues ==[] = no data for tType "+str(tType)+ ";    column: " +str(col) )
+							if len(theColumnValues) == 0:
+									logger.log(10,"theColumnValues == [] = no data for tType "+str(tType)+ ";    column: " +str(col) )
 									if False:
 										out =""
 										start= max(len(dataToPlot) -10,0)
@@ -1057,8 +1074,8 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 										logger.log(10,"last 10 records:\n"+out)
 									continue
 
-							smooth= plotN["lines"][lCol]["lineSmooth"]
-							if smooth=="combine3Bins":
+							smooth = plotN["lines"][lCol]["lineSmooth"]
+							if smooth == "combine3Bins":
 										numbersToPlotY=[]
 										nX =len(xtimeForOneCol)
 										for mm in range(2,nX+2,3):
@@ -1071,7 +1088,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 											if len(numbersToPlotY) < nX: numbersToPlotY.append(ave)
 											if len(numbersToPlotY) < nX: numbersToPlotY.append(ave)
 										theColumnValues=copy.deepcopy(numbersToPlotY)
-							elif smooth=="average3Bins":
+							elif smooth == "average3Bins":
 										numbersToPlotY=[]
 										nX =len(xtimeForOneCol)
 										try:
@@ -1091,7 +1108,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 												ave =(theColumnValues[nX-1])
 										numbersToPlotY.append(ave)
 
-							elif smooth=="trailingAverage":
+							elif smooth == "trailingAverage":
 										numbersToPlotY=[]
 										nX =len(xtimeForOneCol)
 										numbersToPlotY.append(theColumnValues[0])
@@ -1115,7 +1132,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 									if lRi !="":
 										for mm in range(nX):
-											if mm%lRi==0:
+											if mm%lRi == 0:
 												numbersToPlotX.append(xtimeForOneCol[mm])
 												numbersToPlotY.append(theColumnValues[mm])
 												if nW>0: numbersWeight.append(weight[mm])
@@ -1123,46 +1140,46 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 											xtimeForOneCol=copy.deepcopy(numbersToPlotX)
 											if nW>0: weight=copy.deepcopy(numbersWeight)
 
-									elif lR=="firstBin":
+									elif lR == "firstBin":
 										xtimeForOneCol= [xtimeForOneCol[0]]
 										theColumnValues= [theColumnValues[0]]
 										if nW>0: weight=[weight[0]]
 
-									elif lR=="lastBin":  # only last bin with data
+									elif lR == "lastBin":  # only last bin with data
 										xtimeForOneCol=[xtimeForOneCol[-1]]
 										theColumnValues=[theColumnValues[-1]]
 										if nW>0: weight = [weight[-1]]
 
-									elif lR=="rightY":  # use last bin with data at y right
+									elif lR == "rightY":  # use last bin with data at y right
 										xtimeForOneCol=[lastDaytoPlot]
 										theColumnValues=[theColumnValues[-1]]
 
 
-									elif lR=="min":
+									elif lR == "min":
 										xtimeForOneCol,theColumnValues,weight = getminMaxPerTimeperiod(-1,""  ,xtimeForOneCol,theColumnValues,weight)
-									elif lR=="max":
+									elif lR == "max":
 										xtimeForOneCol,theColumnValues,weight = getminMaxPerTimeperiod(+1,""  ,xtimeForOneCol,theColumnValues,weight)
 
-									elif lR=="minHour" and tType < 1:
+									elif lR == "minHour" and tType < 1:
 										xtimeForOneCol,theColumnValues,weight = getminMaxPerTimeperiod(-1,"%H",xtimeForOneCol,theColumnValues,weight)
-									elif lR=="maxHour" and tType < 1:
+									elif lR == "maxHour" and tType < 1:
 										xtimeForOneCol,theColumnValues,weight = getminMaxPerTimeperiod(+1,"%H",xtimeForOneCol,theColumnValues,weight)
 
-									elif lR=="minDay" and tType < 2:
+									elif lR == "minDay" and tType < 2:
 										xtimeForOneCol,theColumnValues,weight = getminMaxPerTimeperiod(-1,"%d",xtimeForOneCol,theColumnValues,weight)
-									elif lR=="maxDay" and tType < 2:
+									elif lR == "maxDay" and tType < 2:
 										xtimeForOneCol,theColumnValues,weight = getminMaxPerTimeperiod(+1,"%d",xtimeForOneCol,theColumnValues,weight)
 
-									elif lR=="minMonth":
+									elif lR == "minMonth":
 										xtimeForOneCol,theColumnValues,weight = getminMaxPerTimeperiod(-1,"%m",xtimeForOneCol,theColumnValues,weight)
-									elif lR=="maxMonth":
+									elif lR == "maxMonth":
 										xtimeForOneCol,theColumnValues,weight = getminMaxPerTimeperiod(+1,"%m",xtimeForOneCol,theColumnValues,weight)
 
 
 
 
 							# line smoothing with cspline
-							#					if nPlot== "944299738":
+							#					if nPlot == "944299738":
 							#						logger.log(10,str(theColumnValues))
 							#						logger.log(10,str(xtimeForOneCol))
 
@@ -1181,12 +1198,12 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 
 							if	( scipyInstalled and 
-									(  plotN["lines"][lCol]["lineSmooth"] =="soft"
-									or plotN["lines"][lCol]["lineSmooth"] =="medium"
-									or plotN["lines"][lCol]["lineSmooth"] =="strong" )
+									(  plotN["lines"][lCol]["lineSmooth"] == "soft"
+									or plotN["lines"][lCol]["lineSmooth"] == "medium"
+									or plotN["lines"][lCol]["lineSmooth"] == "strong" )
 								):
 
-								if    plotN["lines"][lCol]["lineSmooth"] =="strong"    : smooth = 1200.
+								if    plotN["lines"][lCol]["lineSmooth"] == "strong"    : smooth = 1200.
 								elif  plotN["lines"][lCol]["lineSmooth"] == "medium" :   smooth = 200.
 								elif  plotN["lines"][lCol]["lineSmooth"] == "soft" :     smooth = 30.
 								else :                                                   smooth = 50.
@@ -1262,9 +1279,9 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 		else:   # polar plot
 				firstDaytoPlot =0
 				if  plotN["PlotType"] == "dataFromTimeSeries":
-					if   tType ==2 :	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(int(plotN["MHDDays"][tType]))).strftime("%Y%m%d")+"000000"    )
-					elif tType ==1 :	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(int(plotN["MHDDays"][tType]))).strftime("%Y%m%d%H")+"0000"  )
-					elif tType ==0 : 	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(int(plotN["MHDDays"][tType]))).strftime("%Y%m%d%H%M")+"00")
+					if   tType == 2 :	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(int(plotN["MHDDays"][tType]))).strftime("%Y%m%d")+"000000"    )
+					elif tType == 1 :	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(int(plotN["MHDDays"][tType]))).strftime("%Y%m%d%H")+"0000"  )
+					elif tType == 0 : 	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(int(plotN["MHDDays"][tType]))).strftime("%Y%m%d%H%M")+"00")
 					nBins	=numberOfTimeBins[tType]
 				else:nBins	=numberofNonTimeBins
 
@@ -1306,8 +1323,8 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 							xtimeCol[col]         = xtimeForOneCol
 							columnDataToPlot[col] = theColumnValues
-							countTimeBinsMax=max(countTimeBinsMax, countTimeBins)
-							countTimeBinsWithDataMax=max(countTimeBinsWithDataMax, countTimeBinsWithData)
+							countTimeBinsMax = max(countTimeBinsMax, countTimeBins)
+							countTimeBinsWithDataMax = max(countTimeBinsWithDataMax, countTimeBinsWithData)
 
 
 
@@ -1421,16 +1438,16 @@ def do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColo
 
 
 
-			if tType==0:
+			if tType == 0:
 				if  plotN["PlotType"] == "dataFromTimeSeries": 	mlp.rcParams["xtick.major.pad"]	= 12 *(max(1.,textSize/12.))
 				elif XisDate and  Xfline2!="" and  countTimeBinsMax < 370:
 																mlp.rcParams["xtick.major.pad"]	= 12 *(max(1.,textSize/12.))
 				else:											mlp.rcParams["xtick.major.pad"]	= 5 *(max(1.,textSize/12.))
 
-			if tType==1:
+			if tType == 1:
 				if countTimeBinsMax > 24*9:	mlp.rcParams["xtick.major.pad"]	= 12 *(max(1.,textSize/12.))
 				else:						mlp.rcParams["xtick.major.pad"]	= 12 *(max(1.,textSize/12.))
-			if tType==2:
+			if tType == 2:
 				if countTimeBinsMax < 241:		mlp.rcParams["xtick.major.pad"]	= 12 *(max(1.,textSize/12.))
 				else:						mlp.rcParams["xtick.major.pad"]	= 5 *(max(1.,textSize/12.))
 
@@ -1442,7 +1459,7 @@ def do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColo
 				yres = 4
 
 
-			if plotN["XYvPolar"] =="xy":
+			if plotN["XYvPolar"] == "xy":
 				do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,BorderColor,firstDaytoPlot,lastDaytoPlot,y1,y2,tType,XisDate)
 			else:   # polar
 				do_polar(plotN, xres,yres,  DeviceNamePlotpng, xMax,xMin, tType)
@@ -1495,7 +1512,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 
 		ax.set_ylabel(plotN["LeftLabel"], color=plotN["TextColor"])
 		Yformat = True
-		if plotN["LeftLog"] =="1" or plotN["LeftLog"].upper() =="LOG":
+		if plotN["LeftLog"] == "1" or plotN["LeftLog"].upper() == "LOG":
 			ax.set_yscale('log')
 		if len(plotN["LeftScaleRange"]) > 2:
 			yRange= plotN["LeftScaleRange"].split(":")
@@ -1508,7 +1525,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 			tn =1.
 			tx = str(tn)
 			for nT in range(numtics):
-				if   theList[nT].count('"') ==2:
+				if   theList[nT].count('"') == 2:
 					try:
 						Yformat = False
 						dd,tx,tn = theList[nT].split('"')
@@ -1517,7 +1534,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 						logger.log(10," bad Yleft format string: "+ plotN["RightScaleTics"])
 						tn = 0
 						tx = "bad format string"
-				elif theList[nT].count('"') ==0:
+				elif theList[nT].count('"') == 0:
 					try:
 						tn = float(theList[nT].strip(" "))
 						tx=str(tn)
@@ -1535,12 +1552,12 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 				tickText.append(tx)
 			ax.set_yticks(tickNum)
 			ax.set_yticklabels(tickText)
-		elif BordOff[1] =="0":
+		elif BordOff[1] == "0":
 			ax.set_yticklabels(emptyBlanks,color =BorderColor[1])
 
 		# grids
-		if plotN["Grid"] !="0" and plotN["Grid"].find("y2")==-1:
-			if plotN["Grid"].find("-") ==-1:
+		if plotN["Grid"] !="0" and plotN["Grid"].find("y2") == -1:
+			if plotN["Grid"].find("-") == -1:
 					ax.set_axisbelow(True)
 					zorder = -1
 			else:
@@ -1567,17 +1584,17 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 			if plotN["Grid"].find("onlyy") == -1:
 				ax.xaxis.grid(True,zorder=zorder, which="major", linestyle=ls,linewidth= lw, color=plotN["TextColor"])
 				if not XisDate:
-					if tType==0:
+					if tType == 0:
 						ax.xaxis.grid(True,zorder=zorder, which="minor", linestyle=':',linewidth= lw, color=plotN["TextColor"])
-					elif tType==1 and  numberOfTimeBins[1] > 24*7:
+					elif tType == 1 and  numberOfTimeBins[1] > 24*7:
 						ax.xaxis.grid(True,zorder=zorder, which="minor", linestyle=':',linewidth= lw, color=plotN["TextColor"])
-					elif tType==2 and  numberOfTimeBins[2] < 121:
+					elif tType == 2 and  numberOfTimeBins[2] < 121:
 						ax.xaxis.grid(True,zorder=zorder, which="minor", linestyle=':',linewidth= lw, color=plotN["TextColor"])
 		else:
 			ax.grid(False)#, which="major", linestyle=" ",linewidth= 0,color=plotN["Background"] )
 		try:
 			if int(plotN["LeftScaleDecPoints"]) >=0  and Yformat:
-				if not(plotN["LeftLog"] == "1" or plotN["LeftLog"].upper() =="LOG"):	ax.yaxis.set_major_formatter(FormatStrFormatter("%."+plotN["LeftScaleDecPoints"]+"f"))
+				if not(plotN["LeftLog"] == "1" or plotN["LeftLog"].upper() == "LOG"):	ax.yaxis.set_major_formatter(FormatStrFormatter("%."+plotN["LeftScaleDecPoints"]+"f"))
 				else:																	ax.yaxis.set_major_formatter(mlp.ticker.FormatStrFormatter("%."+plotN["LeftScaleDecPoints"]+"f"))
 		except:
 			pass
@@ -1599,7 +1616,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 			#	ll.set_color( color =BorderColor[3])
 			#for ll in ax2.yaxis.get_ticklines():
 			#	ll.set_color( color =BorderColor[3])
-			if plotN["RightLog"] =="1" or plotN["RightLog"].upper() =="LOG":
+			if plotN["RightLog"] == "1" or plotN["RightLog"].upper() == "LOG":
 				ax2.set_yscale('log')
 			if len(plotN["RightScaleTics"]) >0 :
 				theList= plotN["RightScaleTics"].split(",")
@@ -1609,7 +1626,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 				tn =1.
 				tx = str(tn)
 				for nT in range(numtics):
-					if   theList[nT].count('"') ==2:
+					if   theList[nT].count('"') == 2:
 						try:
 							Yformat = False
 							dd,tx,tn = theList[nT].split('"')
@@ -1618,7 +1635,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 							logger.log(10," bad Yright format string: "+ plotN["RightScaleTics"])
 							tn = 0
 							tx = "bad format string"
-					elif theList[nT].count('"') ==0:
+					elif theList[nT].count('"') == 0:
 						try:
 							tn = float(theList[nT].strip(" "))
 							tx=str(tn)
@@ -1634,7 +1651,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 					tickText.append(tx)
 				ax2.set_yticks(tickNum)
 				ax2.set_yticklabels(tickText, color= BorderColor[3],alpha=1.0)
-			elif BordOff[3] =="0":
+			elif BordOff[3] == "0":
 				ax2.set_yticklabels(emptyBlanks,color =BorderColor[3])
 
 
@@ -1643,7 +1660,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 				elif plotN["Grid"].find("3")>-1 : ls="-" ; lw=1
 				else:							  ls="-" ; lw=0.5
 
-				if plotN["Grid"].find("-") ==-1:
+				if plotN["Grid"].find("-") == -1:
 					ax2.set_axisbelow(True)
 					ax.set_axisbelow(True)
 					zorder=-99
@@ -1659,23 +1676,23 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 
 
 
-				if plotN["Grid"].find("-") ==-1:
+				if plotN["Grid"].find("-") == -1:
 					ax2.set_axisbelow(False)
 					ax.set_axisbelow(False)
 				else:
 					ax2.set_axisbelow(True)
 					ax.set_axisbelow(True)
 
-				if plotN["Grid"].find("onlyx")==-1:
+				if plotN["Grid"].find("onlyx") == -1:
 					ax2.yaxis.grid(True,zorder=zorder, which="major", linestyle=ls,linewidth= lw, color=plotN["TextColor"])
 
-				if plotN["Grid"].find("onlyy")==-1:
+				if plotN["Grid"].find("onlyy") == -1:
 					ax.xaxis.grid(True,zorder=zorder, which="major", linestyle=ls,linewidth= lw, color=plotN["TextColor"])
-					if tType==0:
+					if tType == 0:
 						ax.xaxis.grid(True,zorder=zorder, which="minor", linestyle=':',linewidth= lw, color=plotN["TextColor"])
-					elif tType==1 and  numberOfTimeBins[1] > 24*7:
+					elif tType == 1 and  numberOfTimeBins[1] > 24*7:
 						ax.xaxis.grid(True,zorder=zorder, which="minor", linestyle=':',linewidth= lw, color=plotN["TextColor"])
-					elif tType==2 and  numberOfTimeBins[2] < 121:
+					elif tType == 2 and  numberOfTimeBins[2] < 121:
 						ax.xaxis.grid(True,zorder=zorder, which="minor", linestyle=':',linewidth= lw, color=plotN["TextColor"])
 
 		
@@ -1685,7 +1702,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 		try:
 			if doax2:
 				if int(plotN["RightScaleDecPoints"]) >= 0 and y2 and Yformat :
-					if not(plotN["RightLog"] == "1" or plotN["RightLog"].upper() =="LOG"):	ax2.yaxis.set_major_formatter(FormatStrFormatter("%."+plotN["RightScaleDecPoints"]+"f"))
+					if not(plotN["RightLog"] == "1" or plotN["RightLog"].upper() == "LOG"):	ax2.yaxis.set_major_formatter(FormatStrFormatter("%."+plotN["RightScaleDecPoints"]+"f"))
 					else:																	ax2.yaxis.set_major_formatter(mlp.ticker.FormatStrFormatter("%."+plotN["RightScaleDecPoints"]+"f"))
 		except:
 			pass
@@ -1703,7 +1720,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 			ax.xaxis_date()
 
 		ax.set_xlim(firstDaytoPlot,lastDaytoPlot)
-		if str(plotN["drawZeroLine"]).upper() =="TRUE": # plot "zero line for sparse data it is invisible, to make sure that all x axis is shown.
+		if str(plotN["drawZeroLine"]).upper() == "TRUE": # plot "zero line for sparse data it is invisible, to make sure that all x axis is shown.
 			ax.plot( xTime,zeroYColumn,ls="", color=plotN["Background"],lw=1, label="", alpha=1.0)
 		logger.log(10,"x limits: firstDay:{} .. lastDay:{} ".format(firstDaytoPlot,lastDaytoPlot))
 		logger.log(10,"line#; width;  color; Transp;   R/L;  Func; shift;       type;       smooth;      C-offset;              Nformat;EveryRepeat;   key------")
@@ -1750,9 +1767,9 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 
 				######### right axis lines
 				if True:
-					if lF=="C":  # colorbar
+					if lF == "C":  # colorbar
 						cb= axx.scatter(xtimeCol[ll0],columnDataToPlot[ll0],c=weightDataToPlot[ll0],edgecolor="none",lw=lw, label=lk)
-						if lr =="Right":
+						if lr == "Right":
 							if y2 and plotN["RightLabel"] !="":
 								position=fig.add_axes([0.95,0.2,0.02,0.6])
 								cbT = fig.colorbar(cb,cax=position )
@@ -1774,40 +1791,40 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 
 
 
-					elif lF=="S": # solid dots
+					elif lF == "S": # solid dots
 						axx.scatter(xtimeCol[ll0],columnDataToPlot[ll0],s=weightDataToPlot[ll0],color=lc,edgecolor=lc, label=lk)
 
-					elif lF=="E":  # empty dots
+					elif lF == "E":  # empty dots
 						axx.scatter(xtimeCol[ll0],columnDataToPlot[ll0],s=weightDataToPlot[ll0],color=plotN["Background"],edgecolor=lc ,label=lk)
 
-					elif lt =="LineSolid":	axx.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls="-",zorder=zorder, color=lc,lw=lw2, label=lk)
+					elif lt == "LineSolid":	axx.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls="-",zorder=zorder, color=lc,lw=lw2, label=lk)
 
-					elif lt =="LineDashed":	axx.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls=":",zorder=zorder, color=lc,lw=lw2, label=lk)
+					elif lt == "LineDashed":	axx.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls=":",zorder=zorder, color=lc,lw=lw2, label=lk)
 
-					elif lt =="Impulses":
+					elif lt == "Impulses":
 						for ii in range(len(xtimeCol[ll0])):
-							if ii==0:
+							if ii == 0:
 								axx.vlines(xtimeCol[ll0][ii],0,columnDataToPlot[ll0][ii],zorder=zorder, color=lc,lw=lw, label=lk)
 							else:
 								axx.vlines(xtimeCol[ll0][ii],0,columnDataToPlot[ll0][ii],zorder=zorder, color=lc,lw=lw)
-					elif lt =="averageLeft":
+					elif lt == "averageLeft":
 						npointToplot=int(max(1,len(xtimeCol[ll0]) *0.08))
 						toPlot   = firstDaytoPlot
 						fromPlot = firstDaytoPlot+ (lastDaytoPlot-firstDaytoPlot)/40
 						average= sum(columnDataToPlot[ll0])/max(1.0,len(xtimeCol[ll0]))
 						axx.hlines(average, fromPlot, toPlot,zorder=zorder, color=lc,lw=lw2)
 
-					elif lt =="averageRight":
+					elif lt == "averageRight":
 						average= sum(columnDataToPlot[ll0])/max(1.0,len(xtimeCol[ll0]))
 						toPlot   = lastDaytoPlot
 						fromPlot = lastDaytoPlot- (lastDaytoPlot-firstDaytoPlot)/40
 						axx.hlines(average, fromPlot, toPlot,zorder=zorder, color=lc,lw=lw2)
 
 
-					elif lt.find("DOT")==0:	
+					elif lt.find("DOT") == 0:	
 						axx.scatter(xtimeCol[ll0],columnDataToPlot[ll0],marker=lt[3:],zorder=zorder, color=lc,edgecolor=lc,lw=lw2, label=lk)
 
-					elif lt =="FilledCurves":
+					elif lt == "FilledCurves":
 						yLimit = ax.get_ylim()
 						axx.fill_between(xtimeCol[ll0],columnDataToPlot[ll0],yLimit[0],zorder=zorder,facecolor=lc,color=lc, alpha=la, lw=0.)
 						if len(lk) > 0:
@@ -1815,15 +1832,15 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 							fig.text(0.81,ypp,r"$\blacksquare $   "+lk,color=lc,size=textSize*0.9)
 							#fig.text(0.81,0.77,r"$\blacksquare $  "+lk,color=lc,size=textSize*0.9)
 
-					elif lt =="Numbers":
+					elif lt == "Numbers":
 						nOxy= nO.split(",")
-						if lw >0: fontSize= int((lw*2.5+4))
+						if lw > 0: fontSize = int((lw*2.5+4))
 						for i in range(len(xtimeCol[ll0])):
 							try: 
 								axx.annotate((nF%columnDataToPlot[ll0][i]), xy=(xtimeCol[ll0][i],columnDataToPlot[ll0][i]), xytext=(int(10*float(nOxy[0])),int(10*float(nOxy[1]))),textcoords='offset points',color=lc, fontsize=fontSize)
 							except:
 								pass
-					elif lt.find("Histogram")==0:
+					elif lt.find("Histogram") == 0:
 
 			
 						if plotN["PlotType"] == "dataFromTimeSeries":
@@ -1834,14 +1851,14 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 						nbins = len(xtimeCol[ll0])
 						wid =  float(plotN["boxWidth"] )* multW
 
-						if   lt =="Histogram0"	:
+						if   lt == "Histogram0"	:
 							axx.bar(xtimeCol[ll0], columnDataToPlot[ll0],zorder=zorder, width=wid, edgecolor=lc,lw=lw2, label=lk,facecolor='none',fill=False,alpha=la,align='center')
 						else:
 							bars=axx.bar(xtimeCol[ll0], columnDataToPlot[ll0],zorder=zorder, width=wid, facecolor=lc,lw=lw2, label=lk,alpha=la,align='center')
-							if   lt =="Histogram1":	[bar.set_hatch("x")  for bar in bars]
-							elif lt =="Histogram2":	[bar.set_hatch("*")  for bar in bars]
-							elif lt =="Histogram4":	[bar.set_hatch("\\") for bar in bars]
-							elif lt =="Histogram5":	[bar.set_hatch("/")  for bar in bars]
+							if   lt == "Histogram1":	[bar.set_hatch("x")  for bar in bars]
+							elif lt == "Histogram2":	[bar.set_hatch("*")  for bar in bars]
+							elif lt == "Histogram4":	[bar.set_hatch("\\") for bar in bars]
+							elif lt == "Histogram5":	[bar.set_hatch("/")  for bar in bars]
 		
 			except  Exception as e:
 				logger.log(40,"", exc_info=True)
@@ -1857,7 +1874,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 		# x axis has to be after other things to make it work properly
 
 		if  plotN["PlotType"] == "dataFromTimeSeries":
-			if BordOff[0] =="0":
+			if BordOff[0] == "0":
 				ax.set_xticklabels(emptyBlanks,color =BorderColor[3])
 			else:
 				
@@ -1868,13 +1885,13 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 						ticksDensity = 1
 					
 					if tType == 0:
-						if   int(plotN["MHDDays"][0]) ==1:  fraction = 0.125
-						elif int(plotN["MHDDays"][0]) ==2:  fraction = 0.125
-						elif int(plotN["MHDDays"][0]) ==3:  fraction = 0.25
-						elif int(plotN["MHDDays"][0]) ==4:  fraction = 0.25
-						elif int(plotN["MHDDays"][0]) ==5:  fraction = 0.5
-						elif int(plotN["MHDDays"][0]) ==6:  fraction = 0.5
-						elif int(plotN["MHDDays"][0]) ==7:  fraction = 0.5
+						if   int(plotN["MHDDays"][0]) == 1:  fraction = 0.125
+						elif int(plotN["MHDDays"][0]) == 2:  fraction = 0.125
+						elif int(plotN["MHDDays"][0]) == 3:  fraction = 0.25
+						elif int(plotN["MHDDays"][0]) == 4:  fraction = 0.25
+						elif int(plotN["MHDDays"][0]) == 5:  fraction = 0.5
+						elif int(plotN["MHDDays"][0]) == 6:  fraction = 0.5
+						elif int(plotN["MHDDays"][0]) == 7:  fraction = 0.5
 						elif int(plotN["MHDDays"][0]) < 15: fraction = 1
 						elif int(plotN["MHDDays"][0]) < 31: fraction = 11
 						else : 								fraction = 11
@@ -1884,13 +1901,13 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 							ax.xaxis.set_major_locator(DayLocator())
 							minorLocator   = MultipleLocator(fraction/ticksDensity)
 							ax.xaxis.set_minor_locator(minorLocator)
-							if plotN["ampm"] =="24":
-								if fraction >0.25:
+							if plotN["ampm"] == "24":
+								if fraction > 0.25:
 									ax.xaxis.set_minor_formatter(DateFormatter("%H"))
 								else:
 									ax.xaxis.set_minor_formatter(DateFormatter("%H:%M"))
 							else:
-								if fraction >0.25:
+								if fraction > 0.25:
 									ax.xaxis.set_minor_formatter(DateFormatter("%l"))
 								else:
 									ax.xaxis.set_minor_formatter(DateFormatter("%l %p"))
@@ -1953,7 +1970,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 			XaxisON = True
 			ax.set_xlabel(plotN["XLabel"], color =plotN["TextColor"], alpha=1.0)
 			if XisDate:
-				if BordOff[0] =="0":
+				if BordOff[0] == "0":
 					ax.set_xticklabels(emptyBlanks,color =BorderColor[0])
 				else:
 					#logger.log(10,Xformat+"  "+str(Xformat.find("\\n")))
@@ -1961,7 +1978,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 					ax.xaxis.set_major_formatter(DateFormatter(Xfline1))
 					ax.xaxis.set_major_locator(MonthLocator())
 
-					if Xfline2!="" :
+					if Xfline2 != "" :
 						if countTimeBinsMax < 100:
 							ax.xaxis.set_minor_locator(DayLocator( interval=5, tz=None))
 						elif countTimeBinsMax < 200:
@@ -1972,8 +1989,8 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 							pass
 						ax.xaxis.set_minor_formatter(DateFormatter(Xfline2))
 			else:
-				if  plotN["XLog"] =="1" or plotN["XLog"].upper() =="LOG": 			ax.set_xscale('log')
-				if BordOff[0] =="0":
+				if  plotN["XLog"] == "1" or plotN["XLog"].upper() == "LOG": 			ax.set_xscale('log')
+				if BordOff[0] == "0":
 					ax.set_xticklabels(emptyBlanks,color =BorderColor[0])
 				else:
 					if plotN["XScaleFormat"] == "none":
@@ -1982,18 +1999,18 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 						if len(plotN["XScaleTics"]) >2 and (plotN["XScaleTics"]).count(",") >0 :
 							theList= plotN["XScaleTics"].split(",")
 							numtics = len(theList)
-							tickNum =[]
-							tickText=[]
+							tickNum = []
+							tickText = []
 							tn =1.
 							tx = str(tn)
 							for nT in range(numtics):
-								if   theList[nT].count('"') ==2:
+								if   theList[nT].count('"') == 2:
 									XaxisON = False
 									dd,tx,tn = theList[nT].split('"')
 									tn = float(tn.strip(" "))
-								elif theList[nT].count('"') ==0:
+								elif theList[nT].count('"') == 0:
 									tn = float(theList[nT].strip(" "))
-									tx=str(tn)
+									tx = str(tn)
 								else:
 									tn = tn
 									tx = tx
@@ -2007,7 +2024,7 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 								if len(plotN["XScaleFormat"]) >2 :ax.xaxis.set_major_formatter(FormatStrFormatter(plotN["XScaleFormat"]))
 								else:
 									if int(plotN["XScaleDecPoints"]) >=0 :
-										if not(plotN["XLog"] == "1" or plotN["XLog"].upper() =="LOG"):	ax.xaxis.set_major_formatter(FormatStrFormatter("%."+plotN["XScaleDecPoints"]+"f"))
+										if not(plotN["XLog"] == "1" or plotN["XLog"].upper() == "LOG"):	ax.xaxis.set_major_formatter(FormatStrFormatter("%."+plotN["XScaleDecPoints"]+"f"))
 										else:															ax.xaxis.set_major_formatter(mlp.ticker.FormatStrFormatter("%."+plotN["XScaleDecPoints"]+"f"))
 						except:
 							pass
@@ -2101,27 +2118,27 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 			lk =         plotN["lines"][ll]["lineKey"]
 
 
-			if   lt =="LineSolid":	ax.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls="-", color=lc,lw=lw2, label=lk)
-			elif lt =="LineDashed":	ax.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls=":", color=lc,lw=lw2, label=lk)
-			elif lt.find("DOT")==0:	ax.plot(xtimeCol[ll0],columnDataToPlot[ll0],lt[3:], color=lc,lw=lw2, label=lk)
+			if   lt == "LineSolid":	ax.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls="-", color=lc,lw=lw2, label=lk)
+			elif lt == "LineDashed":	ax.plot(xtimeCol[ll0],columnDataToPlot[ll0],ls=":", color=lc,lw=lw2, label=lk)
+			elif lt.find("DOT") == 0:	ax.plot(xtimeCol[ll0],columnDataToPlot[ll0],lt[3:], color=lc,lw=lw2, label=lk)
 
 
-		if plotN["XLog"] =="log": ax.set_rscale('log')
+		if plotN["XLog"] == "log": ax.set_rscale('log')
 		if xMax != 999999999999999999.: ax.set_rmax(xMax)
 		if xMin != -999999999999999999.: ax.set_rmin(xMin)
 
 		if len(plotN["XScaleTics"]) >2 and (plotN["XScaleTics"]).count(",") > 0  :
-			theList= plotN["XScaleTics"].split(",")
+			theList = plotN["XScaleTics"].split(",")
 			numtics = len(theList)
-			tickNum =[]
-			tickText=[]
+			tickNum = []
+			tickText = []
 			tn =1.
 			tx = str(tn)
 			for nT in range(numtics):
-				if   theList[nT].count('"') ==2:
+				if   theList[nT].count('"') == 2:
 					dd,tx,tn = theList[nT].split('"')
 					tn = float(tn.strip(" "))
-				elif theList[nT].count('"') ==0:
+				elif theList[nT].count('"') == 0:
 					tn = float(theList[nT].strip(" "))
 					tx=str(tn)
 				else:
@@ -2136,7 +2153,7 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 		xx = plotN["LeftLabel"].split(",")
 
 		Dlabel =["90","60","30","0","330","300","270","240","210","180","150","120"]
-		if len(xx)==4:
+		if len(xx) == 4:
 			Dlabel[0]  = xx[1].encode('utf8')
 			Dlabel[1]  = "60"
 			Dlabel[2]  = "30"
@@ -2150,7 +2167,7 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 			Dlabel[10] = "150"
 			Dlabel[11] = "120"
 
-		elif  len(xx)==12:
+		elif  len(xx) == 12:
 			Dlabel[0]  = xx[3].encode('utf8')
 			Dlabel[1]  = xx[2].encode('utf8')
 			Dlabel[2]  = xx[1].encode('utf8')
@@ -2171,14 +2188,14 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 		ax.spines['polar'].set_color(plotN["TextColor"])
 
 		if plotN["Grid"] !="0":
-			if	 plotN["Grid"] =="-1":  ls=":" ; lw=1
-			elif plotN["Grid"] =="-2":  ls="-" ; lw=1
-			elif plotN["Grid"] =="-3":  ls="-" ; lw=2
-			elif plotN["Grid"] =="1": ls=":" ; lw=1
-			elif plotN["Grid"] =="2": ls="-" ; lw=1
-			elif plotN["Grid"] =="3": ls="-" ; lw=2
+			if	 plotN["Grid"] == "-1":  ls=":" ; lw=1
+			elif plotN["Grid"] == "-2":  ls="-" ; lw=1
+			elif plotN["Grid"] == "-3":  ls="-" ; lw=2
+			elif plotN["Grid"] == "1":   ls=":" ; lw=1
+			elif plotN["Grid"] == "2":   ls="-" ; lw=1
+			elif plotN["Grid"] == "3":   ls="-" ; lw=2
 			ax.grid(True, which="major", linestyle=ls,linewidth= lw, color=plotN["TextColor"])
-			if plotN["Grid"].find("-") ==-1: ax.set_axisbelow(True)
+			if plotN["Grid"].find("-") == -1: ax.set_axisbelow(True)
 		else:
 			ax.grid(False)
 			if len(plotN["XScaleTics"])<3:
@@ -2194,7 +2211,7 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 
 		ax.set_rlabel_position( dir_yaxis )
 
-		ax.legend(loc= "upper right")
+		ax.legend(loc="upper right")
 		ax.set_xlabel(plotN["XLabel"], color =plotN["TextColor"], alpha=1.0)
 
 		lOffset = max(0,len(plotN["XLabel"])-5)*(0.004*float(plotN["TextSize"])/10.*float(plotN["Textscale21"]))
@@ -2230,29 +2247,29 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 
 def set_border(BordOff, ax, ax2=""):
 	try:
-		if BordOff[0] =="0":
+		if BordOff[0] == "0":
 			ax.tick_params( axis="x", which="both", bottom="off", top="off")
 			ax.spines["bottom"].set_visible(False)
-		if BordOff[1] =="0":
+		if BordOff[1] == "0":
 			ax.tick_params( axis="y", which="both", left="off")
 			ax.spines["left"].set_visible(False)
-		if BordOff[2] =="0":
+		if BordOff[2] == "0":
 			ax.tick_params( axis="x", which="both" , top="off")
 			ax.spines["top"].set_visible(False)
-		if BordOff[3] =="0":
+		if BordOff[3] == "0":
 			ax.tick_params( axis="y", which="both", right="off")
 			ax.spines["right"].set_visible(False)
 		if ax2 != "":    
-			if BordOff[0] =="0":
+			if BordOff[0] == "0":
 				ax2.tick_params( axis="x", which="both", bottom="off", top="off")
 				ax2.spines["bottom"].set_visible(False)
-			if BordOff[1] =="0":
+			if BordOff[1] == "0":
 				ax2.tick_params( axis="y", which="both", left="off")
 				ax2.spines["left"].set_visible(False)
-			if BordOff[2] =="0":
+			if BordOff[2] == "0":
 				ax2.tick_params( axis="x", which="both" , top="off")
 				ax2.spines["top"].set_visible(False)
-			if BordOff[3] =="0":
+			if BordOff[3] == "0":
 				ax2.tick_params( axis="y", which="both", right="off")
 				ax2.spines["right"].set_visible(False)
 	except  Exception as e:
@@ -2352,7 +2369,7 @@ PLOT={}
 
 # kill old program if still running..
 try:
-	pidHandle= openEncoding( prefsDir+"matplot/matplot.pid" , "r")
+	pidHandle = openEncoding( prefsDir+"matplot/matplot.pid" , "r")
 	oldPID = pidHandle.readline()
 	pidHandle.close()
 	if str(myPID) != oldPID:
