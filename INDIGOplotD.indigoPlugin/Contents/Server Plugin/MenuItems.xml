@@ -1108,7 +1108,7 @@
         <CallbackMethod>inpPrintdevStates</CallbackMethod></MenuItem>
 
     <MenuItem id="menu5-3">
-        <Name>Print FORMATTED source data to /Library/Application Support/Perceptive Automation/Indigo 7.x/Preferences/Plugins/com.karlwachs.INDIGOplotD/data/xxx.dat.formatted </Name>
+        <Name>Print FORMATTED source data to /Library/Application Support/Perceptive Automation/Indigo y.x/Preferences/Plugins/com.karlwachs.INDIGOplotD/data/xxx.dat.formatted </Name>
         <CallbackMethod>inpPrintData</CallbackMethod></MenuItem>
     <MenuItem id="d60"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
 

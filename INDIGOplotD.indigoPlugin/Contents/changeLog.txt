@@ -1,3 +1,11 @@
+ changes in v2022.21.87 @ 2025-09-22
+===================================================
+
+1. fixed:
+	invalid literal for int() with base 10: '0b3'line#,Module,Statement:(399, 'startup', 'major, minor, release = map(int, indigo.server.version.split("."))')
+  error occurs only with indigo beta version   0b3 is not an integer 
+
+
  changes in v2022.21.86 @ 2025-08-02
 ===================================================
 

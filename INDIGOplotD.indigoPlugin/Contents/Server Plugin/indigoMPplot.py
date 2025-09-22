@@ -179,15 +179,15 @@ def getEventData():
 			resetType = "-0"
 			zero      = "-zero"
 			#print theCol, devNo, DEVICE[str(devNo)]["measurement"][stateNo]
-			if DEVICE[str(devNo)]["measurement"][stateNo].find("event") >-1:
-				if DEVICE[str(devNo)]["measurement"][stateNo].find("eventUP") >-1:
-					event="up"
-				elif DEVICE[str(devNo)]["measurement"][stateNo].find("eventDOWN") >-1:   
-					event="down"
-				elif DEVICE[str(devNo)]["measurement"][stateNo].find("eventCHANGE") >-1:   
-					event="change"
-				elif DEVICE[str(devNo)]["measurement"][stateNo].find("eventCOUNT") >-1:   
-					event="count"
+			if DEVICE[str(devNo)]["measurement"][stateNo].find("event") > -1:
+				if DEVICE[str(devNo)]["measurement"][stateNo].find("eventUP") > -1:
+					event = "up"
+				elif DEVICE[str(devNo)]["measurement"][stateNo].find("eventDOWN") > -1:   
+					event = "down"
+				elif DEVICE[str(devNo)]["measurement"][stateNo].find("eventCHANGE") > -1:   
+					event = "change"
+				elif DEVICE[str(devNo)]["measurement"][stateNo].find("eventCOUNT") > -1:   
+					event = "count"
 					if DEVICE[str(devNo)]["resetType"][stateNo].find("0") == -1:   
 						resetType = "-"+DEVICE[str(devNo)]["resetType"][stateNo]
 						if   resetType.find("day")   > -1: resetType = "-day" 
@@ -198,7 +198,7 @@ def getEventData():
 					if DEVICE[str(devNo)]["measurement"][stateNo].find("zero") >-1:   
 						zero = "-zero"
 				else:
-					event="any"
+					event = "any"
 				
 				eventData[str(theCol)]  = []
 				eventIndex[str(theCol)] = 0
@@ -207,14 +207,21 @@ def getEventData():
 				errorC = 0
 				for ii in range(3):
 					try:
-						#print "doing: ..."+prefsDir+"sql/"+str(DEVICE[str(devNo)]["Id"]) + "-" + DEVICE[str(devNo)]["state"][stateNo]
-						f=open(prefsDir+"sql/"+str(DEVICE[str(devNo)]["Id"]) + "-" + DEVICE[str(devNo)]["state"][stateNo], "r")
-						datax =[]
-						nn=0
+						logger.log(20,"doing: ..."+event+"  "+prefsDir+"sql/"+str(DEVICE[str(devNo)]["Id"]) + "-" + DEVICE[str(devNo)]["state"][stateNo])
+						f = open(prefsDir+"sql/"+str(DEVICE[str(devNo)]["Id"]) + "-" + DEVICE[str(devNo)]["state"][stateNo], "r")
+						datax = []
+						nn = 0
 						for line in f.readlines():
-							dd=line.strip("\n").split(";")
+							dd = line.strip("\n").split(";")
 							if len(dd) == 3:
-								datax.append([dd[1],1,0,0,0,0,1,float(dd[-1])]) # same format as plotDatastore
+								yy = float(dd[-1])
+								if event in ["up","change"]:
+									if yy != 0.: 	yy = 1.
+								if event in ["down"]:
+									if yy == 0.: 	yy = 1.
+									else:			yy = 0.
+								
+								datax.append([dd[1],1,0,0,0,0,1,yy]) # same format as plotDatastore
 								datax[nn][2] = datetime.datetime.strptime(dd[1],"%Y%m%d%H%M%S").weekday()
 								if nn >0:
 									if dd[1][-8:]  ==   "01000000":  # last bin  in month
@@ -226,7 +233,7 @@ def getEventData():
 						#print datax
 						eventData[str(theCol)] = datax
 						eventIndex[str(theCol)] = nn
-						#print " read done", theCol, eventIndex[str(theCol)], eventData[str(theCol)][0:2]
+						logger.log(10,"==read done theCol:{} evindex:{}, ev0-2:{}".format(theCol, eventIndex[str(theCol)], eventData[str(theCol)][0:2]))
 						errorC = 0
 						break
 					except  Exception as e:
@@ -241,7 +248,7 @@ def getEventData():
 ########################################
 def getDiskData(tType):
 	global fileData
-	global  parameterFile, indigoPNGdir
+	global parameterFile, indigoPNGdir
 	global plotSizeNames, plotTimeNames, fileData, dataVersion, parameterVersion,debugEnable
 	global newData
 	global oldfileData
@@ -266,7 +273,7 @@ def getDiskData(tType):
 				logger.log(10,"changed # of days to:  {} len(timeDataNumbers) is now:  {}".format(noOfDays[tType], len(timeDataNumbers[tType])))
 
 
-		f=open(fileData[tType], "r")
+		f = open(fileData[tType], "r")
 		line = f.readline()
 		if len(line) < 16: return  False # checking length of first 2 item. its the date string YYYYMMDD +HH + MM so 8 10 12 +";0.0" +4 = 12 14 16
 		
@@ -276,15 +283,15 @@ def getDiskData(tType):
 		if len(line.split(sep)[0]) < 8: return False # junk data
 
 		dataColumnCount == 0
-		f= open( fileData[tType] , "r")
+		f = open( fileData[tType] , "r")
 		theIndex = 0
 		for line in f.readlines():
 			test = line.strip("\n").strip(" ").strip(" "+sep).split(sep)
 			if len(test[0]) < 8: return False
 			if len(test) > dataColumnCount + 2 + dataOffsetInTimeDataNumbers: dataColumnCount=len(test) - 2 - dataOffsetInTimeDataNumbers
 
-			timeDataNumbers[tType][theIndex] =test[:]
-			theIndex+=1
+			timeDataNumbers[tType][theIndex] = test[:]
+			theIndex += 1
 		f.close()
 
 		for line in range(theIndex):
@@ -295,9 +302,9 @@ def getDiskData(tType):
 	# check if new data
 	if oldfileData[tType] != timeDataNumbers[tType]:
 		oldfileData[tType] = copy.deepcopy(timeDataNumbers[tType])
-		newData=True
+		newData = True
 	else:
-		newData=False
+		newData = False
 
 	logger.log(10," timeDataNumbers {}".format(len( timeDataNumbers[tType])) )# +"\n"+str(timeDataNumbers[tType]) )
 
@@ -532,7 +539,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 					Xformat = ""
 				colsToPlot=0
 				for ll in plotN["lines"]:
-					if plotN["lines"][ll]["lineToColumnIndexA"] !=0:colsToPlot+=1
+					if plotN["lines"][ll]["lineToColumnIndexA"] != 0: colsToPlot+=1
 
 
 
@@ -688,10 +695,10 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 			if plotN["lines"][ll]["lineToColumnIndexA"] !=0:
 				theCol = int(plotN["lines"][ll]["lineToColumnIndexA"])
 				columnsToPlot.append([theCol,ll])
-				if plotN["lines"][ll]["lineLeftRight"] == "Right": y2=True
-				else:											   y1=True
+				if plotN["lines"][ll]["lineLeftRight"] == "Right": y2 = True
+				else:											   y1 = True
 				colsToPlot += 1
-				if plotN["lines"][ll]["lineToColumnIndexB"] !=0:
+				if plotN["lines"][ll]["lineToColumnIndexB"] != 0:
 					columnsToPlotB.append([int(plotN["lines"][ll]["lineToColumnIndexB"]),ll])
 				else:
 					columnsToPlotB.append([0,0])
@@ -701,7 +708,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 		weightDataToPlot  = [[] for ii in range(colsToPlot)]
 		countTimeBinsMax  = 0
 		countTimeBinsWithDataMax = 0
-		countP=0
+		countP = 0
 
 
 		if  plotN["XYvPolar"] == "xy":
@@ -713,9 +720,9 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 							colToPlotB = copy.deepcopy(columnsToPlotB)
 							lCol = colToPlot[col][1]
 							try:    mul = float(plotN["lines"][lCol]["lineMultiplier"])
-							except: mul =1.
+							except: mul = 1.
 							try:    off = float(plotN["lines"][lCol]["lineOffset"])
-							except: off =0.
+							except: off = 0.
 
 							leftRange = plotN["lines"][lCol]["lineOffset"]
 							fromTo = ""
@@ -729,53 +736,31 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 							countTimeBins   = 0
 							dataCol         = colToPlot[col][0]
 							XT              = []
-							countTimeBinsWithData=0
+							countTimeBinsWithData = 0
 							if  plotN["PlotType"] == "dataFromTimeSeries" and str(dataCol) in eventIndex:
 									evD = eventData[str(dataCol)]
 									resetType = eventType[str(dataCol)].split("-")[1] ##reset = day/week/month/year/bin
 									showZero  = eventType[str(dataCol)].split("-")[2] == "zero" ## show  zero bins
 									evType    = eventType[str(dataCol)].split("-")[0] 
 									nData     = eventIndex[str(dataCol)]
-									dataToPlot=[]
-									#logger.log(10,"count  eventType:"+str(eventType[str(dataCol)]))
+									dataToPlot = []
+									logger.log(10,"count  eventType:"+str(eventType[str(dataCol)]))
 									#XisDate =True
-									if   evType == "down":
+									if   evType in["up", "down"]:
 										for nn in range(nData):
-											if float(evD[nn][7]) == 0.:
+											if float(evD[nn][7]) == 1.:
 												dataToPlot.append(copy.deepcopy(evD[nn])) 
 												XT.append(datetime.datetime.strptime(evD[nn][0], "%Y%m%d%H%M%S"))
-										nBins =len(XT)
-									elif evType == "up":
-										for nn in range(nData):
-											try:
-												if float(evD[nn][7]) > 0.:
-													dataToPlot.append(copy.deepcopy(evD[nn]))  
-													XT.append(datetime.datetime.strptime(evD[nn][0], "%Y%m%d%H%M%S"))
-											except:
-												logger.log(10,str(nn) + " "+str(evD))
-												break
-										nBins =len(XT)
-									elif evType == "1":
-										for nn in range(nData):
-											try:
-												if float(evD[nn][7]) > 0.:
-													dataToPlot.append(copy.deepcopy(evD[nn]))  
-													for ii in range(len(evD[nn])):
-														if dataToPlot[ii] > 0: dataToPlot[ii] = 1
-													XT.append(datetime.datetime.strptime(evD[nn][0], "%Y%m%d%H%M%S"))
-											except:
-												logger.log(10,str(nn) + " "+str(evD))
-												break
-										nBins =len(XT)
+										nBins = len(XT)
 										
 									elif evType == "change":
-										last=""
+										last = ""
 										for nn in range(nData):
-											if evD[nn][7] !=last:
-												last=evD[nn][7] 
+											if evD[nn][7] != last:
+												last = evD[nn][7] 
 												dataToPlot.append(copy.deepcopy(evD[nn]))  
 												XT.append(datetime.datetime.strptime(evD[nn][0], "%Y%m%d%H%M%S"))
-										nBins =len(XT)
+										nBins = len(XT)
 									elif evType == "count":
 									
 										nb                = 0
@@ -2383,7 +2368,7 @@ pidHandle.write(str(myPID))
 pidHandle.close()
 
 
-fileData=[]
+fileData = []
 fileData.append(prefsDir+"data/"+plotTimeNames[0]+".dat") # data file names
 fileData.append(prefsDir+"data/"+plotTimeNames[1]+".dat")
 fileData.append(prefsDir+"data/"+plotTimeNames[2]+".dat")
