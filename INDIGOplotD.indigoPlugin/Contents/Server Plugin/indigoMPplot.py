@@ -73,7 +73,7 @@ def main():
 	oldPLOT                 = {}
 	loopCount               = 0
 	while not quitNOW:
-		fNamesToPlot=[""]
+		fNamesToPlot = [""]
 		time.sleep(waitTime)
 		if thePlotCount > 300: break	#  reboot every 300 times to clear memory.
 		
@@ -81,17 +81,17 @@ def main():
 		if timeCount > 720./waitTime: break	# nothing has changed in the last 12 minutes .. exit
 
 		if os.path.isfile(matplotcommand):
-			logger.log(10,"new matplot input command found")
+			logger.log(20,"new matplot input command found")
 			try:
 				f = openEncoding(matplotcommand,"r")
 				xx = f.read()
 				f.close()
-				logger.log(10,"matplot input command read >>{}<<".format(xx))
+				logger.log(20,"matplot input command read >>{}<<".format(xx))
 				fNamesToPlot = json.loads(xx)
 				if isinstance(fNamesToPlot, str) or isinstance(fNamesToPlot, unicode):
 					fNamesToPlot = [fNamesToPlot]
 				for fn in fNamesToPlot:
-					logger.log(10,"matplot input command read >>{}<<".format(fn))
+					logger.log(20,"matplot input command read >>{}<<".format(fn))
 				os.remove( matplotcommand )
 			except  Exception as e:
 				logger.log(20,"", exc_info=True)
@@ -109,7 +109,7 @@ def main():
 			getDiskData(1)
 			getDiskData(2)
 			getEventData()
-			d0= datetime.datetime.now()
+			d0 = datetime.datetime.now()
 			plotNow(fNamesToPlot)
 			thePlotCount    += 1
 			timeCount        = 0
@@ -260,7 +260,7 @@ def getDiskData(tType):
 		for i, l in enumerate(f):
 			pass
 		f.close()
-		if i+1 !=numberOfTimeBins[tType]:
+		if i+1 != numberOfTimeBins[tType]:
 			if i < 50:
 				logger.log(10," read file {} file line: {}  rejecting too small  ".format(fileData[tType], i+1))
 				quitNOW =True
@@ -286,12 +286,16 @@ def getDiskData(tType):
 		f = open( fileData[tType] , "r")
 		theIndex = 0
 		for line in f.readlines():
-			test = line.strip("\n").strip(" ").strip(" "+sep).split(sep)
-			if len(test[0]) < 8: return False
-			if len(test) > dataColumnCount + 2 + dataOffsetInTimeDataNumbers: dataColumnCount=len(test) - 2 - dataOffsetInTimeDataNumbers
+			try:			
+				test = line.strip("\n").strip(" ").strip(" "+sep).split(sep)
+				if len(test[0]) < 8: return False
+				if len(test) > dataColumnCount + 2 + dataOffsetInTimeDataNumbers: dataColumnCount=len(test) - 2 - dataOffsetInTimeDataNumbers
+	
+				timeDataNumbers[tType][theIndex] = test[:]
+				theIndex += 1
+			except  Exception as e:
+				logger.log(20,"error in  getDiskData:  line:{}, test:{}, theIndex:{}".format(line, test, theIndex, json.dumps(timeDataNumbers[tType],sort_keys=True, indent=2)[:100]), exc_info=True)
 
-			timeDataNumbers[tType][theIndex] = test[:]
-			theIndex += 1
 		f.close()
 
 		for line in range(theIndex):
@@ -479,7 +483,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 				plotN = PLOT[nPlot]
 				if plotN["NumberIsUsed"] !=1: return
 				if "enabled" in plotN and  plotN["enabled"] !="True": return
-				if not( filenamesToPlot[0] == "" or filenamesToPlot[0] == " do all plots" or plotN["DeviceNamePlot"] in filenamesToPlot  ): return
+				if not( filenamesToPlot[0] == "" or filenamesToPlot[0] == "do all plots" or plotN["DeviceNamePlot"] in filenamesToPlot  ): return
 		
 				#### check if there is anything new in the PLOT definition
 				doPLOT=False
