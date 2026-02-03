@@ -499,7 +499,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 						logger.log(10,"-- oldplot == newplot"+ plotN["DeviceNamePlot"] )
 					if not doPLOT:				### check if plotfiles already exist, if not need to redo
 						for tType in range(numberOfTimeTypes):
-							if plotN["PlotType"] != "dataFromTimeSeries" and tType>0: continue
+							if plotN["PlotType"] != "dataFromTimeSeries" and tType > 0: continue
 							if plotN["PlotType"] == "dataFromTimeSeries" and plotN["MHDDays"][tType] == 0: continue
 							if plotN["PlotType"] == "dataFromTimeSeries":
 								DeviceNamePlotpng0= indigoPNGdir+plotN["DeviceNamePlot"]+"-"+plotTimeNames[tType]
@@ -1268,9 +1268,12 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 		else:   # polar plot
 				firstDaytoPlot =0
 				if  plotN["PlotType"] == "dataFromTimeSeries":
-					if   tType == 2 :	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(int(plotN["MHDDays"][tType]))).strftime("%Y%m%d")+"000000"    )
-					elif tType == 1 :	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(int(plotN["MHDDays"][tType]))).strftime("%Y%m%d%H")+"0000"  )
-					elif tType == 0 : 	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(int(plotN["MHDDays"][tType]))).strftime("%Y%m%d%H%M")+"00")
+					try: 	MHDDays = int(plotN["MHDDays"][tType])
+					except: MHDDays = 1
+
+					if   tType == 2 :	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(MHDDays)).strftime("%Y%m%d")+"000000"    )
+					elif tType == 1 :	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(MHDDays)).strftime("%Y%m%d%H")+"0000"  )
+					elif tType == 0 : 	firstDaytoPlot = float((datetime.date.today() - datetime.timedelta(MHDDays)).strftime("%Y%m%d%H%M")+"00")
 					nBins	=numberOfTimeBins[tType]
 				else:nBins	=numberofNonTimeBins
 
@@ -1486,13 +1489,17 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 			else:alphaText=1.0
 			try: 	ExtraTextRotate = float(plotN["ExtraTextRotate"])
 			except: ExtraTextRotate = 0.
+			try: 	ExtraTextXPos = float(plotN["ExtraTextXPos"])
+			except: ExtraTextXPos = 0.
+			try: 	ExtraTextYPos = float(plotN["ExtraTextYPos"])
+			except: ExtraTextYPos = 0.
 			fig.text(
-				 plotN["ExtraTextXPos"]
-				,plotN["ExtraTextYPos"]
+				 ExtraTextXPos
+				,ExtraTextYPos
 				,plotN["ExtraText"]
 				,rotation=ExtraTextRotate
 				,color=plotN["ExtraTextColorRGB"]
-				,size=plotN["ExtraTextSize"]
+				,size=int(plotN["ExtraTextSize"])
 				,alpha=alphaText)
 		ax.spines["top"].set_color(plotN["TextColor"])
 		ax.spines["bottom"].set_color(plotN["TextColor"])
@@ -1869,23 +1876,25 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 				ax.set_xticklabels(emptyBlanks,color =BorderColor[3])
 			else:
 				
-				if plotN["MHDFormat"][tType].lower() !="off":
+				if plotN["MHDFormat"][tType].lower() != "off":
 					try: 
 						ticksDensity = float(plotN["MHDFormat"][tType])
 					except:
 						ticksDensity = 1
 					
 					if tType == 0:
-						if   int(plotN["MHDDays"][0]) == 1:  fraction = 0.125
-						elif int(plotN["MHDDays"][0]) == 2:  fraction = 0.125
-						elif int(plotN["MHDDays"][0]) == 3:  fraction = 0.25
-						elif int(plotN["MHDDays"][0]) == 4:  fraction = 0.25
-						elif int(plotN["MHDDays"][0]) == 5:  fraction = 0.5
-						elif int(plotN["MHDDays"][0]) == 6:  fraction = 0.5
-						elif int(plotN["MHDDays"][0]) == 7:  fraction = 0.5
-						elif int(plotN["MHDDays"][0]) < 15: fraction = 1
-						elif int(plotN["MHDDays"][0]) < 31: fraction = 11
-						else : 								fraction = 11
+						try: 	MHDDays = int(plotN["MHDDays"][0])
+						except: MHDDays = 99
+						if   MHDDays == 1:  fraction = 0.125
+						elif MHDDays == 2:  fraction = 0.125
+						elif MHDDays == 3:  fraction = 0.25
+						elif MHDDays == 4:  fraction = 0.25
+						elif MHDDays == 5:  fraction = 0.5
+						elif MHDDays == 6:  fraction = 0.5
+						elif MHDDays == 7:  fraction = 0.5
+						elif MHDDays < 15: fraction = 1
+						elif MHDDays < 31: fraction = 11
+						else : 				fraction = 11
 
 						if fraction < 10:
 							ax.xaxis.set_major_formatter(DateFormatter("%a"))  # weekday
@@ -2083,13 +2092,17 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 			else:alpaText = 1.0
 			try: 	ExtraTextRotate = float(plotN["ExtraTextRotate"])
 			except: ExtraTextRotate = 0.
+			try: 	ExtraTextXPos = float(plotN["ExtraTextXPos"])
+			except: ExtraTextXPos = 0.
+			try: 	ExtraTextYPos = float(plotN["ExtraTextYPos"])
+			except: ExtraTextYPos = 0.
 			fig.text(
-				 plotN["ExtraTextXPos"]
-				,plotN["ExtraTextYPos"]
+				 ExtraTextXPos
+				,ExtraTextYPos
 				,plotN["ExtraText"]
 				,rotation=ExtraTextRotate
 				,color=plotN["ExtraTextColorRGB"]
-				,size=plotN["ExtraTextSize"]
+				,size=int(plotN["ExtraTextSize"])
 				,alpha=alphaText)
 
 		if  str(plotN["TransparentBackground"]) == "0.0":

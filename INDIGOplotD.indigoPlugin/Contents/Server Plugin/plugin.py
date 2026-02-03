@@ -3833,7 +3833,7 @@ class Plugin(indigo.PluginBase):
 		,numberCommands,arrows
 		,rawCmd, drawZeroLine, numberOfLines , theLines ):
 
-
+		
 		if nDays == 0 and theType != "Xscale" : return
 		# first part if format, second part is major tick frequency in secs 
 		try: # dont use  it if it is a number, then it is meant for matplot  
@@ -7214,13 +7214,13 @@ class Plugin(indigo.PluginBase):
 
 
 		xx									= valuesDict["LeftScaleRange"]
-		if xx.find(":") <1 and len(xx)>0 :
+		if xx.find(":") < 1 and len(xx) > 0:
 			Error= "error: L-Scale wrong, eg:  0:250"
 			valuesDict["LeftScaleRange"] = "0:250"
 		else:
 			self.PLOT[nPlot]["LeftScaleRange"]	=xx
 		xx										= valuesDict["RightScaleRange"]
-		if xx.find(":") <1 and len(xx)>0 :
+		if xx.find(":") < 1 and len(xx) > 0 :
 			Error= "error: R-Scale wrong, eg:  0:250"
 			valuesDict["RightScaleRange"] = "0:250"
 		else:

@@ -1,4 +1,4 @@
- changes in v2022.21.91 @ 2026-02-03
+ changes in v2022.21.92 @ 2026-02-03
 ===================================================
 
 1. fixed matplot issue  extra text rotation must be a number not a string eg not "90.0" but 90.0
