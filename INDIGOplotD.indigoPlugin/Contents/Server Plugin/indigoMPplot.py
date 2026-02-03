@@ -1484,11 +1484,13 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
 		if len(plotN["ExtraText"]) >0:
 			if plotN["ExtraTextFrontBack"] == "back": alphaText=0.5
 			else:alphaText=1.0
+			try: 	ExtraTextRotate = float(plotN["ExtraTextRotate"])
+			except: ExtraTextRotate = 0.
 			fig.text(
 				 plotN["ExtraTextXPos"]
 				,plotN["ExtraTextYPos"]
 				,plotN["ExtraText"]
-				,rotation=plotN["ExtraTextRotate"]
+				,rotation=ExtraTextRotate
 				,color=plotN["ExtraTextColorRGB"]
 				,size=plotN["ExtraTextSize"]
 				,alpha=alphaText)
@@ -2079,11 +2081,13 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 		if len(plotN["ExtraText"]) > 0:
 			if plotN["ExtraTextFrontBack"] == "back": alpaText = 0.5
 			else:alpaText = 1.0
+			try: 	ExtraTextRotate = float(plotN["ExtraTextRotate"])
+			except: ExtraTextRotate = 0.
 			fig.text(
 				 plotN["ExtraTextXPos"]
 				,plotN["ExtraTextYPos"]
 				,plotN["ExtraText"]
-				,rotation=plotN["ExtraTextRotate"]
+				,rotation=ExtraTextRotate
 				,color=plotN["ExtraTextColorRGB"]
 				,size=plotN["ExtraTextSize"]
 				,alpha=alphaText)
