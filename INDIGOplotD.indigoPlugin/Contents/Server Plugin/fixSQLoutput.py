@@ -13,14 +13,16 @@ import codecs
 #  2. remove non numbers (text)
 
 #print "hello"
-try:
-	unicode("x")
-except:
-	unicode = str
-
 
 def makeEvents():
-	return 
+	"""Placeholder/no-op stub that does nothing and returns immediately; defined for API/import compatibility. The module's actual SQL-output cleanup logic runs at module level (de-duplicating rows by ID, dropping non-numeric/out-of-range values, and rewriting the output file), not inside this function.
+
+	Inputs:
+	    None.
+	Outputs:
+	    None: returns None and has no side effects.
+	"""
+	return
 
 
 d0 = time.time()
@@ -63,7 +65,7 @@ if size > 500000:
 		logF= open( logFile+".log" , "a")
 	except:
 		pass
-logF.write(u"\n{} .. PID:{}\n".format(datetime.datetime.now(), myPid))
+logF.write("\n{} .. PID:{}\n".format(datetime.datetime.now(), myPid))
 
 
 #remove duplicates, ie same SQL ID    &     samedate and same value
@@ -176,7 +178,7 @@ outLog["valCountBAD"]   = valCountBAD
 outLog["dateCount"]     = dateCount
 outLog["nBytes"]        = nBytes
 outLog["elapseTime"]    = str(time.time()-d0)[:6]
-logF.write(u"{}+++{}\n".format( inputFile, json.dumps(outLog)))
+logF.write("{}+++{}\n".format( inputFile, json.dumps(outLog)))
 #####
 
 

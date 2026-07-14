@@ -26,6 +26,16 @@
             </Field>
         </ConfigUI></Action>
 
+   <Action id="reeloadAllSQL">
+        <Name>Re-load ALL Data from SQL Database </Name>
+        <CallbackMethod>inpReloadSQLAction</CallbackMethod>
+    </Action>
+ 
+
+   <Action id="reeload2daysSQL">
+        <Name>Re-load Data from SQL Database for last 2 days</Name>
+        <CallbackMethod>inpReloadSQL2Days</CallbackMethod>
+    </Action>
  
 
 

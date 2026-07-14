@@ -1,7 +1,12 @@
+ changes in v2022.21.96 @ 2026-03-26
+===================================================
+1. added action to reload all devices from sql db.
+
+
  changes in v2022.21.92 @ 2026-02-03
 ===================================================
-
 1. fixed matplot issue  extra text rotation must be a number not a string eg not "90.0" but 90.0
+
 
  changes in v2022.21.90 @ 2025-11-09
 ===================================================

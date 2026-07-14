@@ -1,10 +1,5 @@
 import sys,os
 from datetime import datetime
-try:
-	unicode("x")
-except:
-	unicode = str
-
 
 #print "hello"
 fileDir = sys.argv[1]
@@ -33,10 +28,10 @@ if size > 500000:
 		pass
 
 
-logF.write(u"\nchecking py-restore files in"+fileDir+" "+str(datetime.now())+"\n")
+logF.write("\nchecking py-restore files in"+fileDir+" "+str(datetime.now())+"\n")
 
 for fname in os.listdir(fileDir):
-	logF.write(fname+ u"  "+str(datetime.now())+"\n")
+	logF.write(fname+ "  "+str(datetime.now())+"\n")
 	parsed= fname.split("-")
 	if len(parsed)>1:
 		if len(parsed[1])>5:
@@ -47,19 +42,17 @@ for fname in os.listdir(fileDir):
 #				logF.write(str(MMnow)+"   "+str(MMfil)+"\n")
 				if MMfil > MMnow: MMnow+=12
 				if MMnow-MMfil > 1:  # keep 4-8 weeks of backup, leave rest to system backup
-					logF.write(u"  === deleteing file "+fname+"\n\n")
+					logF.write("  === deleteing file "+fname+"\n\n")
 					os.remove( fileDir+fname )
 					continue
 	
 	f=open(fileDir+fname,"r")
-	logF.write(fname+ u"  "+str(datetime.now())+"\n")
+	logF.write(fname+ "  "+str(datetime.now())+"\n")
 	
 	
 	pyFile=""
 	addB=False
 	for line in f.readlines():
-		if line.find(": '") >-1:
-			line= line.replace(": '",": u'",1)		# fix old version that does not treat unicode correctly
 		if line.find("TimeBeginHour") >-1: continue
 		if line.find("eEnergyCost") >-1: continue
 		if line.find("DATAlimitsM") >-1: continue
@@ -80,7 +73,7 @@ for fname in os.listdir(fileDir):
 		if line.find('"resetType') >-1:
 			if line.find("u'{u'") >-1:
 				line =line.replace("'",'"')
-				line =line.replace('u"{',"u'{")
+				line =line.replace('u"{',"'{")
 				line =line.replace(']}"',"]}'")
 			if line.find("'day'") >-1: 	line =line.replace("day",'"day"')
 			if line.find("'week'") >-1: line =line.replace("week",'"week"')

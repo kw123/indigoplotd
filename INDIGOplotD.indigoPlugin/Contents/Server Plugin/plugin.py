@@ -31,11 +31,6 @@ except:
 	import simplejson as json
 
 
-try:
-	unicode("x")
-except:
-	unicode = str()
-
 ###hardwired constants:
 dataOffsetInTimeDataNumbers =   5
 noOfTimeTypes				=	3
@@ -234,6 +229,16 @@ class Plugin(indigo.PluginBase):
 
 ####-----------------             ---------
 	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
+		"""Plugin constructor that calls the Indigo PluginBase initializer and sets up core paths, identity, and runtime attributes (install/preferences/log directories, plugin id/name, PID, OS user, Indigo and Python version detection). It configures per-level logging formatters and handlers, and locates a usable Python interpreter, aborting if none is found.
+
+		Inputs:
+		    pluginId (str): Indigo plugin bundle identifier
+		    pluginDisplayName (str): human-readable plugin name
+		    pluginVersion (str): plugin version string
+		    pluginPrefs (indigo.Dict): persisted plugin preference dictionary
+		Outputs:
+		    None: initializes instance attributes, logging, and may exit if no Python interpreter is found
+		"""
 		indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
 		
 		self.pathToPlugin				= os.getcwd()+"/"
@@ -330,6 +335,13 @@ class Plugin(indigo.PluginBase):
 
 ####-----------------             ---------
 	def __del__(self):
+		"""Destructor that delegates to the Indigo PluginBase __del__ to perform base-class cleanup.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: calls base class destructor
+		"""
 		indigo.PluginBase.__del__(self)
 
 
@@ -337,12 +349,20 @@ class Plugin(indigo.PluginBase):
 	
 ####----------------- @ startup set global parameters, create directories etc ---------
 	def startup(self):
+		"""Plugin startup hook that validates the plugin name, reads debug/preference settings, initializes state dictionaries and timing/SQL/plotting configuration, and creates the required data, PNG output, and temp directories (falling back or exiting on failure).
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: sets up runtime state, preferences, directories, and may return early or exit on fatal errors
+		"""
 		if not checkIndigoPluginName(self, indigo): 
 			exit() 
 			
 		self.debugLevel = []
 		for d in debugAreas:
 			if self.pluginPrefs.get("debug"+d, False): self.debugLevel.append(d)
+		if self.debugLevel != []: self.indiLOG.log(20,"debug areas set:{}".format(self.debugLevel ))
 
 
 
@@ -788,6 +808,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def upgradeDataStructure(self):
 		#### add 4 columns at the beginning for last min/hour/day data 
+		"""Migrates the in-memory time-data structure to schema version 2 by prepending data columns for last minute/hour/day values when needed, updates the stored dataVersion preference, and refreshes time indicator columns.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: mutates self.timeDataNumbers and the dataVersion preference; logs errors
+		"""
 		try:
 		## now do the data
 			self.dataVersion = int(self.pluginPrefs.get("dataVersion", "0"))
@@ -815,6 +842,13 @@ class Plugin(indigo.PluginBase):
 	def fillWithTimeIndicators(self):
 		#### add 5 columns at the beginning for last min/hour/day data 
 
+		"""Populates the leading time-indicator columns of each time bin (weekday, last-bin-of-month flag, last-bin-of-year flag, and bin index) by parsing each bin's timestamp.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: mutates self.timeDataNumbers time-indicator columns; logs errors
+		"""
 		try:
 				for  TTI in range(noOfTimeTypes):
 					for timeIndex in range(self.noOfTimeBins[TTI]):
@@ -837,6 +871,13 @@ class Plugin(indigo.PluginBase):
 		
 	########################################
 	def deviceStartComm(self, dev):	
+		"""Device communication start hook that marks the corresponding plot entry as used and, if the device is enabled, sets its enabled flag in the plugin's PLOT dictionary.
+
+		Inputs:
+		    dev (indigo.Device): the Indigo device starting communication
+		Outputs:
+		    None: updates self.PLOT entry flags
+		"""
 		nPlot= str(dev.id)
 		if nPlot in self.PLOT:
 			self.PLOT[nPlot]["NumberIsUsed"] = 1
@@ -845,6 +886,13 @@ class Plugin(indigo.PluginBase):
 	
 	########################################
 	def deviceStopComm(self, dev):
+		"""Device communication stop hook; it returns immediately so no action is taken (the remaining body that would mark the plot unused and save parameters is dead code after the return).
+
+		Inputs:
+		    dev (indigo.Device): the Indigo device stopping communication
+		Outputs:
+		    None: no-op (returns before any side effects)
+		"""
 		return
 		try:
 			if self.justSaved: return
@@ -857,11 +905,25 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def deviceCreated(self,dev):
+		"""Device-created hook that logs the new device and resynchronizes the plugin's plot definitions with Indigo's current devices.
+
+		Inputs:
+		    dev (indigo.Device): the newly created Indigo device
+		Outputs:
+		    None: calls syncPlotsWithIndigo and logs
+		"""
 		if self.decideMyLog("Initialize"): self.indiLOG.log(10,"deviceCreated  .. . id:{}".format(dev.id)+"  name:"+dev.name)
 		self.syncPlotsWithIndigo()
 		return
 	########################################
 	def deviceDeleted(self,dev):
+		"""Device-deleted hook that removes the associated plot's generated files, deletes its entry from the PLOT dictionary, and persists the updated plot parameters.
+
+		Inputs:
+		    dev (indigo.Device): the deleted Indigo device
+		Outputs:
+		    None: removes plot files, updates self.PLOT, and writes plot parameters
+		"""
 		nPlot = str(dev.id)
 		if self.decideMyLog("Cleanup"): self.indiLOG.log(10,"Plot Deleted  .. . id:"+nPlot+"  name:"+dev.name)
 		self.removeThisPlotFile(nPlot)  # remove the gnu png files etc
@@ -874,6 +936,13 @@ class Plugin(indigo.PluginBase):
 	########################################	initialize values/ programs ..	########################################	########################################	######################################
 	def gnuTime(self):
 		
+		"""Sets the gnuplot time offset based on the detected gnuplot version: gnuplot 4.x uses an epoch-to-millennium offset, otherwise the offset is zero.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: sets self.gnuOffset
+		"""
 		if self.gnuVersion.find("4.") > -1:
 			self.gnuOffset= self.secsEpochToMillenium
 		else:
@@ -882,6 +951,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def ReloadSQL (self):
+		"""Triggers a full reload of all SQL history data by clearing existing data, resetting per-column status arrays to force a complete reread, deleting cached column files, and starting the column data import.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: clears and reinitializes SQL state, removes cached files, and starts data import
+		"""
 		if self.dataColumnCount < 1: return
 		self.clearSqlData(True)
 		self.devicesAdded =	2
@@ -916,6 +992,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def ReloadSQL2Days (self):
+		"""Triggers a reload of SQL data limited to the last 2 days by switching to batch2Days dynamic mode, resetting per-column status arrays to the 2-day fetch state, and starting the column data import.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: reinitializes SQL status for a 2-day reload and starts data import
+		"""
 		if self.dataColumnCount <1: return
 		if self.sqlDynamic.find("-resetTo-") > -1:
 			self.sqlDynamic = "batch2Days" # if messed up
@@ -939,6 +1022,13 @@ class Plugin(indigo.PluginBase):
 
 
 	def startColumnData(self):
+		"""If column-data collection is enabled (colDataON), writes the current SQL column status, history list status, and dynamic SQL settings as JSON lines to the data/columns/command file.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: writes JSON status data to the data/columns/command file when enabled
+		"""
 		if self.colDataON:
 			f=self.openEncoding(self.userIndigoPluginDir+"data/columns/command","w")
 			f.write(json.dumps(self.sqlColListStatus)+"\n")
@@ -950,6 +1040,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def doInitGNU(self):
+		"""Reinitializes gnuplot setup by reloading device parameters from file, retrying the line data source rebuild up to five times until it no longer fails, then regenerating the gnuplot files.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: rebuilds plot data sources and gnuplot files, logs completion
+		"""
 		self.getDeviceParametersFromFile(calledfrom="doInitGNU")
 		if self.redolineDataSource(calledfrom="doInitGNU") == -1:
 			if self.redolineDataSource(calledfrom="doInitGNU") == -1:
@@ -963,6 +1060,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def doInstallGnuplot(self):
 
+		"""Launches the bundled installgnuplot AppleScript to install gnuplot, then polls for up to ~200 seconds for the gnuplot binary to appear in /opt/local/bin or /usr/local/bin, setting gnuPlotBinary when found.
+
+		Inputs:
+		    None.
+		Outputs:
+		    bool: True if the gnuplot binary was found/installed, False if it did not appear in time
+		"""
 		if self.decideMyLog("Initialize"): self.indiLOG.log(10,"installing gnuplot ")
 		subprocess.Popen(["/usr/bin/open", self.userIndigoPluginDir+"gnu/installgnuplot.scpt"])
 		for i in range(20):
@@ -980,6 +1084,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def fixPy(self):
 	
+		"""Spawns a background subprocess running fixpy.py against the plugin's py/ directory to repair/restore Python files, and logs that the check is running.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: launches a background fixpy.py process and logs the action
+		"""
 		cmd=self.pythonPath+" '"+self.indigoPath+"Plugins/"+self.pluginName+".indigoPlugin/Contents/Server Plugin/fixpy.py'  "+self.userIndigoPluginDir+"py/ > /dev/null 2>&1 &"
 		subprocess.Popen( cmd, shell=True)
 		self.indiLOG.log(20,"checking py-restore files")
@@ -987,6 +1098,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def clearFlags(self):
+		"""Clears stale plot flag/log files by removing sql/sqlcmd.log and deleting any .err, .ok, and .done marker files from the gnu directory.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: deletes leftover SQL log and gnuplot status flag files from disk
+		"""
 		if self.decideMyLog("Cleanup"): self.indiLOG.log(10,"clearing plot flags")
 		if os.path.isfile(self.userIndigoPluginDir+"sql/sqlcmd.log"): os.remove(self.userIndigoPluginDir+"sql/sqlcmd.log")
 		
@@ -1001,6 +1119,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def resetDeviceParameters(self):
+		"""Resets all in-memory device-related state and plugin preferences to defaults (column counts, SQL tracking lists, time bin starts, DEVICE dict, selection lists, dialog flags, etc.), then rebuilds the list of valid devices via preSelectDevices.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: resets device parameters and pluginPrefs to defaults and rebuilds the device list
+		"""
 		self.dataColumnCount						= 0
 		self.sqlLastID								= ["0"]
 		self.sqlLastImportedDate					= ["0"]
@@ -1048,6 +1173,13 @@ class Plugin(indigo.PluginBase):
 	
 	def writePlotParameters(self):
 
+		"""Serializes the current plot configuration to the matplotlib parameter file, deep-copying PLOT and converting variable/device-state references to text, then writing a JSON bundle (PLOT, DEVICE, column-to-device index, time-data offset, PNG dir) to matPLOTParameterFile.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: writes the plot parameters as JSON to matPLOTParameterFile
+		"""
 		xxyy=copy.deepcopy(self.PLOT)
 		for nPlot in xxyy:
 			for key in xxyy[nPlot]:
@@ -1068,6 +1200,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def resetPlotParameters(self):
 
+		"""Resets plot rendering parameters to defaults (font directory/name, current line number, empty PLOT dict) and rebuilds the list of available TrueType fonts by scanning the font directory for valid alphanumeric .ttf names.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: resets plot/font state and populates the font name lists
+		"""
 		self.theFontDir		=	"/Library/Fonts/"
 		self.theFont		=	"Arial Unicode.ttf"
 	
@@ -1096,6 +1235,13 @@ class Plugin(indigo.PluginBase):
 		
 	########################################
 	def getConsumptionDataFromFile(self):
+		"""Initializes and loads all consumption-tracking data: sets per-type period defaults, loads consumptionCost, consumedDuringPeriod, and valuesFromIndigo from their data files (recreating defaults on missing/old/malformed formats), validates array dimensions, syncs the consumedDuringPeriod entries against device measurement types, and persists the results.
+
+		Inputs:
+		    None.
+		Outputs:
+		    int: 1 on success, or -1 if a device's stateToIndex is malformed and had to be repaired
+		"""
 		self.periodTypeForConsumptionType={}
 		self.lastConsumptionPeriodBinWithData ={}
 		for i in range(noOfConsumptionTypes):
@@ -1214,6 +1360,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def putconsumedDuringPeriod(self):
+		"""Persists the in-memory consumedDuringPeriod and valuesFromIndigo structures to their respective JSON files in the data directory, logging on failure.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: writes consumedDuringPeriod and valuesFromIndigo JSON to disk
+		"""
 		try:
 			f=self.openEncoding(self.userIndigoPluginDir+"data/consumedDuringPeriod","w")
 			f.write(json.dumps(self.consumedDuringPeriod))
@@ -1228,6 +1381,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def putConsumptionCostData(self):
+		"""Persists the in-memory consumptionCostData structure to the data/consumptionCost JSON file, logging on failure.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: writes consumptionCostData JSON to disk
+		"""
 		try:
 			f=self.openEncoding(self.userIndigoPluginDir+"data/consumptionCost","w")
 			f.write(json.dumps(self.consumptionCostData))
@@ -1242,6 +1402,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def getLastConsumptionyCostPeriodBinWithData(self):
 	#,consumptionType="eConsumption",consumptionPeriod="Period"):
+		"""For each consumption type, scans its cost-period bins from the most recent backwards to find the last period bin that holds actual data (positive cost), checking either by Period or by day depending on the configured period type, and stores the index in lastConsumptionPeriodBinWithData.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: updates lastConsumptionPeriodBinWithData per consumption type
+		"""
 		for consumptionType in availConsumptionTypes:
 			consumptionPeriod = self.periodTypeForConsumptionType[consumptionType]
 			self.lastConsumptionPeriodBinWithData[consumptionType]=0
@@ -1261,6 +1428,14 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def getCurrentCostTimeBin(self, timeString,consumptionType):
+		"""Determines which cost/time bin applies to a given timestamp for a consumption type, scanning the stored cost data backwards to find the matching period (either a date-based 'Period' or a day/hour-based bin) and the highest cost bracket that holds data.
+
+		Inputs:
+		    timeString (str): timestamp as YYYYMMDDHHMM string, or '0' for the current time
+		    consumptionType (str): key identifying the consumption type whose cost data is scanned
+		Outputs:
+		    tuple: (current cost time bin index, last cost bracket index with values)
+		"""
 		currCostTimeBin=0
 		try:
 			if timeString == "0":
@@ -1306,6 +1481,15 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def getCurrentResetPeriod(self, timeString, resetPeriods, lastRbin):
 
+		"""Finds the index of the reset period that the given timestamp falls into by scanning the list of reset-period boundaries starting from the last known bin until one exceeds the time.
+
+		Inputs:
+		    timeString (str): timestamp as a string (uses first 10 chars), or '0' for current local time
+		    resetPeriods (list): ordered list of reset-period boundary time strings
+		    lastRbin (int): index to start scanning from to avoid rescanning earlier periods
+		Outputs:
+		    int: index of the matching reset period (0 on error)
+		"""
 		try:
 			if timeString == "0":	x = time.strftime("%Y%m%d%H",time.localtime())
 			else:				x = timeString[:10]
@@ -1324,6 +1508,19 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def calcConsumptionCostValue(self,measuredValue, currentCostTimeBin,valueAtStartOfCostBin,lastCostBinWithData,lastmeasuredValue,consumptionType,doPrint=False):
 		
+		"""Computes the incremental consumption cost for a measured value within the current cost bin by subtracting the value at the start of the bin and walking down the tiered consumed/cost brackets to find which bracket(s) the consumption falls into.
+
+		Inputs:
+		    measuredValue (float): current cumulative measured value
+		    currentCostTimeBin (int): index of the cost bin/period to use
+		    valueAtStartOfCostBin (float): measured value at the start of the cost bin, subtracted as a baseline
+		    lastCostBinWithData (int): highest cost bracket index that contains data
+		    lastmeasuredValue (float): previous measured value, used to split cost across tier boundaries
+		    consumptionType (str): key identifying the consumption type whose cost data is used
+		    doPrint (bool): when True, logs intermediate computation details
+		Outputs:
+		    tuple: (computed cost for the consumption, carry-over cost component); None on error
+		"""
 		try:
 			cCD=self.consumptionCostData[consumptionType][currentCostTimeBin]  # get cost bin / period
 			measuredValue		-=valueAtStartOfCostBin		#17				# current measuredValue - measuredValue of beginning of cost bin.. we have to start at 0 consumed at beginning of cost period
@@ -1331,7 +1528,7 @@ class Plugin(indigo.PluginBase):
 			if doPrint: self.indiLOG.log(20,"measuredValue {}".format(measuredValue)+";lastmeasuredValue {}".format(lastmeasuredValue)+ "; cCD {}".format(cCD))
 			for cB in range(lastCostBinWithData,-1,-1):						# start at highest (existing) cost bin , work down.
 				delta=measuredValue -cCD["consumed"][cB]					# is this in this cost/consumed bracket?
-				if doPrint: self.indiLOG.log(20,"cb: {}".format(cb)+ " cost {}".format(cCD["cost"][cB])+"; delta {}".format(delta))
+				if doPrint: self.indiLOG.log(20,"cb: {}".format(cB)+ " cost {}".format(cCD["cost"][cB])+"; delta {}".format(delta))
 				if delta >= 0:
 					if cB == 0:
 						return (delta)*cCD["cost"][cB],0.					# if yes return  consumed in this bracket * cost of this bracket
@@ -1348,6 +1545,13 @@ class Plugin(indigo.PluginBase):
 	
 	########################################
 	def  getDeviceParametersFromFile(self,calledfrom=""):
+		"""Loads device and data-column index parameters from the plugin's data files (falling back to pluginPrefs), then cleans up the loaded structures by removing empty devices and bad indexes, migrating old field names to current ones, filling in missing default fields, and finally persists the cleaned parameters back to file.
+
+		Inputs:
+		    calledfrom (str): label identifying the caller, used in log messages
+		Outputs:
+		    None: populates self.DEVICE, self.dataColumnToDevice0Prop1Index, self.dataColumnCount and self.sqlLastID, and writes parameters to file
+		"""
 		self.dataColumnToDevice0Prop1Index=[[0,0]]
 		self.DEVICE={}
 		self.DEVICE["0"] =copy.deepcopy(emptyDEVICE)
@@ -1420,7 +1624,7 @@ class Plugin(indigo.PluginBase):
 			if nDev == "0": continue
 			try:
 				ix= self.DEVICE[nDev]["Name"]
-				if ix == "None": devsToDelete.append(n)
+				if ix == "None": devsToDelete.append(nDev)
 			except:
 				devsToDelete.append(nDev)
 		if len(devsToDelete)>0: self.indiLOG.log(30,"getDeviceParametersFromFile devsToDelete  {}".format(devsToDelete))
@@ -1515,6 +1719,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def putDeviceParametersToFile(self,calledfrom=""):
 		
+		"""Writes the current data-column index list and DEVICE dictionary to the plugin's data/indexes and data/devices files as JSON.
+
+		Inputs:
+		    calledfrom (str): label identifying the caller (currently unused in the body)
+		Outputs:
+		    None: writes the indexes and devices JSON files
+		"""
 		f=self.openEncoding(self.userIndigoPluginDir+"data/indexes","w")
 		f.write(json.dumps(self.dataColumnToDevice0Prop1Index)+"\n")
 		f.close()
@@ -1534,33 +1745,85 @@ class Plugin(indigo.PluginBase):
 	########################################	commands from plugin/indigoplot/  menue
 	########################################	commands from plugin/indigoplot/  menue
 	def inpDummy(self,valuesDict="",typeID=""):
+		"""No-op placeholder callback used as a dummy handler for Indigo config dialogs; does nothing and returns nothing.
+
+		Inputs:
+		    valuesDict (dict): config dialog values (ignored)
+		    typeID (str): dialog type identifier (ignored)
+		Outputs:
+		    None: no effect
+		"""
 		return
 	########################################
 	def inpPlotALL(self):
+		"""Queues a 'PlotALL' command for the plugin's main loop to process and logs the action, triggering replotting of all plots.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends 'PlotALL' to self.indigoCommand and logs
+		"""
 		self.indigoCommand.append("PlotALL")
 		self.indiLOG.log(20,"command: PlotALL")
 		return
 	########################################
 	def inpPrintData(self):
+		"""Queues a 'PrintData' command for the plugin's main loop to process and logs the action.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends 'PrintData' to self.indigoCommand and logs
+		"""
 		self.indigoCommand.append("PrintData")
 		self.indiLOG.log(20,"command: PrintData")
 		return
 	########################################
 	def inpPrintdevStates(self):
+		"""Queues a 'PrintDevStates' command for the plugin's main loop to process and logs the action, triggering a printout of device states.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends 'PrintDevStates' to self.indigoCommand and logs
+		"""
 		self.indigoCommand.append("PrintDevStates")
 		self.indiLOG.log(20,"command: print device states")
 		return
 	########################################
 	def inpPrintPlotData(self,valuesDict, menuId):
+		"""Queues a 'PrintPlotData' command (including the selected plot from the dialog) for the plugin's main loop and returns the dialog values dict.
+
+		Inputs:
+		    valuesDict (dict): config dialog values; uses 'selPrintToPlot' for the selected plot
+		    menuId (str): menu identifier (unused in the body)
+		Outputs:
+		    dict: the unchanged valuesDict
+		"""
 		self.indigoCommand.append("PrintPlotData:{}".format(valuesDict["selPrintToPlot"]))
 		return valuesDict
 	########################################
 	def inpPrintDeviceData(self):
+		"""Queues a 'PrintDeviceData' command for the plugin's main loop to process and logs the action.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends 'PrintDeviceData' to self.indigoCommand and logs
+		"""
 		self.indigoCommand.append("PrintDeviceData")
 		self.indiLOG.log(20,"command: PrintDeviceData")
 		return
 	########################################
-	def inpReloadSQL(self):
+	########################################
+	def inpReloadSQLAction(self, actionId):
+		"""Queues a 'ReloadSQL' command for the plugin's main loop to reload SQL data, but skips and warns if dynamic SQL is not enabled in configuration.
+
+		Inputs:
+		    actionId (indigo.PluginAction): triggering action (unused in the body)
+		Outputs:
+		    None: appends 'ReloadSQL' to self.indigoCommand and logs, or returns early with a warning if SQL is off
+		"""
 		if self.sqlDynamic == "None":
 			self.indiLOG.log(20,"command: ReloadSQL ignored, FIRST SWITCH SQL ON in Configuration ")
 			return
@@ -1568,7 +1831,29 @@ class Plugin(indigo.PluginBase):
 		self.indiLOG.log(20,"command: ReloadSQL")
 		return
 	########################################
-	def inpReloadSQL2Days(self):
+	def inpReloadSQL(self):
+		"""Queues a 'ReloadSQL' command for the plugin to reload data from the SQL database; logs and aborts if SQL data collection is not enabled in the configuration.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends a command to the queue and logs; no return value
+		"""
+		if self.sqlDynamic == "None":
+			self.indiLOG.log(20,"command: ReloadSQL ignored, FIRST SWITCH SQL ON in Configuration ")
+			return
+		self.indigoCommand.append("ReloadSQL")
+		self.indiLOG.log(20,"command: ReloadSQL")
+		return
+	########################################
+	def inpReloadSQL2Days(self, actionId=""):
+		"""Queues a 'ReloadSQL2Days' command to reload the last two days of data from the SQL database; logs and aborts if SQL data collection is not enabled.
+
+		Inputs:
+		    actionId (str): optional unused action identifier, defaults to empty string
+		Outputs:
+		    None: appends a command to the queue and logs; no return value
+		"""
 		if self.sqlDynamic == "None":
 			self.indiLOG.log(20,"command: ReloadSQL 2 DAYS  ignored, FIRST SWITCH SQL ON in Configuration ")
 			return
@@ -1577,51 +1862,122 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def inpSavePy(self):
+		"""Queues an 'inpSavePy' command instructing the plugin to generate Python code for the plots, saved into the plugin's py/ directory.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends a command to the queue and logs; no return value
+		"""
 		self.indigoCommand.append("inpSavePy")
 		self.indiLOG.log(10,"command: create Python code for PLOTs in "+self.userIndigoPluginDir+"py/ManualSavedConfig.....py")
 		return
 	########################################
 	def inpInstallGnuplot(self):
+		"""Queues an 'InstallGnuplot' command to trigger installation of the gnuplot plotting backend.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends a command to the queue and logs; no return value
+		"""
 		self.indigoCommand.append("InstallGnuplot")
 		self.indiLOG.log(20,"command: InstallGnuplot")
 		return
 	########################################
 	def inpDebugON(self):
+		"""Turns on debugging by setting the debug level to include all categories and logs the action.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: sets self.debugLevel to ['all'] and logs; no return value
+		"""
 		self.debugLevel = ["all"]
 		self.indiLOG.log(20,"command: debug ON")
 		return
 	########################################
 	def inpDebugOFF(self):
+		"""Turns off debugging by clearing the debug level list and logs the action.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: clears self.debugLevel and logs; no return value
+		"""
 		self.debugLevel = []
 		self.indiLOG.log(20,"command: debug OFF")
 		return
 	########################################
 	def inpMATPLOT(self):
+		"""Switches the plotting backend to matplotlib by calling gnuORmatSET('mat') and logs the action.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: switches plot engine to matplotlib and logs; no return value
+		"""
 		self.gnuORmatSET("mat")
 		self.indiLOG.log(20,"command: switch to MATPLOT")
 		return
 	########################################
 	def inpGNUPLOT(self):
+		"""Switches the plotting backend to gnuplot by calling gnuORmatSET('gnu') and logs the action.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: switches plot engine to gnuplot and logs; no return value
+		"""
 		self.gnuORmatSET("gnu")
 		self.indiLOG.log(20,"command: switch to GNUPLOT")
 		return
 	########################################
 	def inpPauseDataCollection(self):
+		"""Queues a 'PauseDataCollection' command to pause the plugin's ongoing data collection.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends a command to the queue and logs; no return value
+		"""
 		self.indigoCommand.append("PauseDataCollection")
 		self.indiLOG.log(20,"command: PauseDataCollection")
 		return
 	########################################
 	def inpContinueDataCollection(self):
+		"""Queues a 'ContinueDataCollection' command to resume the plugin's paused data collection.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends a command to the queue and logs; no return value
+		"""
 		self.indigoCommand.append("ContinueDataCollection")
 		self.indiLOG.log(20,"command: ContinueDataCollection")
 		return
 	########################################
 	def inpFnameToLog(self):
+		"""Queues a 'fNameToLog' command that writes the full paths/filenames of the generated plot files to the log for copy and paste.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: appends a command to the queue and logs; no return value
+		"""
 		self.indigoCommand.append("fNameToLog")
 		self.indiLOG.log(20,"command: write the looong path/filenames of plotfiles to logfile for copy and paste")
 		return
 	########################################
 	def inpResetDeviceConfigurationParameters(self,valuesDict=None, typeId=""):
+		"""Resets all device configuration parameters: removes all current devices, resets device parameters, clears each plot's line definitions and persists the cleared plot config back to each Indigo device's plugin props, then re-initializes data, writes data to disk, and rebuilds the line data sources.
+
+		Inputs:
+		    valuesDict (dict or None): config dialog values dict, unused, defaults to None
+		    typeId (str): device/action type identifier, unused, defaults to empty string
+		Outputs:
+		    None: removes devices, resets parameters, updates device plugin props, writes disk data, and logs; no return value
+		"""
 		self.indiLOG.log(20,"command: reset device parameters")
 
 
@@ -1651,6 +2007,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def PrintPlotData(self,plotId):
 	
+		"""Builds a multi-line text report of the configuration of every plot device in self.PLOT (skipping the special '0' entry), including each plot's properties and the per-line settings, then logs it to the plugin log file. When plotId is given, only that plot is reported.
+
+		Inputs:
+		    plotId (str): device ID of a specific plot to report, or empty string for all plots
+		Outputs:
+		    None: logs the formatted plot configuration to the plugin log
+		"""
 		try:
 			out = "\n"
 			for nPlot in self.PLOT:
@@ -1689,6 +2052,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	########################################
 	def PrintDeviceData(self):
+		"""Assembles and logs a formatted report of all configured devices/variables and their tracked states (offsets, multipliers, min/max, columns, etc.), the data-column-to-device/state index map, and the consumption cost schedules (period or weekday based).
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: logs the device/state and consumption-cost configuration to the plugin log
+		"""
 		try:
 			outLog = "\n"
 			#		  1234  1234567 123456789012345 1234567890123456789012345 123456
@@ -1772,6 +2142,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def PrintDataToLog(self):
+		"""Iterates over all time-bin types and logs the binned time-series data column values to the plugin log, formatting each row with date and per-column numbers and skipping/breaking long runs of good lines to limit output.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: logs the time-binned data columns to the plugin log
+		"""
 		for TTI in range(noOfTimeTypes):
 			if self.decideMyLog("Plotting"): self.indiLOG.log(10, ("PlotType# "+ binTypeNames[TTI]).ljust(25)+"  Data Columns  ...")
 
@@ -1782,12 +2159,12 @@ class Plugin(indigo.PluginBase):
 			if self.decideMyLog("Plotting"): self.indiLOG.log(10,("Date        #M:").ljust(25)+ out)
 			goodLines=0
 			goodLinesSection=0
-			for j in range(self.noOfTimeBins[i]):
+			for j in range(self.noOfTimeBins[TTI]):
 				out =""
 				goodData=False
 				for theCol in range(1,1+dataOffsetInTimeDataNumbers):
 						out += "%1d;"%float(self.timeDataNumbers[TTI][j][theCol])
-				if (self.noOfTimeBins[i]-j) < 100: goodLines=0
+				if (self.noOfTimeBins[TTI]-j) < 100: goodLines=0
 				for theCol in range(1+dataOffsetInTimeDataNumbers,self.dataColumnCount+1+dataOffsetInTimeDataNumbers):
 					try:
 						out += "%7.1f;"%float(self.timeDataNumbers[TTI][j][theCol])
@@ -1813,6 +2190,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def PrintData(self):
+		"""Writes the time-binned data for each time type to a '.formatted' file, including a header row, formatted per-column data values, the current Indigo measurement values, and the reset-period/cost (consumption) parameters.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: writes formatted data files to disk
+		"""
 		if self.decideMyLog("General"): self.indiLOG.log(10," printing data to formatted file")
 		try:
 			for TTI in range(noOfTimeTypes):
@@ -1909,6 +2293,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################  create pick list for eleigible devices ie plots
 	def filterPlotNames(self, filter="self",valesDict="none",typeId=""):
+		"""Indigo list-filter callback that builds and returns the menu list of plots: an 'Edit:' entry for each existing plot in self.PLOT, a 'NEW' entry for creating a plot, and an 'Edit last' entry for the most recently used plot if one exists.
+
+		Inputs:
+		    filter (str): Indigo filter string (unused)
+		    valesDict (dict or str): current dialog values (unused)
+		    typeId (str): Indigo config UI type ID (unused)
+		Outputs:
+		    list: list of (plotId, label) tuples for the plot selection menu
+		"""
 		self.PLOTlist=[]
 		for nPlot in self.PLOT:
 			name=self.PLOT[nPlot]["DeviceNamePlot"]
@@ -1920,6 +2313,14 @@ class Plugin(indigo.PluginBase):
 
 	######################################## this is called once the new  plot name is selected
 	def plotNameSelectedCALLBACK(self,  valuesDict=None,typeId=""):
+		"""Config-UI callback run when a plot name is selected; for a new plot it sets the oldNew flag to 'new', otherwise it loads the selected existing plot's title/text/line settings into valuesDict (ensuring a line 1 exists) and resolves the device/state for that plot's first line.
+
+		Inputs:
+		    valuesDict (dict or None): current config dialog values, modified in place
+		    typeId (str): Indigo config UI type ID (unused)
+		Outputs:
+		    dict: the updated valuesDict with plot settings and oldNew flag
+		"""
 		nPlot=str(valuesDict["nPlot"])
 		## wrong/ no entry
 		if nPlot == "" :
@@ -1982,12 +2383,28 @@ class Plugin(indigo.PluginBase):
 
 	########################################   this is for new to be created  plots
 	def buttonConfirNewPlotNameCALLBACK(self,  valuesDict="",typeId=""):
+		"""Config-UI callback for confirming a new plot name; stores the entered new plot name into self.currentPlotName.
+
+		Inputs:
+		    valuesDict (dict or str): current config dialog values containing 'newPlotName'
+		    typeId (str): Indigo config UI type ID (unused)
+		Outputs:
+		    dict: the unchanged valuesDict
+		"""
 		self.currentPlotName =valuesDict["newPlotName"]
 		return valuesDict
 
 	########################################   this will create/ modify new / existing plot  (MFP= ModiFy Plot)
 	def buttonConfirmSelectionMFPCALLBACK(self,  valuesDict=None, typeId=""):
 
+		"""Config-UI callback (My First Plot) that creates or modifies a plot and its first line from the dialog values, resolving the selected device or variable and its state, then renders the plot and records it as the last-used plot in pluginPrefs.
+
+		Inputs:
+		    valuesDict (dict or None): config dialog values with plot/line settings, modified in place
+		    typeId (str): Indigo config UI type ID (unused)
+		Outputs:
+		    dict: the updated valuesDict with nPlot and oldNew set, or an error message if config is incomplete
+		"""
 		try:
 			name= self.currentPlotName
 		except:
@@ -2007,21 +2424,21 @@ class Plugin(indigo.PluginBase):
 			,"resxy0"               : resxy0
 			,"resxy1"               : resxy1
 			,"Background"           : valuesDict["Background"]
-			,"dataSource"           : u'mini'
-			,"LeftLabel"            : u''
-			,"LeftScale"            : u''
-			,"LeftScaleRange"		: u''
-			,"LeftScaleTics"		: u''
-			,"LeftLog"				: u'linear'
-			,"LeftScaleDecPoints"	: u'0'
-			,"RightLabel"           : u''
-			,"RightScale"            : u''
-			,"RightScaleRange"		: u''
-			,"RightScaleTics"		: u''
-			,"RightLog"				: u'linear'
-			,"RightScaleDecPoints"	: u'0'
-			,"boxWidth"				: u'0.5'
-			,"drawZeroLine"			: u'False'
+			,"dataSource"           : 'mini'
+			,"LeftLabel"            : ''
+			,"LeftScale"            : ''
+			,"LeftScaleRange"		: ''
+			,"LeftScaleTics"		: ''
+			,"LeftLog"				: 'linear'
+			,"LeftScaleDecPoints"	: '0'
+			,"RightLabel"           : ''
+			,"RightScale"            : ''
+			,"RightScaleRange"		: ''
+			,"RightScaleTics"		: ''
+			,"RightLog"				: 'linear'
+			,"RightScaleDecPoints"	: '0'
+			,"boxWidth"				: '0.5'
+			,"drawZeroLine"			: 'False'
 			,"logLevel"             : logLevel
 		})
 
@@ -2049,7 +2466,7 @@ class Plugin(indigo.PluginBase):
 				,"StateToBePlottedLineA"             : state
 				,"devOrVarA"                         : devOrVar
 				,"MeasurementLineA"                  : "average"
-				,"lineNumber"                        : u'1'
+				,"lineNumber"                        : '1'
 				,"lineType"                          : copy.deepcopy(valuesDict["lineType"])
 				,"lineWidth"                         : copy.deepcopy(valuesDict["lineWidth"])
 				,"lineColor"                         : copy.deepcopy(valuesDict["lineColor"])
@@ -2083,6 +2500,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################   this will show plot on screen
 	def showPlotMFPCALLBACK(self,  valuesDict=None, typeId=""):
+		"""Config-UI callback that renders and shows the current plot on screen by calling plotNow with the current plot name, logging a message if the plot has not been confirmed.
+
+		Inputs:
+		    valuesDict (dict or None): current config dialog values (returned unchanged)
+		    typeId (str): Indigo config UI type ID (unused)
+		Outputs:
+		    dict: the unchanged valuesDict
+		"""
 		try:
 			self.plotNow(createNow=self.currentPlotName,showNow=self.currentPlotName)
 		except:
@@ -2091,6 +2516,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterselDeviceStatesMFP (self, filter="",  valuesDict="",typeId=""):
+		"""Indigo list-filter callback that returns the selectable states for the current device (or 'value' for a variable) by resolving self.currentDeviceId and calling preSelectStates; returns [(0,0)] when no device is selected or on error.
+
+		Inputs:
+		    filter (str): Indigo filter string (unused)
+		    valuesDict (dict or str): current dialog values (unused)
+		    typeId (str): Indigo config UI type ID (unused)
+		Outputs:
+		    list: list of state (value, label) tuples, or [(0,0)] if none/error
+		"""
 		devID= int(self.currentDeviceId)
 		if devID != 0:
 			try:
@@ -2121,6 +2555,16 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterselSQLdevState(self,  filter, valuesDict, xxx, ID=""):
+		"""Indigo list-filter callback that returns the list of selected SQL data columns as (columnIndex, devicePropName) tuples, skipping entries whose index is 0 or -1.
+
+		Inputs:
+		    filter (str): Indigo filter string (unused)
+		    valuesDict (dict): current dialog values (unused)
+		    xxx (object): extra Indigo callback argument (unused)
+		    ID (str): Indigo target ID (unused)
+		Outputs:
+		    list: list of (columnIndex, devicePropName) tuples for selected data columns
+		"""
 		retList=[]
 		for n in range(len(self.listOfSelectedDataColumnsAndDevPropNameSORTED)):
 			if self.listOfSelectedDataColumnsAndDevPropNameSORTED[n][0] == 0: continue
@@ -2131,6 +2575,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterColumns(self,  filter, valuesDict,xxx):
+		"""Indigo list-filter callback that returns the selectable data columns as (columnIndex, label) tuples where each label is the zero-padded column number plus the device/property name, skipping entries whose index is 0 or -1.
+
+		Inputs:
+		    filter (str): Indigo filter string (unused)
+		    valuesDict (dict): current dialog values (unused)
+		    xxx (object): extra Indigo callback argument (unused)
+		Outputs:
+		    list: list of (columnIndex, formatted label) tuples for the column selection menu
+		"""
 		retList=[]
 		for n in range(len(self.listOfSelectedDataColumnsAndDevPropNameSORTED)):
 			if self.listOfSelectedDataColumnsAndDevPropNameSORTED[n][0] == 0: continue
@@ -2142,6 +2595,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def getLastSQLforEventdata(self, colList):
+		"""Triggers a fresh SQL re-read of historical event data for the given data columns by clearing their cached .done marker files, marking each column's status for reprocessing, and flagging that devices were added. Skips and logs if a regular SQL job is still running.
+
+		Inputs:
+		    colList (list): list of data column indices (as ints/strings) to re-read event data for
+		Outputs:
+		    None: removes .done files, updates sqlColListStatus and ignoreCol, sets devicesAdded, logs
+		"""
 		try:
 			if max(self.sqlHistListStatus) > 0: 
 				if self.decideMyLog("SQL"): self.indiLOG.log(30,"waiting for regular SQL job to finish before we do EVENT data: ")    
@@ -2173,10 +2633,26 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonConfirmSQLDevStateCALLBACKaction(self, action1, typeId=""):
+		"""Action wrapper that invokes buttonConfirmSQLDevStateCALLBACK using the props of an Indigo action object so a SQL device/state column re-read can be triggered from an action.
+
+		Inputs:
+		    action1 (indigo.PluginAction): action object whose props supply the values dict
+		    typeId (str): Indigo type identifier, unused
+		Outputs:
+		    None: delegates to buttonConfirmSQLDevStateCALLBACK
+		"""
 		self.buttonConfirmSQLDevStateCALLBACK(valuesDict=action1.props, typeId="")
 
 	########################################
 	def buttonConfirmSQLDevStateCALLBACK(self, valuesDict, typeId=""):
+		"""Forces a selected device/state data column to be fully re-read from the SQL database by deleting its cached SQL data and .done files, resetting the first-bin date, and marking the column's SQL status for reprocessing.
+
+		Inputs:
+		    valuesDict (dict): config dialog values containing 'selSELdevStateColumn'
+		    typeId (str): Indigo type identifier, unused
+		Outputs:
+		    dict: the unchanged valuesDict
+		"""
 		theCol= int(valuesDict["selSELdevStateColumn"])
 
 		for n in range(len(self.listOfSelectedDataColumnsAndDevPropNameSORTED)):
@@ -2205,6 +2681,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterselBackUpFiles(self,  filter="self", valuesDict=None, typeId=""):
+		"""Builds a menu list of available backup/restore .py files found in the plugin's 'py' directory for use in a config dialog selection control.
+
+		Inputs:
+		    filter (str): Indigo list filter, unused
+		    valuesDict (dict or None): current dialog values, unused
+		    typeId (str): Indigo type identifier, unused
+		Outputs:
+		    list: list of (value, label) tuples of backup .py filenames
+		"""
 		retList =[(0,0)]         	# nothing there yet
 		pyFiles = os.listdir(self.userIndigoPluginDir+'py')
 		pyFiles.sort()
@@ -2217,6 +2702,14 @@ class Plugin(indigo.PluginBase):
 	
 	########################################
 	def buttonConfirmBackUpFileCALLBACK(self, valuesDict=None, typeId=""):
+		"""Restores a previously saved configuration by reading the selected backup .py file, filtering and rewriting its lines (translating executeAction calls into direct self method calls), then executing the resulting Python code to recreate plots/devices/settings.
+
+		Inputs:
+		    valuesDict (dict or None): config dialog values containing 'selBackUpFile'
+		    typeId (str): Indigo type identifier, unused
+		Outputs:
+		    dict: the unchanged valuesDict
+		"""
 		self.BackupFileSelected = valuesDict["selBackUpFile"]
 		nn=0
 		ff = "{}py/{}".format(self.userIndigoPluginDir, self.BackupFileSelected)
@@ -2265,6 +2758,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonConfirmdeleteColumnCALLBACK(self, valuesDict=None, typeId=""):
+		"""Removes a selected data column from tracking by looking up its device and state index and calling removePropFromDevice to delete and persist the change.
+
+		Inputs:
+		    valuesDict (dict or None): config dialog values containing 'columnToRemove'
+		    typeId (str): Indigo type identifier, unused
+		Outputs:
+		    dict: the unchanged valuesDict
+		"""
 		columnToRemove = int(valuesDict["columnToRemove"])
 		devNo   = self.dataColumnToDevice0Prop1Index[columnToRemove][0]
 		stateNo = self.dataColumnToDevice0Prop1Index[columnToRemove][1]
@@ -2278,6 +2779,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def FnameToLog(self,DeviceName="all"):
+		"""Logs the full file:// paths of the generated PNG plot files (across all time types and sizes) for the matching plot device(s) so they can be copied and pasted into a Refreshing Image URL field.
+
+		Inputs:
+		    DeviceName (str): plot device name to list, or 'all' for every used plot
+		Outputs:
+		    None: logs png file paths to the Indigo log
+		"""
 		self.indiLOG.log(20,"IndigoPlot png file names: copy and paste to field <URL:>  below Display: <RefreshingImage URL>")
 		for nPlot in self.PLOT:
 			if self.PLOT[nPlot]["NumberIsUsed"] == 1:
@@ -2303,6 +2811,13 @@ class Plugin(indigo.PluginBase):
 	def createPy(self, aType=""):
 
 
+		"""Generates a Python script file that recreates the current plugin configuration, devices/states tracking, and plots; the format depends on aType ('manual', 'export', 'exportMini', or a default restore script), writing config parameters, device/state add calls, and per-plot definitions to disk.
+
+		Inputs:
+		    aType (str): output mode: 'manual', 'export', 'exportMini', or default restore
+		Outputs:
+		    None: writes a generated .py/export file under the plugin directory
+		"""
 		d0= str(datetime.datetime.now()).replace(":","").replace("-","").replace(" ","-")[:15].strip("-")
 		if   aType == "manual":	 fName="py/ManuallySavedConfig--"+d0+".py"
 		elif aType == "export":	 fName="data/export.py"
@@ -2427,12 +2942,12 @@ class Plugin(indigo.PluginBase):
 						xstring='    ,"'+consumptionType+str(n)+'":             \''
 						if self.consumptionCostData[consumptionType][n]["Period"] == "Period":
 							if EE["Period"].find("2999")> -1: 	continue
-							xstring+='{"Period":{}'.format(EE["Period"])
+							xstring+='{{"Period":{}'.format(EE["Period"])
 							xstring+=',"day":{}'.format(EE["day"])
 							xstring+=',"hour":{}'.format(EE["hour"])
 						else:
 							if EE["day"]	 >= 9: continue
-							xstring+='{"day":{}'.format(EE["day"])
+							xstring+='{{"day":{}'.format(EE["day"])
 							xstring+=',"hour":{}'.format(EE["hour"])
 							xstring+=',"Period":{}'.format(EE["Period"])
 
@@ -2702,6 +3217,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def doInitData(self):
 		
+		"""Performs a full data initialization and rebuild: reinitializes all data structures, persists device parameters, optionally reimports SQL data in batch mode, restarts the MAT backend if used, writes disk data, resets consumption/cost data, and saves it back to disk.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: resets and persists all plugin data structures and SQL/consumption data, logs
+		"""
 		self.initializeData()
 		self.putDeviceParametersToFile(calledfrom="doInitData")
 		self.devicesAdded		= 2
@@ -2710,7 +3232,7 @@ class Plugin(indigo.PluginBase):
 			while True:
 				self.setupSQLDataBatch(calledfrom="doInitData")
 				if self.originalCopySQLActive == "-1": break
-				sleep(60)            
+				self.sleep(60)
 			self.readSQLdataBatch(calledfrom="doInitData")
 
 		if self.gnuORmat == "mat" :
@@ -2743,6 +3265,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def initializeData(self):
+		"""Initializes all in-memory data arrays and index structures for the configured number of data columns and time bins, including time data numbers, SQL status lists, timestamps, and per-time-type minute/hour/day data, then fills time indicators.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: allocates and resets the plugin's core data arrays and indices
+		"""
 		if self.dataColumnCount <0: self.dataColumnCount=0
 
 		self.noOfTimeBins				=	[int((60*24*self.noOfDays[0])//noOfMinutesInTimeBins[0]), int((60*24*self.noOfDays[1])//noOfMinutesInTimeBins[1]), int((60*24*self.noOfDays[2])//noOfMinutesInTimeBins[2])]
@@ -2773,6 +3302,13 @@ class Plugin(indigo.PluginBase):
 
 	#########################################
 	def addColumnToData(self):
+		"""Appends one new data column to every in-memory data structure (time data numbers, values, timestamps, SQL status lists, last-ID/date trackers, and device/property index), incrementing the data column count.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: extends all per-column data arrays by one column
+		"""
 		self.dataColumnCount+=1
 		for TTI in range(0,noOfTimeTypes):
 			for TBI in range (0,self.noOfTimeBins[TTI]):
@@ -2792,6 +3328,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def doShiftDay(self):
+		"""Performs the daily data roll-over: shifts minute, hour, and day data forward (moving old today to old yesterday and discarding the oldest), refills time indicators, cleans the data, and regenerates the GNUPlot files.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: shifts time-series data, cleans it, regenerates plot files, logs
+		"""
 		self.shiftMinuteData() # move " old today" to "old yesterday" and delete "old yesterday"
 		self.shiftHourData()
 		self.shiftDayData()
@@ -2807,6 +3350,13 @@ class Plugin(indigo.PluginBase):
 #	make number of data columns consistent, ie if there are empty spot filll them up with 0
 	########################################
 	def cleanData(self):
+		"""Cleans up the in-memory time-series data by flagging empty time bins, deleting device entries that have no mapped states, rebuilding the line data sources, and persisting all three time-bin datasets and consumed-period data to disk.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: mutates in-memory data structures, writes data files to disk, and logs/sets quitNOW on error
+		"""
 		try:
 	#		d0= datetime.datetime.now()
 
@@ -2856,6 +3406,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def shiftMinuteData(self):
+		"""Shifts the 5-minute-resolution time-series data forward by one day: moves each bin's data and labels back one day's worth of buckets, resets today's buckets to empty with fresh date/time labels, rebuilds the minute index, and decrements stored Indigo value offsets by one day of minute slots.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: mutates timeDataNumbers/timeBinNumbers/valuesFromIndigo and logs/sets quitNOW on error
+		"""
 		try:
 			theIndex =0
 			days = self.noOfDays[0]-1
@@ -2889,6 +3446,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def shiftHourData(self):
+		"""Shifts the hourly-resolution time-series data forward by one day: moves each hourly bin's data and labels back 24 buckets, resets today's 24 hour buckets to empty with fresh date/hour labels, rebuilds the hour index, and decrements stored Indigo value offsets by 24 hours.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: mutates timeDataNumbers/timeBinNumbers/valuesFromIndigo and logs/sets quitNOW on error
+		"""
 		try:
 			theIndex =0
 			days = self.noOfDays[1]-1
@@ -2919,6 +3483,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def shiftDayData(self):
+		"""Shifts the daily-resolution time-series data forward by one day (called at midnight): moves each daily bin back one slot, resets the newest day bucket to empty with today's date label, rebuilds the day index, and decrements stored Indigo value offsets by one day.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: mutates timeDataNumbers/timeBinNumbers/valuesFromIndigo and logs/sets quitNOW on error
+		"""
 		try:
 			# this is called at midnight, so yesterday is in todays bucket..
 			# move " old today" to "old yesterday" and delete "old yesterday"
@@ -2952,6 +3523,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	########################################
 	def initMinuteDataData(self):
+		"""Initializes the 5-minute-resolution data structure by assigning each bin a date/hour/minute time label spanning the configured number of days and clearing all of its data column values to empty.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: populates timeBinNumbers/timeDataNumbers for the minute dataset and logs/sets quitNOW on error
+		"""
 		try:
 			days = self.noOfDays[0]
 			index=0
@@ -2974,6 +3552,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def initHourDataData(self):
+		"""Initializes the hourly-resolution data structure by assigning each bin a date/hour time label spanning the configured number of days and clearing all of its data column values to empty.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: populates timeBinNumbers/timeDataNumbers for the hour dataset and logs/sets quitNOW on error
+		"""
 		try:
 			days = self.noOfDays[1]
 			index=0
@@ -2993,6 +3578,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def initDayDataData(self):
+		"""Initializes the daily-resolution data structure by assigning each bin a date time label spanning the configured number of days and clearing all of its data column values to empty.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: populates timeBinNumbers/timeDataNumbers for the day dataset and logs/sets quitNOW on error
+		"""
 		try:
 			days = self.noOfDays[2]
 			index=0
@@ -3015,6 +3607,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def initMinuteDataIndex(self):
+		"""Rebuilds the lookup index mapping each 5-minute time-label string (YYYYMMDDHHMM00) to its bin position for the configured number of days of minute data.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: resets and populates timeDataIndex[0] and logs/sets quitNOW on error
+		"""
 		try:
 			self.timeDataIndex[0] ={}
 			theIndex = 0
@@ -3034,6 +3633,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def initHourDataIndex(self):
+		"""Rebuilds the lookup index mapping each hourly time-label string (YYYYMMDDHH0000) to its bin position for the configured number of days of hour data.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: resets and populates timeDataIndex[1] and logs/sets quitNOW on error
+		"""
 		try:
 			self.timeDataIndex[1] ={}
 			theIndex = 0
@@ -3052,6 +3658,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def initDayDataIndex(self):
+		"""Rebuilds the lookup index mapping each daily time-label string (YYYYMMDD000000) to its bin position for the configured number of days of day data.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: resets and populates timeDataIndex[2] and logs/sets quitNOW on error
+		"""
 		try:
 			self.timeDataIndex[2] ={}
 			theIndex = 0
@@ -3078,6 +3691,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def getDiskData(self,TTI,offset):
+		"""Loads a time-series dataset from its on-disk data file: auto-detects the field separator, validates the header line, then parses each line, matching its time label to the current index and storing the values into the corresponding in-memory bin (padding short rows with empty fields).
+
+		Inputs:
+		    TTI (int): time-type index (0=minute, 1=hour, 2=day) selecting which dataset/file to read
+		    offset (int): extra column offset used when checking/padding the expected number of fields per row
+		Outputs:
+		    None: populates timeDataNumbers/timeBinNumbers from the file, logs, and sets quitNOW on error
+		"""
 		try:
 
 			if os.path.isfile(self.fileData[TTI]):
@@ -3129,8 +3750,17 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def putDiskData(self,TTI):
-		f=self.openEncoding( self.fileData[TTI] , "w")
+		"""Writes a time-series dataset to its on-disk data file, emitting one semicolon-separated line per time bin (time label followed by the offset/header columns and the data columns).
+
+		Inputs:
+		    TTI (int): time-type index (0=minute, 1=hour, 2=day) selecting which dataset/file to write
+		Outputs:
+		    None: writes the dataset to its data file and optionally logs
+		"""
+		f = self.openEncoding( self.fileData[TTI] , "w")
+		bins = 0
 		for ii in range (0,self.noOfTimeBins[TTI]):
+			bins+=1
 			# date;#of entries;weekday;lastdayinmonth=1;lastdayinyear=1;0; columns 1...n
 			f.write( str(self.timeBinNumbers[TTI][ii])+
 				";"+
@@ -3139,6 +3769,7 @@ class Plugin(indigo.PluginBase):
 				(";".join(map(str,self.timeDataNumbers[TTI][ii][dataOffsetInTimeDataNumbers+1:]))) +
 				"\n")
 		f.close()
+		if self.decideMyLog("Special"): self.indiLOG.log(10,"putDiskData, TTI:{}, fname:{} , bins:{}".format(TTI, self.fileData[TTI],  bins))
 		return
 
 		####  add write to each data file !! and save line indexes.
@@ -3149,6 +3780,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def setupGNUPlotFiles(self,calledfrom="",mPlot=""):
+		"""Builds the GNUplot command files for every configured plot (or just one when mPlot is given), computing each plot's minute/hour/day time windows, resolving which device-state columns and lines to draw, assembling the gnuplot plot commands, and triggering generation of the .gnu/.png output files. Only runs when the plugin is in gnu output mode.
+
+		Inputs:
+		    calledfrom (str): label identifying the caller, used in logging
+		    mPlot (str): optional plot key to restrict processing to a single plot; empty processes all
+		Outputs:
+		    None: writes gnuplot/data files and updates plot state; no value returned
+		"""
 		try:
 			if self.gnuORmat != "gnu": return 
 
@@ -3473,7 +4112,7 @@ class Plugin(indigo.PluginBase):
 										try:
 											DD = lR[7:8]
 											int(DD)
-											condition.append("$3 == {}".format(dd))
+											condition.append("$3 == {}".format(DD))
 										except:
 											pass    
 
@@ -3536,18 +4175,18 @@ class Plugin(indigo.PluginBase):
 								elif multFunc[ii] == "C"				:	pass
 								elif PLTLtype == "Numbers"			:
 										lineWidth = ""
-										if PLTline["lineWidth"] != "0": lineWidth = u' font ",{}"'.format(int(int(PLTline["lineWidth"])*2.5+5))
-										lineColor= u' textcolor rgb "'+PLTline["lineColor"]+u'"'
+										if PLTline["lineWidth"] != "0": lineWidth = ' font ",{}"'.format(int(int(PLTline["lineWidth"])*2.5+5))
+										lineColor= ' textcolor rgb "'+PLTline["lineColor"]+'"'
 
 										if yval:
-											yValue2 =u' (sprintf("'+PLTline["lineNumbersFormat"]+u'",yval{}))'.format(nCmds)
-											lineType =u' with labels left offset char {}'.format(PLTline["lineNumbersOffset"])
-											title=u' notitle '
+											yValue2 =' (sprintf("'+PLTline["lineNumbersFormat"]+'",yval{}))'.format(nCmds)
+											lineType =' with labels left offset char {}'.format(PLTline["lineNumbersOffset"])
+											title=' notitle '
 											condition=[]
 										else:
-											lineType =u' with labels left offset char '+PLTline["lineNumbersOffset"]
-											yValue2 =u' (sprintf("'+PLTline["lineNumbersFormat"]+u'",'+yValue3+u'))'
-											title=u' notitle '
+											lineType =' with labels left offset char '+PLTline["lineNumbersOffset"]
+											yValue2 =' (sprintf("'+PLTline["lineNumbersFormat"]+'",'+yValue3+'))'
+											title=' notitle '
 											condition=[]
 
 								else:
@@ -3599,13 +4238,13 @@ class Plugin(indigo.PluginBase):
 
 
 											if PLTLtype == "averageLeft"	:
-												arrows.append('set arrow from '+firstSecond+u' secsFirstBin,aver'+str(nCmds)+u' to '+firstSecond+u' (secsFirstBin+'+str(nbinsForLine)+u'),aver'+str(nCmds)+u' nohead '+lineWidth +lineColor +u' front')  # average Left)
+												arrows.append('set arrow from '+firstSecond+' secsFirstBin,aver'+str(nCmds)+' to '+firstSecond+' (secsFirstBin+'+str(nbinsForLine)+'),aver'+str(nCmds)+' nohead '+lineWidth +lineColor +' front')  # average Left)
 												outLine.append("#")
 												continue
 												#repeat= " every ::{}".format(earliestBinsToPlot[TTI])+"::{}".format(int(earliestBinsToPlot[TTI])+nbinsForLine)+" "  # short line left
 											if PLTLtype == "averageRight"	:
 												#repeat = " every ::{}".format(int(earliestBinsToPlot[TTI])+ int(noOfBinsToPlot[TTI])-nbinsForLine)+"::{}".format(self.noOfTimeBins[TTI]+1)+" "  # short line right
-												arrows.append('set arrow from '+firstSecond+u' secsLastBin,aver'+str(nCmds)+u' to '+firstSecond+u' (secsLastBin-'+str(nbinsForLine)+u'),aver'+str(nCmds)+u' nohead '+lineWidth +lineColor +u' front') # average Left')
+												arrows.append('set arrow from '+firstSecond+' secsLastBin,aver'+str(nCmds)+' to '+firstSecond+' (secsLastBin-'+str(nbinsForLine)+'),aver'+str(nCmds)+' nohead '+lineWidth +lineColor +' front') # average Left')
 												outLine.append("#")
 												continue
 										
@@ -3738,6 +4377,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def binsToPlot(self,earliestDay,lastDay):
+		"""Computes, for each time-resolution type (minute/hour/day), the index of the earliest time bin and the number of bins spanning from earliestDay to lastDay by looking them up in the plugin's time-bin number tables.
+
+		Inputs:
+		    earliestDay (list): per-time-type earliest day strings to locate as bin start
+		    lastDay (list): per-time-type last day strings to locate as bin end
+		Outputs:
+		    tuple: (earliestBin list, numberOfBins list) of three ints each
+		"""
 		earliestBin =[0,0,0]
 		numberOfBins =[0,0,0]
 		for  TTI in range(noOfTimeTypes):
@@ -3754,6 +4401,16 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def firstLastDayToPlot(self,days, shift, TTI,stTime):
 
+		"""Computes the earliest and last date/time strings to plot for a given time-resolution type, applying the configured number of days and a shift offset; supports rolling windows plus special fixed-period shift codes (-10/-11 fixed weeks, -20 fixed month, -30 fixed quarter, -40 fixed year, -1 continuous hourly minute window).
+
+		Inputs:
+		    days (int): number of days to span in the window
+		    shift (int): offset/window-mode selector; positive shifts back, negatives select fixed periods
+		    TTI (int): time-type index (0=minute, 1=hour, 2=day)
+		    stTime (str): strftime format string for the returned date strings
+		Outputs:
+		    tuple: (earliestDay, lastDay) formatted date strings
+		"""
 		earliestDay, lastDay=datetime.date.today().strftime(stTime),datetime.date.today().strftime(stTime)
 
 		if days == 0: return earliestDay, lastDay
@@ -3834,6 +4491,67 @@ class Plugin(indigo.PluginBase):
 		,rawCmd, drawZeroLine, numberOfLines , theLines ):
 
 		
+		"""Writes a complete GNUplot script file for one plot, emitting all gnuplot directives: terminal/output/background, scatter weight min-max preprocessing, optional colorbar, time parameters, polar or xy axis setup, grid/border/labels/ranges/tics/log scales, extra text labels, raw user commands, and the assembled plot line commands. This is the low-level gnuplot file generator.
+
+		Inputs:
+		    nPlot (str): plot key/identifier
+		    theType (str): plot time type (Xscale or minute/hour/day name)
+		    gnuFile (str): path of the gnuplot script file to write
+		    plotFile (str): path of the output image file gnuplot will produce
+		    Fnamedata (str): path of the data file to plot from
+		    title (str): plot title text
+		    textColor (str): color for titles/labels/text
+		    textSize (str): font size for text
+		    textFont (str): font name for text
+		    ExtraText (str): additional free-text label content
+		    ExtraTextX (str): x screen position of extra text
+		    ExtraTextY (str): y screen position of extra text
+		    ExtraTextRotate (str): rotation angle of extra text
+		    ExtraTextFrontBack (str): front/back layering of extra text
+		    ExtraTextSize (str): font size of extra text
+		    ExtraTextColorRGB (str): RGB color of extra text
+		    grid (str): grid style selector code
+		    Border (str): border style/spec
+		    res (str): image resolution/size string
+		    background (str): background color
+		    TransparentBackground (str): transparency flag for background
+		    TransparentBlocks (object): transparency setting for plot blocks
+		    am24 (object): 12/24-hour time format flag
+		    rangeY (str): left y-axis range string
+		    ticsY (str): left y-axis tics spec
+		    LDec (str): left y-axis decimal-places format
+		    LLog (str): left y-axis log-scale flag
+		    labelY (str): left y-axis label (also polar direction labels)
+		    rangeY2 (str): right y-axis range string
+		    ticsY2 (str): right y-axis tics spec
+		    RDec (str): right y-axis decimal-places format
+		    RLog (str): right y-axis log-scale flag
+		    labelY2 (str): right y-axis label
+		    rangeX (str): x-axis (or polar r) range string
+		    ticsX (str): x-axis (or polar r) tics spec
+		    XDec (str): x-axis decimal-places format
+		    XLog (str): x-axis log-scale flag
+		    labelX (str): x-axis label
+		    XLabelPos (str): x-axis label position (unused per comment)
+		    XScaleFormat (str): x/r axis format string
+		    boxWidth (str): bar/box width setting
+		    XYvPolar (str): plot mode, 'xy' or 'polar'
+		    MHDFormat (str): x time-format spec (format+tick-frequency)
+		    TTI (int): time-type index (0=minute,1=hour,2=day)
+		    earliestDay (str): earliest day timestamp string
+		    lastDay (str): last day timestamp string
+		    nDays (int): number of days; 0 with non-Xscale type causes early return
+		    weight (list): list of weight column names for scatter min/max calc
+		    colorbar (bool): whether to emit colorbar settings
+		    numberCommands (list): gnuplot commands for min/max number lines
+		    arrows (list): arrow drawing commands/specs
+		    rawCmd (str): raw user-supplied gnuplot commands
+		    drawZeroLine (object): flag to draw a zero reference line
+		    numberOfLines (int): count of plot line entries in theLines
+		    theLines (list): assembled gnuplot plot-line command strings
+		Outputs:
+		    None: writes the gnuplot script file; returns early or implicitly None
+		"""
 		if nDays == 0 and theType != "Xscale" : return
 		# first part if format, second part is major tick frequency in secs 
 		try: # dont use  it if it is a number, then it is meant for matplot  
@@ -3855,7 +4573,7 @@ class Plugin(indigo.PluginBase):
 			f=self.openEncoding( gnuFile , "w")
 			outGnu = ""
 			outGnu += "#!'" + gnuFile+"'   \n"					# just a comment
-			outGnu += u'set datafile separator ";" \n'
+			outGnu += 'set datafile separator ";" \n'
 		
 			### calc min and max of weight
 			if len(weight)>0:
@@ -3986,7 +4704,7 @@ class Plugin(indigo.PluginBase):
 						if XLog.upper() == "LOG":
 							xx = float(rrange[1])
 							xx1= float(rrange[0])
-							if rangeX[0] == 0: rangex[0]=1.
+							if xx1 == 0: xx1 = 1.
 							xx = math.log10(xx*1.5)-math.log10(xx1)
 							dx = xx/14.
 							dxL= xx/30.
@@ -3996,15 +4714,15 @@ class Plugin(indigo.PluginBase):
 						else:											polarLabels=["N","E","S","W"]
 
 						if labelY.count(",") == 3 or labelY.count(",") == 0:  ## North/East/South/West labels
-								outGnu += u'set label "'  +polarLabels[0]+  u'" at +(' +str(0)+     u'),+('+str(xx)+   u') center textcolor rgb "'+textColor+u'"\n'
-								outGnu += u'set label "'  +polarLabels[1]+  u'" at +(' +str(xx*1.)+ u'),-('  +str(0)+  u') center textcolor rgb "'+textColor+u'"\n'
-								outGnu += u'set label "'  +polarLabels[2]+  u'" at -(' +str(0)+     u'),-('  +str(xx)+ u') center textcolor rgb "'+textColor+u'"\n'
-								outGnu += u'set label "'  +polarLabels[3]+  u'" at -(' +str(xx*1.)+ u'),+('  +str(0)+  u') center textcolor rgb "'+textColor+u'"\n'
+								outGnu += 'set label "'  +polarLabels[0]+  '" at +(' +str(0)+     '),+('+str(xx)+   ') center textcolor rgb "'+textColor+'"\n'
+								outGnu += 'set label "'  +polarLabels[1]+  '" at +(' +str(xx*1.)+ '),-('  +str(0)+  ') center textcolor rgb "'+textColor+'"\n'
+								outGnu += 'set label "'  +polarLabels[2]+  '" at -(' +str(0)+     '),-('  +str(xx)+ ') center textcolor rgb "'+textColor+'"\n'
+								outGnu += 'set label "'  +polarLabels[3]+  '" at -(' +str(xx*1.)+ '),+('  +str(0)+  ') center textcolor rgb "'+textColor+'"\n'
 								for i in [30,60,120,150,210,240,300,330]:
 									outGnu += 'set label sprintf("%d",'+str(i)+') at '      +str(xx)+  '*cos((450 -'+str(i)+')*'+str(math.pi/180.)+'),  '+str(xx)+  '*sin((450-'+str(i)+')*'+str(math.pi/180.)+') center  textcolor rgb "'+textColor+'"\n'
 								#outGnu += 'set for[i=0:330:30] label sprintf("%d",i) at '  +str(xx)+  '*cos((450 -i)*'+str(math.pi/180.)+'),  '         +str(xx)+  '*sin((450-i)*'+str(math.pi/180.)+') center  textcolor rgb "'+textColor+'"\n'
 								lOffset= max(  0., (len(labelX)-5)*dxL/10.*float(textSize)  )
-								outGnu += u'set label "'  +labelX+  u'" at '  +str(xx-(dxL*(1.+lOffset))*float(textSize)/10.)+  u',' +str(dx*2)+ u' center textcolor rgb "'+textColor+u'"\n'
+								outGnu += 'set label "'  +labelX+  '" at '  +str(xx-(dxL*(1.+lOffset))*float(textSize)/10.)+  ',' +str(dx*2)+ ' center textcolor rgb "'+textColor+'"\n'
 						elif  len(labelY) > 6 and labelY.count(",") == 11:
 							for i in range (0,12):
 								outGnu += "set label '"+polarLabels[i]+"' at {}".format(xx*math.cos((450 -i*30)*math.pi/180.))+",{}".format(xx*math.sin((450-i*30)*math.pi/180.))+" center  textcolor rgb \""+textColor+"\"\n"
@@ -4126,29 +4844,29 @@ class Plugin(indigo.PluginBase):
 						if grid.find("y2")> -1:		gridxyy2 =" xtics y2tics"
 						else:						gridxyy2 =" xtics ytics "
 					if   str(grid).find("-1") == 0:
-						outGnu += u'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n'
+						outGnu += 'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n'
 						outGnu += "set grid "+gridxyy2+" front ls 100 \n"
 					elif str(grid).find("-2") == 0:
-						outGnu += u'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n'
+						outGnu += 'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n'
 						outGnu += "set grid "+gridxyy2+" front ls 100 \n"
 					elif str(grid).find("-3") == 0:
-						outGnu += u'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n'
+						outGnu += 'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n'
 						outGnu += "set grid "+gridxyy2+" front ls 100 \n"
 					elif str(grid).find("1") == 0:
-						outGnu += u'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n'
+						outGnu += 'set style line 100 lt 0 lw 1 linecolor rgb "'+textColor+'" \n'
 						outGnu += "set grid "+gridxyy2+" back ls 100 \n"
 					elif str(grid).find("3") == 0:
-						outGnu += u'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n'
+						outGnu += 'set style line 100 lt 6 lw 2 linecolor rgb "'+textColor+'" \n'
 						outGnu += "set grid "+gridxyy2+" back ls 100 \n"
 					elif str(grid).find("2") == 0:
-						outGnu += u'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n'
+						outGnu += 'set style line 100 lt 6 lw 1 linecolor rgb "'+textColor+'" \n'
 						outGnu += "set grid "+gridxyy2+" back ls 100 \n"
 				else:
 					outGnu += "unset grid \n"
 				
 				BonOff= Border.split("+")
 				if len(BonOff) == 4:
-					outGnu += u'set border '+Border+' \n'
+					outGnu += 'set border '+Border+' \n'
 					if BonOff[0] == "0":	outGnu += 'unset xtics \n'
 					if BonOff[1] == "0":	outGnu += 'unset ytics \n'
 					if BonOff[2] == "0":
@@ -4210,6 +4928,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def convertVariableOrDeviceStateToText(self,textIn):
+		"""Resolves embedded Indigo variable (%%v:...) and device-state (%%d:...) placeholders inside a text string by repeatedly substituting their current values, then evaluates the result as an arithmetic expression if substitution occurred and math operators are present.
+
+		Inputs:
+		    textIn (str): text possibly containing %%v: or %%d: placeholders
+		Outputs:
+		    str: text with placeholders substituted (and arithmetic evaluated); original input returned on error or if not a string
+		"""
 		try:
 			if not isinstance(textIn, str): return textIn
 			oneFound=False
@@ -4236,6 +4961,13 @@ class Plugin(indigo.PluginBase):
 		#  converts eg: 
 		#"abc%%v:VariName%%xyz"   to abcCONTENTSOFVARIABLExyz
 		#"abc%%V:VariNumber%%xyz to abcCONTENTSOFVARIABLExyz
+		"""Performs a single substitution of one %%v:VariName%% (or %%v:VariNumber%%) placeholder in the text with the corresponding Indigo variable's value, looking it up by id or by name.
+
+		Inputs:
+		    textIn (str): text containing a %%v: variable placeholder
+		Outputs:
+		    tuple: (substituted text, bool success flag); original text and False if no/failed substitution
+		"""
 		try:
 			try:
 				start= textIn.find("%%v:")
@@ -4275,6 +5007,13 @@ class Plugin(indigo.PluginBase):
 		#  converts eg: 
 		#"abc%%d:devName:stateName%%xyz"   to abcdevicestatexyz
 		#"abc%%V:devId:stateName%%xyz to abcdevicestatexyz
+		"""Performs a single substitution of one %%d:dev:state%% placeholder in the text with the corresponding Indigo device state value, looking the device up by id or by name.
+
+		Inputs:
+		    textIn (str): text containing a %%d: device-state placeholder
+		Outputs:
+		    tuple: (substituted text, bool success flag); original text and False if no/failed substitution
+		"""
 		try:
 			try:
 				start= textIn.find("%%d:")
@@ -4318,14 +5057,37 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def validateActionConfigUi(self, valuesDict, typeId, devId):
+		"""Indigo action-config UI validation hook that unconditionally accepts the dialog input.
+
+		Inputs:
+		    valuesDict (indigo.Dict): values entered in the action config UI
+		    typeId (str): action type identifier
+		    devId (int): device id the action belongs to
+		Outputs:
+		    tuple: (True, valuesDict) always indicating valid
+		"""
 		return True, valuesDict
 
 
 	########################################
 	def createOrModifyPlotCALLBACKaction(self, action1):
+		"""Indigo action callback that converts the incoming action props and forwards them to createOrModifyPlot to create or update a plot device from a script.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the Indigo action containing plot parameters
+		Outputs:
+		    None: delegates to createOrModifyPlot; no value returned
+		"""
 		self.createOrModifyPlot(self.convertACTION(action1))
 
 	def createOrModifyPlot(self,action):
+		"""Creates a new plot device (or modifies an existing one) from a script-supplied action dict: validates the target device name, creates the plugin device if needed, fills in defaults for resolution/time-bin/shift/format/box-width properties, runs the plot-confirmation check to store user input, saves the resulting plot config to the device plugin props, persists parameters, regenerates the gnuplot files, and reports the result via a response variable.
+
+		Inputs:
+		    action (dict): plot parameters including deviceNameOfPlot and optional plot settings
+		Outputs:
+		    None: creates/updates the plot device and files, logs and sets a response variable
+		"""
 		logLevel = self.getLogLevel(action)
 
 
@@ -4457,10 +5219,24 @@ class Plugin(indigo.PluginBase):
 		
 	########################################
 	def deletePlotCALLBACKaction(self, action1):
+		"""Indigo action callback that converts the incoming action props and forwards them to deletePlot to remove a plot device from a script.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the Indigo action specifying the plot to delete
+		Outputs:
+		    None: delegates to deletePlot; no value returned
+		"""
 		self.deletePlot(self.convertACTION(action1))
 	
 	########################################
 	def deletePlot(self, action):
+		"""Deletes the plot whose device name matches the action's deviceNameOfPlot by removing the underlying Indigo device and its entry in self.PLOT, reporting success or a not-found error via a response variable.
+
+		Inputs:
+		    action (dict): parameters containing deviceNameOfPlot to delete
+		Outputs:
+		    None: deletes the device/plot state and sets a response variable
+		"""
 		logLevel= self.getLogLevel(action)
 
 		if not "deviceNameOfPlot" in action:
@@ -4483,9 +5259,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def deleteLineCALLBACKaction(self, action1):
+		"""Indigo action callback that converts the raw action props into a dict and delegates to deleteLine to remove a plot line.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the Indigo action whose props identify the plot and line to delete
+		Outputs:
+		    None: delegates to deleteLine, which removes a line and writes a response variable
+		"""
 		self.deleteLine(self.convertACTION(action1))
 
 	def deleteLine(self, action):
+		"""Deletes a specific line from a plot device's tracked lines, looking up the plot by its device name and removing the entry for the given line number. Writes status/error messages to the response variable.
+
+		Inputs:
+		    action (dict): action props with 'deviceNameOfPlot' and 'lineNumber' keys
+		Outputs:
+		    None: deletes the line from self.PLOT and writes an ok/error response variable
+		"""
 		logLevel= self.getLogLevel(action)
 
 		if not "deviceNameOfPlot" in action:
@@ -4519,9 +5309,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def deleteDeviceAndStateFromSelectionListCALLBACKaction(self, action1):
+		"""Indigo action callback that converts the action props and delegates to deleteDeviceAndStateFromSelectionList.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the Indigo action identifying the device/state/measurement to remove
+		Outputs:
+		    None: delegates to deleteDeviceAndStateFromSelectionList
+		"""
 		self.deleteDeviceAndStateFromSelectionList(self.convertACTION(action1))
 
 	def deleteDeviceAndStateFromSelectionList(self, action):
+		"""Removes a single device state/measurement from the tracking selection list, and if the device has no remaining tracked states it removes the whole device. Writes status/error messages to the response variable.
+
+		Inputs:
+		    action (dict): action props with 'deviceOrVariableName', 'measurement', and 'state' keys
+		Outputs:
+		    None: removes the property/device from self.DEVICE tracking and writes an ok/error response variable
+		"""
 		logLevel = self.getLogLevel(action)
 
 		self.indiLOG.log(30,"deleteDataSource-- {}".format(action))
@@ -4571,9 +5375,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def deleteDeviceFromSelectionListCALLBACKaction(self, action1):
+		"""Indigo action callback that converts the action props and delegates to deleteDeviceFromSelectionList.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the Indigo action identifying the device to remove
+		Outputs:
+		    None: delegates to deleteDeviceFromSelectionList
+		"""
 		self.deleteDeviceFromSelectionList(self.convertACTION(action1))
 
 	def deleteDeviceFromSelectionList(self,action):
+		"""Removes an entire device (with all its tracked properties) from the selection/tracking list by matching its name. Writes status/error messages to the response variable.
+
+		Inputs:
+		    action (dict): action props with a 'deviceOrVariableName' key
+		Outputs:
+		    None: removes the device from tracking and writes an ok/error response variable
+		"""
 		logLevel = self.getLogLevel(action)
 		
 		if self.decideMyLog("Restore"): self.indiLOG.log(10,"deleteDataSource-- {}".format(action))
@@ -4601,9 +5419,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def showDeviceStatesCALLBACKaction(self, action1):
+		"""Indigo action callback that converts the action props and delegates to showDeviceStates.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the Indigo action identifying the device or variable whose states to show
+		Outputs:
+		    None: delegates to showDeviceStates
+		"""
 		self.showDeviceStates(self.convertACTION(action1))
 
 	def showDeviceStates(self,action):
+		"""Logs the numeric states/values of a requested eligible device or variable (or all of them when the name is '***'), showing each state's raw value and how it converts to a usable number. Writes status/error messages to the response variable.
+
+		Inputs:
+		    action (dict): action props with a 'deviceOrVariableName' key ('***' for all)
+		Outputs:
+		    None: logs device/variable states and writes an ok/error response variable
+		"""
 		logLevel = self.getLogLevel(action)
 
 		if not "deviceOrVariableName" in action:
@@ -4671,9 +5503,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def PrintDeviceStates(self, dev="***"):
+		"""Thin wrapper that simply calls showAllDeviceStates, ignoring its dev argument.
+
+		Inputs:
+		    dev (str): unused device identifier, defaults to '***'
+		Outputs:
+		    None: calls showAllDeviceStates to log all device/variable states
+		"""
 		self.showAllDeviceStates()
 	
 	def showAllDeviceStates(self):
+		"""Builds and logs a full report of all Indigo variables and devices, listing each one's name, raw value(s) and how each value converts to a usable number for plotting. Writes ok responses per device.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: logs the full variable/device state report and writes ok response variables
+		"""
 		try:
 			out = "\n"
 			out += "\nvariables  id ---------------------                      Name   Value                               used as"
@@ -4723,9 +5569,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def setConfigParametersCALLBACKaction(self, action1):
+		"""Indigo action callback that converts the action props and delegates to setConfigParameters.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the Indigo action carrying the config parameters to set
+		Outputs:
+		    None: delegates to setConfigParameters
+		"""
 		self.setConfigParameters(self.convertACTION(action1))
 
 	def setConfigParameters(self, action):
+		"""Applies configuration parameters supplied in an action (log/debug level, PNG directory, gnuplot binary, SQL dynamic mode, gnu/mat output mode, and consumption cost periods), persists relevant values to pluginPrefs, and flags when SQL data must be re-imported to recalculate energy costs. Writes status to the response variable.
+
+		Inputs:
+		    action (dict): action props holding the configuration keys to apply
+		Outputs:
+		    None: updates plugin config/prefs, queues redoParameters, sets reload flags, and writes an ok response variable
+		"""
 		logLevel= self.getLogLevel(action)
 
 		SQLupdatesNeeded=0
@@ -4829,9 +5689,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def addDeviceAndStateToSelectionListCALLBACKaction(self, action1):
+		"""Callback wrapper that converts an Indigo plugin action into a plain dict and forwards it to addDeviceAndStateToSelectionList.
+
+		Inputs:
+		    action1 (indigo.PluginAction): raw Indigo action whose props are converted then processed
+		Outputs:
+		    None: delegates to addDeviceAndStateToSelectionList; no value returned
+		"""
 		self.addDeviceAndStateToSelectionList(self.convertACTION(action1))
 
 	def addDeviceAndStateToSelectionList(self, action):
+		"""Validates and registers a device/variable state (with measurement, offset, multiplier, min/max, fill-gaps and reset-type settings) as a tracked data source for plotting, finding or creating a slot in self.DEVICE, allocating a data column, and triggering SQL/redo updates; reports errors or success via responseToActionInVariable.
+
+		Inputs:
+		    action (dict): settings dict with deviceOrVariableName, measurement, state and optional plotting parameters
+		Outputs:
+		    tuple: (devNo, stateNo) of the added/found slot, or (0, 0) on validation error
+		"""
 		logLevel= self.getLogLevel(action)
 
 		self.indiLOG.log(30,"createDataSource to be tracked:     ..{}".format(action))
@@ -5053,9 +5927,23 @@ class Plugin(indigo.PluginBase):
 		
 	########################################
 	def createOrModifyLineCALLBACKaction(self, action1):
+		"""Callback wrapper that converts an Indigo plugin action into a plain dict and forwards it to createOrModifyLine.
+
+		Inputs:
+		    action1 (indigo.PluginAction): raw Indigo action whose props are converted then processed
+		Outputs:
+		    None: delegates to createOrModifyLine; no value returned
+		"""
 		self.createOrModifyLine(self.convertACTION(action1))
 
 	def createOrModifyLine(self, action):
+		"""Creates or modifies a plot line by validating the target plot device and line number, registering line A (and optionally line B) data sources for time-series plots or mapping data columns for file/variable plots, then confirming line properties and persisting the updated plot props to the Indigo server and GNUPlot files; reports outcome via responseToActionInVariable.
+
+		Inputs:
+		    action (dict): line definition dict with deviceNameOfPlot, lineNumber and per-line source/measurement/state settings
+		Outputs:
+		    None: updates plot config, writes plugin props and GNUPlot files, logs and reports status
+		"""
 		logLevel= self.getLogLevel(action)
 
 		try:
@@ -5266,9 +6154,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def createPlotPNGCALLBACKaction(self, action1):
+		"""Callback wrapper that converts an Indigo plugin action into a plain dict and forwards it to createPlotPNG.
+
+		Inputs:
+		    action1 (indigo.PluginAction): raw Indigo action whose props are converted then processed
+		Outputs:
+		    None: delegates to createPlotPNG; no value returned
+		"""
 		self.createPlotPNG(self.convertACTION(action1))
 
 	def createPlotPNG(self, action):
+		"""Queues a 'plotNow' command to regenerate the PNG for the named plot device (or all plots when the name is empty), reporting success or a missing-name error via responseToActionInVariable.
+
+		Inputs:
+		    action (dict): action dict containing deviceNameOfPlot identifying which plot(s) to create
+		Outputs:
+		    None: sets plotNOWCommand, appends to indigoCommand queue and reports status
+		"""
 		logLevel= self.getLogLevel(action)
 
 		self.indiLOG.log(20,"createPlotPNG-- "+action["deviceNameOfPlot"])
@@ -5285,9 +6187,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def showPlotONLYCALLBACKaction(self, action1):
+		"""Callback wrapper that converts an Indigo plugin action into a plain dict and forwards it to showPlotONLY.
+
+		Inputs:
+		    action1 (indigo.PluginAction): raw Indigo action whose props are converted then processed
+		Outputs:
+		    None: delegates to showPlotONLY; no value returned
+		"""
 		self.showPlotONLY(self.convertACTION(action1))
 
 	def showPlotONLY(self, action):
+		"""Queues a 'plotNowOnly' command to display the named plot without regenerating it, reporting success or a missing-name error via responseToActionInVariable.
+
+		Inputs:
+		    action (dict): action dict containing deviceNameOfPlot identifying which plot to show
+		Outputs:
+		    None: sets plotNOWCommand, appends to indigoCommand queue and reports status
+		"""
 		logLevel= self.getLogLevel(action)
 		
 		self.indiLOG.log(20,"showPlotONLY-- action   {}".format(action))
@@ -5302,9 +6218,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def showPlotPNGCALLBACKaction(self, action1):
+		"""Callback wrapper that converts an Indigo plugin action into a plain dict and forwards it to showPlotPNG.
+
+		Inputs:
+		    action1 (indigo.PluginAction): raw Indigo action whose props are converted then processed
+		Outputs:
+		    None: delegates to showPlotPNG; no value returned
+		"""
 		self.showPlotPNG(self.convertACTION(action1))
 	
 	def showPlotPNG(self, action):
+		"""Queues a 'plotNow' command to regenerate and display the named plot's PNG (or all plots when the name is empty), reporting success or a missing-name error via responseToActionInVariable.
+
+		Inputs:
+		    action (dict): action dict containing deviceNameOfPlot identifying which plot(s) to plot
+		Outputs:
+		    None: sets plotNOWCommand, appends to indigoCommand queue and reports status
+		"""
 		logLevel= self.getLogLevel(action)
 
 
@@ -5327,9 +6257,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def doExportCALLBACKaction(self, action1):
+		"""Callback wrapper that converts an Indigo plugin action into a plain dict and forwards it to doExport.
+
+		Inputs:
+		    action1 (indigo.PluginAction): raw Indigo action whose props are converted then processed
+		Outputs:
+		    None: delegates to doExport; no value returned
+		"""
 		self.doExport(self.convertACTION(action1))
 
 	def doExport(self, action):
+		"""Queues an 'export' command to trigger a data export and reports success via responseToActionInVariable.
+
+		Inputs:
+		    action (dict): action dict (used only for log-level resolution)
+		Outputs:
+		    None: appends 'export' to the indigoCommand queue and reports status
+		"""
 		logLevel= self.getLogLevel(action)
 		self.indiLOG.log(20,"doExport-- action   ")
 		self.indigoCommand.append("export")
@@ -5339,9 +6283,23 @@ class Plugin(indigo.PluginBase):
 	
 	########################################
 	def doExportMiniCALLBACKaction(self, action1):
+		"""Indigo action callback that converts the raw action's props into a plain dict via convertACTION and forwards it to doExportMini.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the triggering Indigo plugin action
+		Outputs:
+		    None: delegates to doExportMini; no return value
+		"""
 		self.doExportMini(self.convertACTION(action1))
 
 	def doExportMini(self, action):
+		"""Queues an 'exportMini' command onto the plugin's command list and writes an 'ok: exported' status message back to the Indigo response variable.
+
+		Inputs:
+		    action (dict): action properties dict, may contain logLevel
+		Outputs:
+		    None: appends to indigoCommand and updates the response variable
+		"""
 		logLevel= self.getLogLevel(action)
 		self.indiLOG.log(20,"doExportmini-- action   ")
 		self.indigoCommand.append("exportMini")
@@ -5351,9 +6309,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def savePlotCALLBACKaction(self,action1):
+		"""Indigo action callback that converts the action's props into a dict and forwards it to savePlot.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the triggering Indigo plugin action
+		Outputs:
+		    None: delegates to savePlot; no return value
+		"""
 		self.savePlot(self.convertACTION(action1))
 		
 	def savePlot(self,action):
+		"""Persists a plot device's current PLOT configuration by serializing it to JSON into the device's pluginProps and saving them on the Indigo server, then flags the plugin to rebuild plots; on a missing device it logs and writes an error response variable.
+
+		Inputs:
+		    action (dict): action properties dict containing deviceNameOfPlot
+		Outputs:
+		    None: updates device pluginProps on server, sets flags, calls redoParam, or writes an error response
+		"""
 		logLevel= self.getLogLevel(action)
 	
 		name =action["deviceNameOfPlot"]
@@ -5361,8 +6333,8 @@ class Plugin(indigo.PluginBase):
 			dev = indigo.devices[name]
 		except  Exception as e:
 			self.indiLOG.log(40,"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
-			self.responseToActionInVariable(msg="error: device  does not exist, can not save  "+action1.props["deviceNameOfPlot"])
-			self.indiLOG.log(30,"savePlotCALLBACK--  device  does not exist, can not save  "+action1.props["deviceNameOfPlot"])
+			self.responseToActionInVariable(msg="error: device  does not exist, can not save  "+action["deviceNameOfPlot"])
+			self.indiLOG.log(30,"savePlotCALLBACK--  device  does not exist, can not save  "+action["deviceNameOfPlot"])
 			return
 			
 		nPlot =str(dev.id)
@@ -5383,6 +6355,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def convertACTION(self, action1):
+		"""Helper that copies all properties from an Indigo action object's props into a plain Python dict.
+
+		Inputs:
+		    action1 (indigo.PluginAction): the Indigo plugin action whose props are copied
+		Outputs:
+		    dict: dict of the action's property key/value pairs
+		"""
 		action={}
 		for pp in action1.props:
 			action[pp]=action1.props[pp]
@@ -5390,6 +6369,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def responseToActionInVariable(self, msg=""):
+		"""Writes a status message back to a script by creating the Indigo variable 'INDIGOplotD-Script-Message', or updating its value if it already exists.
+
+		Inputs:
+		    msg (str): status message to store in the response variable
+		Outputs:
+		    None: creates or updates the INDIGOplotD-Script-Message Indigo variable
+		"""
 		try:
 			indigo.variable.create("INDIGOplotD-Script-Message", msg)
 		except:
@@ -5398,6 +6384,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def getLogLevel(self,action):
+		"""Extracts a log-level indicator from an action dict; returns 'all' whenever a logLevel key is present (regardless of its integer value), the raw value if not an int, or an empty string when absent or on error.
+
+		Inputs:
+		    action (dict): action properties dict possibly containing a logLevel key
+		Outputs:
+		    str: 'all', the raw logLevel value, or '' when not set
+		"""
 		try:
 			if "logLevel" in  action:
 				try: 
@@ -5426,6 +6419,16 @@ class Plugin(indigo.PluginBase):
 
 ########################################
 	def filterListOfPlotDeviceNamesaction(self,  filter="self", valuesDict=None, typeId="", targetId=0):
+		"""Config UI list-filter callback that builds the menu of plot device names from self.PLOT, returning each plot's DeviceNamePlot as a (value, label) tuple plus a final option to recreate all plots without displaying them.
+
+		Inputs:
+		    filter (str): Indigo list filter string
+		    valuesDict (dict or None): current config dialog values
+		    typeId (str): device/dialog type identifier
+		    targetId (int): target device id
+		Outputs:
+		    list: list of (value, label) tuples of plot device names
+		"""
 		retList = []
 		for nPlot in self.PLOT:
 			retList.append((self.PLOT[nPlot]["DeviceNamePlot"],self.PLOT[nPlot]["DeviceNamePlot"]))
@@ -5439,6 +6442,15 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def DevicesOnOffCALLBACK(self, valuesDict=None, typeId="", targetId=0):
 
+		"""Config UI callback for the DefineDevices toggle; recomputes the ExpertsAndDevices flag based on the DefineDevices and Experts checkbox states and refreshes field visibility via setViewOnOff.
+
+		Inputs:
+		    valuesDict (dict or None): current config dialog values
+		    typeId (str): device/dialog type identifier
+		    targetId (int): target device id
+		Outputs:
+		    dict: updated valuesDict from setViewOnOff
+		"""
 		if valuesDict["DefineDevices"]:
 			if  not valuesDict["Experts"]:
 				valuesDict["ExpertsAndDevices"] = True
@@ -5451,6 +6463,15 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def ExpertOnOffCALLBACK(self, valuesDict=None, typeId="", targetId=0):
 
+		"""Config UI callback for the Experts toggle; updates the ExpertsAndDevices visibility flag based on the Experts and DefineDevices checkbox states and refreshes field visibility via setViewOnOff.
+
+		Inputs:
+		    valuesDict (dict or None): current config dialog values
+		    typeId (str): device/dialog type identifier
+		    targetId (int): target device id
+		Outputs:
+		    dict: updated valuesDict from setViewOnOff
+		"""
 		if  not valuesDict["Experts"]:
 			valuesDict["Expexx1rtsAndDevices"] = False
 		else:
@@ -5464,25 +6485,70 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def plotDataTypeCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""Config UI callback for the plot data-type field that refreshes field visibility by passing the dialog values through setViewOnOff.
+
+		Inputs:
+		    valuesDict (dict or None): current config dialog values
+		    typeId (str): device/dialog type identifier
+		    targetId (int): target device id
+		Outputs:
+		    dict: updated valuesDict from setViewOnOff
+		"""
 		valuesDict = self.setViewOnOff(valuesDict)
 		return valuesDict
 	########################################
 	def plotXYvPolarCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""Config UI callback for the XY-versus-polar plot selector that refreshes field visibility by passing the dialog values through setViewOnOff.
+
+		Inputs:
+		    valuesDict (dict or None): current config dialog values
+		    typeId (str): device/dialog type identifier
+		    targetId (int): target device id
+		Outputs:
+		    dict: updated valuesDict from setViewOnOff
+		"""
 		valuesDict = self.setViewOnOff(valuesDict)
 		return valuesDict
 
 
 	########################################
 	def PlotsOnOffCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""ConfigUI callback that refreshes the visibility/state of plot-related dialog fields by delegating to setViewOnOff and returning the updated values dictionary.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current dialog field values
+		    typeId (str): dialog/type identifier
+		    targetId (int): target device/object id
+		Outputs:
+		    indigo.Dict: updated values dictionary with adjusted UI visibility flags
+		"""
 		valuesDict = self.setViewOnOff(valuesDict)
 		return valuesDict
 	########################################
 	def LinesOnOffCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""ConfigUI callback for the lines on/off control that updates dialog field visibility via setViewOnOff and returns the modified values dictionary.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current dialog field values
+		    typeId (str): dialog/type identifier
+		    targetId (int): target device/object id
+		Outputs:
+		    indigo.Dict: updated values dictionary with adjusted UI visibility flags
+		"""
 		valuesDict = self.setViewOnOff(valuesDict)
 		return valuesDict
 
 	######################################
 	def ExpertOnOffPlotCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""ConfigUI callback for the expert-mode plot toggle that recomputes dialog field visibility through setViewOnOff and returns the updated values dictionary.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current dialog field values
+		    typeId (str): dialog/type identifier
+		    targetId (int): target device/object id
+		Outputs:
+		    indigo.Dict: updated values dictionary with adjusted UI visibility flags
+		"""
 		valuesDict = self.setViewOnOff(valuesDict)
 		return valuesDict
 
@@ -5491,6 +6557,13 @@ class Plugin(indigo.PluginBase):
 	def setViewOnOff(self, valuesDict):
 
 
+		"""Computes and sets the many show/hide visibility flags in the config dialog based on the current plot type, XY-vs-polar choice, expert mode, line function, and A/B line selection state, so the right fields appear for plots and lines.
+
+		Inputs:
+		    valuesDict (indigo.Dict): dialog field values to read settings from and write visibility flags into
+		Outputs:
+		    indigo.Dict: the values dictionary with all UI visibility flags updated
+		"""
 		try:
 			if valuesDict["DefinePlots"]:
 				if valuesDict["PlotType"] == "dataFromTimeSeries":
@@ -5702,6 +6775,15 @@ class Plugin(indigo.PluginBase):
 ######################################
 	def liteOrPsqlCALLBACK(self, valuesDict, typeId="", targetId=0):
 
+		"""ConfigUI callback that handles the SQLite-vs-PostgreSQL data source choice, storing and validating the psql command string when PostgreSQL is selected (falling back to a default and logging if it looks wrong) or clearing it otherwise.
+
+		Inputs:
+		    valuesDict (indigo.Dict): dialog values containing liteOrPsql choice and the psql command string
+		    typeId (str): dialog/type identifier
+		    targetId (int): target device/object id
+		Outputs:
+		    indigo.Dict: the unchanged values dictionary
+		"""
 		if  valuesDict["liteOrPsql"] == "psql":
 			self.liteOrPsqlString =valuesDict["liteOrPsqlString"]
 			if len(self.liteOrPsqlString) < 15 or self.liteOrPsqlString.find("psql") == -1:
@@ -5715,6 +6797,15 @@ class Plugin(indigo.PluginBase):
 ######################################
 	def gnuORmatCALLBACK(self, valuesDict, typeId="", targetId=0):
 
+		"""ConfigUI callback for the gnuplot-vs-matplotlib backend choice that applies the selection by calling gnuORmatSET with either 'mat' or 'gnu'.
+
+		Inputs:
+		    valuesDict (indigo.Dict): dialog values containing the gnuORmat backend choice
+		    typeId (str): dialog/type identifier
+		    targetId (int): target device/object id
+		Outputs:
+		    indigo.Dict: the unchanged values dictionary
+		"""
 		if  valuesDict["gnuORmat"] == "mat":
 			self.gnuORmatSET( "mat")
 		else:
@@ -5724,6 +6815,13 @@ class Plugin(indigo.PluginBase):
 
 ######################################
 	def isMATRunning(self):
+		"""Checks whether the external matplotlib plotting helper process is running by reading its stored PID file and verifying via ps that the indigoMPplot process is alive, caching the PID on success.
+
+		Inputs:
+		    None.
+		Outputs:
+		    bool: True if the matplot process is running, False otherwise
+		"""
 		oldPID =0
 		try:
 			pidHandle= self.openEncoding( self.matplotPid , "r")
@@ -5742,6 +6840,13 @@ class Plugin(indigo.PluginBase):
 			return False
 	########################################
 	def startMAT(self):
+		"""Launches the external indigoMPplot.py matplotlib helper as a subprocess (passing config such as indigo dir, log file, prefs dir and log level), records its PID to a pid file, opens its log file, and triggers an initial plot.
+
+		Inputs:
+		    None.
+		Outputs:
+		    bool: True on successful start, False if an exception occurred
+		"""
 		try:
 			self.MPlogfhandle = self.openEncoding(self.MPlogfile,"a")
 		except:
@@ -5764,6 +6869,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def stopMAT(self):
+		"""Stops the external matplotlib helper process by closing its log file handle and sending SIGKILL to its PID; returns early if the process is not currently running.
+
+		Inputs:
+		    None.
+		Outputs:
+		    bool: True if the process was killed, False if it was not running or kill failed
+		"""
 		if not self.isMATRunning():
 			if self.decideMyLog("Matplot"): self.indiLOG.log(30," stop matplot: not active, PID:  {}".format(self.pidMATPLOT))
 			return False
@@ -5783,6 +6895,13 @@ class Plugin(indigo.PluginBase):
 			
 	########################################
 	def gnuORmatSET(self, setValue):
+		"""Sets the active plotting backend to either gnuplot or matplotlib, stopping the matplot helper when switching to gnu and starting it (if not already running) when switching to mat, and updates the gnuORmat attribute.
+
+		Inputs:
+		    setValue (str): backend selector, 'gnu' for gnuplot or otherwise matplotlib
+		Outputs:
+		    None: updates self.gnuORmat and starts/stops the matplot helper process
+		"""
 		if setValue == "gnu":
 			if self.isMATRunning():
 				if self.decideMyLog("Matplot"): self.indiLOG.log(30,"gnuORmat starting gnuplot, stopping matplot")
@@ -5800,6 +6919,13 @@ class Plugin(indigo.PluginBase):
 	
 	########################################
 	def getLinesForFileOrVariPlot(self,FileOrVariName):				# Select only device/properties that are supported:  numbers, bool, but not props that have "words"
+		"""Builds the list of selectable data columns (self.listOfLinesForFileOrVari) for a file- or variable-based plot by parsing the header line of the named data file or variable (format '#x;y1;y2'), validating it has a leading '#' and at least two columns.
+
+		Inputs:
+		    FileOrVariName (str): data file name (under data/) or indigo variable name to read the header from
+		Outputs:
+		    int: 0 on success, -1 on error/invalid data or for timeseries plot type
+		"""
 		self.listOfLinesForFileOrVari=[(0,"None")]
 		if self.currentPlotType == "dataFromTimeSeries": return -1
 		
@@ -5875,6 +7001,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def preSelectDevices(self):				# Select only device/properties that are supported:  numbers, bool, but not props that have "words"
+		"""Builds the list of preselectable plot sources (self.listOfPreselectedDevices) and an id-to-type/name map by scanning all indigo variables and device states, keeping only numeric/boolean values and skipping state keys containing 'Mode', 'All', or '.ui'.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: populates self.listOfPreselectedDevices and self.devIdToTypeandName
+		"""
 		self.listOfPreselectedDevices = []
 		self.devIdToTypeandName = {}
 
@@ -5918,6 +7051,16 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def filterExistingDevice(self,  filter="self", valuesDict=None, typeId="", targetId=0):
 
+		"""Builds the list of menu options for selecting an existing configured device/variable in a plot, listing each used DEVICE slot by number and name (sorted alphabetically) plus a trailing option to pick a new device/variable.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or None): current dialog field values (unused)
+		    typeId (str): config UI type id (unused)
+		    targetId (int): target device id (unused)
+		Outputs:
+		    list: list of [devNo, label] option pairs ending with a 'pick new' entry
+		"""
 		retList = []
 
 		for devNo in self.DEVICE:
@@ -5933,6 +7076,15 @@ class Plugin(indigo.PluginBase):
 	def pickExistingOrNewDeviceCALLBACK(self, valuesDict=None, typeId="", targetId=0):
 	
 	
+		"""Config-UI callback fired when the user picks an existing or new device/variable; either allocates a fresh DEVICE slot (for a new device) or loads the selected existing slot, sets the new device id/name/type and current slot, computes selectable states, and populates the dialog fields accordingly.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): dialog field values, read and mutated
+		    typeId (str): config UI type id (e.g. 'myFirstPlot', 'defineDataSource')
+		    targetId (int): target device id (unused)
+		Outputs:
+		    indigo.Dict: the updated valuesDict with device selection state set
+		"""
 		if typeId == "myFirstPlot":
 			valuesDict["selectedDeviceID"]				= valuesDict["selectedDeviceIDMFP"]
 			valuesDict["selectedExistingOrNewDevice"]	= valuesDict["selectedExistingOrNewDeviceMFP"]
@@ -6020,6 +7172,15 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def filterDevicesThatQualify(self,  filter="",valuesDict="",typeId=""):# Select only device/properties that are supported
 
+		"""Builds the device-selection menu listing only preselected qualifying devices/variables, appending the already-assigned device for the current slot as the default first pick when one exists.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or str): current dialog field values (unused)
+		    typeId (str): config UI type id (e.g. 'myFirstPlot')
+		Outputs:
+		    list: list of (id, name) option tuples for the qualifying devices
+		"""
 		if typeId == "myFirstPlot":
 			if self.PLOTlistLast[2] != 0:
 				self.currentDevNo = self.PLOTlistLast[2]
@@ -6040,6 +7201,14 @@ class Plugin(indigo.PluginBase):
 	
 	########################################
 	def pickDevicesThatQualifyCALLBACK(self, valuesDict=None,typeId=""):
+		"""Config-UI callback for the qualifying-device picker; for the 'myFirstPlot' flow it resolves the chosen device/variable id and type (or keeps the plot's default device and its state), and otherwise sets the selectDeviceStatesOK flag based on whether the selection matches the previously confirmed device.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): dialog field values, read and mutated
+		    typeId (str): config UI type id (e.g. 'myFirstPlot')
+		Outputs:
+		    indigo.Dict: the updated valuesDict
+		"""
 		if typeId == "myFirstPlot":
 			if valuesDict["selectedDeviceIDMFP"] == "0":  # this is the default device for this plot
 				if self.currentDevNo != 0:
@@ -6080,6 +7249,15 @@ class Plugin(indigo.PluginBase):
 		return valuesDict
 	########################################
 	def buttonConfirmDeviceMFPCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""Button callback for confirming the device in the 'myFirstPlot' dialog; resolves the selected device/variable id and its Dev-/Var- type (defaulting to the plot's current device when none chosen), or sets a 'please select device' message if nothing valid is selected.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): dialog field values, read and mutated
+		    typeId (str): config UI type id (unused)
+		    targetId (int): target device id (unused)
+		Outputs:
+		    indigo.Dict: the updated valuesDict with current device id and type set
+		"""
 		if valuesDict["selectedDeviceIDMFP"] == "0":  # this is the default device for this plot
 			if self.currentDevNo != 0:
 				self.currentDeviceId = int(self.DEVICE["{}".format(self.currentDevNo)]["Id"])
@@ -6113,6 +7291,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonConfirmDeviceCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""Button callback that confirms/saves the selected device by delegating to confirmDevice; on success it marks the device states as OK, records the confirmed device as the previous selection, sets the confirmed flag, and updates the dialog's status text.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): dialog field values, read and mutated
+		    typeId (str): config UI type id (e.g. 'myFirstPlot')
+		    targetId (int): target device id (unused)
+		Outputs:
+		    indigo.Dict: the updated valuesDict reflecting the confirmation result
+		"""
 		if typeId == "myFirstPlot":
 			valuesDict["selectedDeviceID"]				= valuesDict["selectedDeviceIDMFP"]
 			valuesDict["selectedExistingOrNewDevice"]	= valuesDict["selectedDeviceIDMFP"]
@@ -6134,6 +7321,13 @@ class Plugin(indigo.PluginBase):
 		return valuesDict
 	########################################
 	def confirmDevice(self, valuesDict):
+		"""Confirms and persists a device/variable selection into the plugin's DEVICE structure: for a new device it resolves and stores the id, name and Dev-/Var- type into the current slot, for an existing one it reloads the slot (or deletes it if DeleteDevice is set), then recomputes selectable states and refreshes the dialog fields via DEVtoValesDict.
+
+		Inputs:
+		    valuesDict (indigo.Dict): dialog field values, read and mutated
+		Outputs:
+		    tuple: (valuesDict, statusCode) where code 0=error/no device, 1=deleted, 2=success
+		"""
 		newDevice= False
 		if self.addNewDevice:
 			try:
@@ -6198,6 +7392,14 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def DEVtoValesDict(self,DEV,valuesDict):
 
+		"""Copies a DEVICE slot's per-state configuration (measurement, state, offset, multiplier, min/max, fillGaps, nickName, reset type/periods) into the dialog's valuesDict fields for each state index, decoding consumption reset periods into a slash/plus-delimited string and filling empty defaults for unused states.
+
+		Inputs:
+		    DEV (dict): a single DEVICE slot configuration dictionary
+		    valuesDict (indigo.Dict): dialog field values to populate
+		Outputs:
+		    tuple: (valuesDict, 2) the populated dict and a constant status code
+		"""
 		for stateNo in range(1,noOfStatesPerDeviceG+1):
 
 			if DEV["stateToIndex"][stateNo] > 0:
@@ -6254,6 +7456,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def preSelectStates(self,devID):				# Select only device/properties that are supported
+		"""Builds the list of selectable states/properties for a given device id, returning ('value','value') for variables and, for devices, each numeric state (excluding Mode/All/.ui states) paired with a friendly display name via tryNiceState.
+
+		Inputs:
+		    devID (int): Indigo device (or variable) id to inspect
+		Outputs:
+		    list: list of (stateKey, niceName) tuples of selectable numeric states
+		"""
 		if devID == 0: return [(0,0)]
 		retList = []
 		
@@ -6285,6 +7494,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def tryNiceState (self, inState):
+		"""Returns a human-friendly display label for a device state key by looking it up in the stateNiceWords mapping, falling back to the raw key when no mapping exists.
+
+		Inputs:
+		    inState (str): raw device state/property key
+		Outputs:
+		    str: the nice display word or the original key
+		"""
 		try:
 			return  stateNiceWords[inState]		# replace property with nice list if available
 		except:
@@ -6292,25 +7508,105 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterselDeviceStates1 (self, filter="",  valuesDict=None,typeId=""):
+		"""Config-UI list filter callback for device state selector 1, delegating to filterDeviceStatesAll for state index 1.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or None): current dialog field values
+		    typeId (str): config UI type id (unused)
+		Outputs:
+		    list: list of selectable state options for state index 1
+		"""
 		return self.filterDeviceStatesAll(valuesDict,1)
 	def filterselDeviceStates2 (self, filter="",  valuesDict=None,typeId=""):
+		"""Config-UI list filter callback for device state selector 2, delegating to filterDeviceStatesAll for state index 2.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or None): current dialog field values
+		    typeId (str): config UI type id (unused)
+		Outputs:
+		    list: list of selectable state options for state index 2
+		"""
 		return self.filterDeviceStatesAll(valuesDict,2)
 	def filterselDeviceStates3 (self, filter="",  valuesDict=None,typeId=""):
+		"""Indigo config UI list callback that returns the selectable device states for state slot 3 by delegating to filterDeviceStatesAll with stateNo=3.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or None): current dialog values
+		    typeId (str): config UI type id (unused)
+		Outputs:
+		    list: list of (value, label) tuples for the state menu
+		"""
 		return self.filterDeviceStatesAll(valuesDict,3)
 	def filterselDeviceStates4 (self, filter="",  valuesDict=None,typeId=""):
+		"""Indigo config UI list callback that returns the selectable device states for state slot 4 by delegating to filterDeviceStatesAll with stateNo=4.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or None): current dialog values
+		    typeId (str): config UI type id (unused)
+		Outputs:
+		    list: list of (value, label) tuples for the state menu
+		"""
 		return self.filterDeviceStatesAll(valuesDict,4)
 	def filterselDeviceStates5 (self, filter="",  valuesDict=None,typeId=""):
+		"""Indigo config UI list callback that returns the selectable device states for state slot 5 by delegating to filterDeviceStatesAll with stateNo=5.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or None): current dialog values
+		    typeId (str): config UI type id (unused)
+		Outputs:
+		    list: list of (value, label) tuples for the state menu
+		"""
 		return self.filterDeviceStatesAll(valuesDict,5)
 	def filterselDeviceStates6 (self, filter="",  valuesDict=None,typeId=""):
+		"""Indigo config UI list callback that returns the selectable device states for state slot 6 by delegating to filterDeviceStatesAll with stateNo=6.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or None): current dialog values
+		    typeId (str): config UI type id (unused)
+		Outputs:
+		    list: list of (value, label) tuples for the state menu
+		"""
 		return self.filterDeviceStatesAll(valuesDict,6)
 	def filterselDeviceStates7 (self, filter="",  valuesDict=None,typeId=""):
+		"""Indigo config UI list callback that returns the selectable device states for state slot 7 by delegating to filterDeviceStatesAll with stateNo=7.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or None): current dialog values
+		    typeId (str): config UI type id (unused)
+		Outputs:
+		    list: list of (value, label) tuples for the state menu
+		"""
 		return self.filterDeviceStatesAll(valuesDict,7)
 	def filterselDeviceStates8 (self, filter="",  valuesDict=None,typeId=""):
+		"""Indigo config UI list callback that returns the selectable device states for state slot 8 by delegating to filterDeviceStatesAll with stateNo=8.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (indigo.Dict or None): current dialog values
+		    typeId (str): config UI type id (unused)
+		Outputs:
+		    list: list of (value, label) tuples for the state menu
+		"""
 		return self.filterDeviceStatesAll(valuesDict,8)
 
 	########################################
 	def filterDeviceStatesAll (self, valuesDict, stateNo):
 	
+		"""Shared helper backing the per-slot state list callbacks; returns a copy of the currently selectable states for the active device, or a placeholder [(0,0)] when no device is selected.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current dialog values (unused in body)
+		    stateNo (int): which state slot the list is for
+		Outputs:
+		    list: list of selectable state (value, label) tuples
+		"""
 		if self.currentDevNo == 0: return [(0,0)]
 #		statePreviouslySelected=  self.DEVICE["{}".format(self.currentDevNo)]["state"][stateNo]									# is there a previously selected dev/property, if yes use it
 
@@ -6324,10 +7620,24 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def consumptionTypeCALLBACK(self,  valuesDict=None):
+		"""Config UI callback for the consumption-type field that triggers consumptionPeriodCALLBACK to refresh dependent fields, then returns the dialog values unchanged.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current dialog values
+		Outputs:
+		    indigo.Dict: the (possibly updated) dialog values
+		"""
 		self.consumptionPeriodCALLBACK(valuesDict)
 		return valuesDict
 	########################################
 	def consumptionPeriodCALLBACK(self,  valuesDict=None):
+		"""Config UI callback that, for the selected consumption type and period, loads stored cost/consumption data into the dialog fields (period text or day/hour plus per-cost consumed and cost values).
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current dialog values
+		Outputs:
+		    indigo.Dict: dialog values populated with the selected period's consumption/cost data
+		"""
 		periodNo = int(valuesDict["consumptionPeriod"])
 		if periodNo == 0: return valuesDict
 
@@ -6354,6 +7664,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def checkIfEventData(self):
+		"""Scans all configured devices/states and rebuilds self.eventDataPresent, mapping each data-column index to its [devNo, stateNo] for any state whose measurement contains 'event'.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: rebuilds the self.eventDataPresent dict
+		"""
 		self.eventDataPresent = {}
 		for devNo in self.DEVICE:
 			if devNo == "0": continue
@@ -6365,6 +7682,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonConfirmDeviceStatesCALLBACK(self,  valuesDict=None,typeId=""):								# thsi will store the selected dev/props
+		"""Config UI Confirm-button callback that validates and commits the selected device's state slots: handles deletes, parses/validates reset-period date strings, computes nicknames, and marks each state as same, newly added, or changed, updating the plugin's DEVICE structure and SQL/histogram refresh flags accordingly.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): dialog values with the per-state selections
+		    typeId (str): config UI type id (unused)
+		Outputs:
+		    indigo.Dict: updated dialog values, with error text set on validation failure
+		"""
 		error = 0
 		devNo = self.currentDevNo
 		valuesDict["DefineDevicesAndNew"]  = False
@@ -6600,6 +7925,20 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def getNickName(self,devNo,stateNo,devNameN="",nickNameN="", stateN="", measurementN="",fillGapsN="", resetTypeN=""):
+		"""Builds a display nickname (max 50 chars) for a device state, preferring an existing/new user-supplied name when valid, otherwise composing one from device name, state, measurement, reset type, and fill-gaps flags with various abbreviations.
+
+		Inputs:
+		    devNo (int): device number key into self.DEVICE
+		    stateNo (int): state slot index within the device
+		    devNameN (str): candidate new device name (unused in body)
+		    nickNameN (str): candidate user-entered nickname
+		    stateN (str): candidate new state value
+		    measurementN (str): candidate new measurement type
+		    fillGapsN (str): candidate new fill-gaps flag
+		    resetTypeN (str): candidate new reset type
+		Outputs:
+		    str: the resolved or generated nickname (empty if state/device undefined)
+		"""
 		DEV=self.DEVICE["{}".format(devNo)]
 		state		= DEV["state"][stateNo]
 		if state == "None": return ""
@@ -6681,6 +8020,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonConfirmRatesCALLBACK(self,  valuesDict=None):								# thsi will store the selected dev/props
+		"""Config-dialog callback that validates and stores the user's consumption-cost rate schedule for a selected consumption type/period, handling deletion of a rate period (shifting later periods up), parsing/normalizing Period date strings, validating hour/day entries, and recording consumed/cost pairs; flags changes by appending to self.newConsumptionParams.
+
+		Inputs:
+		    valuesDict (indigo.Dict): config dialog field values for the consumption rate
+		Outputs:
+		    indigo.Dict: the possibly-corrected valuesDict with normalized fields and error annotations
+		"""
 		eDict= valuesDict
 		
 		consumptionType 			= valuesDict["consumptionType"]			# eConsumption  gConsumption  wConsumption
@@ -6788,10 +8134,10 @@ class Plugin(indigo.PluginBase):
 			if cost > 0. and n > 0:
 				if cCD["cost"][n-1] == 0.:
 					self.indiLOG.log(40,"cost of schedule: {}".format(n-1)+" =0; first define cost of schedule {}".format(n-1)+" then schedule {}".format(n))
-					return valueaDict
+					return valuesDict
 
 
-			valuesDict["consumed{}".format(n)] = tr(consumed)
+			valuesDict["consumed{}".format(n)] = str(consumed)
 			valuesDict["cost{}".format(n)] = str(cost)
 
 			if cCD["consumed"][n] != consumed or cCD["cost"][n] != cost :
@@ -6812,6 +8158,15 @@ class Plugin(indigo.PluginBase):
 	## called just before editor gets opened, check if existing duplicate or new device/Plot
 	def getDeviceConfigUiValues(self, devPluginProps, typeId, devId):
 
+		"""Returns the initial values for a plot device's configuration dialog, seeding from the device's existing plugin props, looking up or creating the corresponding PLOT entry (handling brand-new devices and duplicated copies), and populating the dialog with all plot settings (axes, labels, scales, colors converted to RGB, fonts, background, bins, extra text, etc.).
+
+		Inputs:
+		    devPluginProps (indigo.Dict): the device's stored plugin properties
+		    typeId (str): the device type identifier
+		    devId (int): the Indigo device id being configured
+		Outputs:
+		    indigo.Dict: the populated valuesDict for the device config UI
+		"""
 		try:
 
 			if self.decideMyLog("General"): self.indiLOG.log(20,"getDeviceConfigUiValues  start")
@@ -6992,6 +8347,16 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterFont(self,  filter="self", valuesDict=None, typeId="", targetId=0):                                                               # this will offer the available dev/properties for this plot/line
+		"""Dynamic list-filter callback that supplies the available font choices for the plot's text font menu; returns an empty list in matplotlib mode, otherwise returns the font names plus a default entry for the current plot.
+
+		Inputs:
+		    filter (str): menu filter string (unused)
+		    valuesDict (indigo.Dict or None): current config dialog values
+		    typeId (str): device type identifier
+		    targetId (int): the target plot device id
+		Outputs:
+		    list: list of font name entries for the menu
+		"""
 		if 	self.gnuORmat == "mat" : return []
 		nPlot = "{}".format(targetId)
 		defFont = self.PLOT[nPlot]["TextFont"]
@@ -7002,6 +8367,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def plotBackgroundColorCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""Config-dialog callback that updates the BackgroundColorRGB field from either the selected named Background color or the manually entered RGB value, converting it to an integer RGB string.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current config dialog values
+		    typeId (str): device type identifier
+		    targetId (int): the target plot device id
+		Outputs:
+		    indigo.Dict: valuesDict with updated BackgroundColorRGB
+		"""
 		if valuesDict["Background"] != "0":
 			rgbINT, rgbHEX, Error = self.convertoIntAndHexRGB(valuesDict["Background"],defColor="#000000")
 		else:
@@ -7011,6 +8385,15 @@ class Plugin(indigo.PluginBase):
 		
 	########################################
 	def plotTextColorRGBCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""Config-dialog callback that updates the TextColorRGB field from either the selected named TextColor or the manually entered RGB value, converting it to an integer RGB string.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current config dialog values
+		    typeId (str): device type identifier
+		    targetId (int): the target plot device id
+		Outputs:
+		    indigo.Dict: valuesDict with updated TextColorRGB
+		"""
 		if valuesDict["TextColor"] != "0":
 			rgbINT, rgbHEX, Error = self.convertoIntAndHexRGB(valuesDict["TextColor"],defColor="#000000")
 		else:
@@ -7019,6 +8402,15 @@ class Plugin(indigo.PluginBase):
 		return valuesDict
 	########################################
 	def plotLineColorRGBCALLBACK(self, valuesDict=None, typeId="", targetId=0):
+		"""Config-dialog callback that updates the lineColorRGB field from either the selected named lineColor or the manually entered RGB value, converting it to an integer RGB string.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current config dialog values
+		    typeId (str): device type identifier
+		    targetId (int): the target plot device id
+		Outputs:
+		    indigo.Dict: valuesDict with updated lineColorRGB
+		"""
 		if valuesDict["lineColor"] != "0":
 			rgbINT, rgbHEX, Error = self.convertoIntAndHexRGB(valuesDict["lineColor"],defColor="#000000")
 		else:
@@ -7031,6 +8423,15 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def buttonConfirmPlotCALLBACK(self,  valuesDict=None, typeId="", targetId=0):															# store userinput
 
+		"""Confirm-plot button callback that validates and saves the plot's settings via buttonConfirmPlotCALLBACKcheck, then on success switches the dialog into line-definition mode (updating status text and view flags) or on error keeps the user in plot-definition mode; also sets plotting/selection state flags.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current config dialog values
+		    typeId (str): device type identifier
+		    targetId (int): the target plot device id
+		Outputs:
+		    indigo.Dict: valuesDict with updated status text and view flags
+		"""
 		valuesDict, Error, nPlot,fName= self.buttonConfirmPlotCALLBACKcheck(valuesDict, typeId=typeId, targetId=targetId,script=False)															# store userinput
 
 		if Error == "":
@@ -7062,6 +8463,16 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonConfirmPlotCALLBACKcheck(self,  valuesDict=None, typeId="", targetId=0,script=False):															# store userinput
+		"""Core validation/storage routine that copies the user's plot configuration from valuesDict into the PLOT data structure for the target device, validating and normalizing values (plot type, fonts, extra text position/rotation/color, grid/border, labels, scale ranges/tics/decimals/formats, log scales, box width, bins with shift presets, resolution) and building an error message string for any invalid input.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current config dialog values
+		    typeId (str): device type identifier
+		    targetId (int): the target plot device id
+		    script (bool): whether called from a script vs interactive UI, affecting color handling
+		Outputs:
+		    tuple: (valuesDict, Error string, nPlot key, plot/device name)
+		"""
 		Error = ""
 		fName								= indigo.devices[targetId].name
 		nPlot								= "{}".format(targetId)
@@ -7318,6 +8729,14 @@ class Plugin(indigo.PluginBase):
 	def convertoIntAndHexRGB(self,value,defColor="#FFFFFF"):
 
 
+		"""Parses a color value given either as a #RRGGBB hex string or an 'r,g,b' integer triple and returns both representations, validating ranges and format; on bad/empty input it returns the supplied default color and an error message.
+
+		Inputs:
+		    value (str): the color string to parse (hex or comma-separated RGB)
+		    defColor (str): fallback hex color used if value is invalid/empty
+		Outputs:
+		    tuple: (rgbINT comma string, rgbHEX string, error message string)
+		"""
 		rgbINT = str(int(defColor[1:3],16))+",{}".format(int(defColor[3:5],16))+",{}".format(int(defColor[5:7],16))
 		rgbHEX = defColor
 		
@@ -7355,6 +8774,16 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterExistingLine(self,  filter="self", valuesDict=None, typeId="", targetId=-1):
+		"""Dynamic list-filter callback that builds the menu of existing lines for the target plot, labeling each configured line with its key and source column name (or 'StraightLine'), pruning lines whose column index is out of range, and appending 'Add New Line' and (when applicable) 'Select action' entries.
+
+		Inputs:
+		    filter (str): menu filter string (unused)
+		    valuesDict (indigo.Dict or None): current config dialog values
+		    typeId (str): device type identifier
+		    targetId (int): the target plot device id
+		Outputs:
+		    list: list of (lineNumber, label) tuples for the line menu
+		"""
 		try:
 			if self.decideMyLog("General"): self.indiLOG.log(20,"filterExistingLine targetId {}".format(targetId))
 
@@ -7405,6 +8834,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def selectedLineSourceACALLBACK(self,  valuesDict=None, typeId="", targetId=0):			# store user input and set other parameters used later
+		"""Config-dialog callback for the selected line source A menu; if a negative source is chosen it enables straight-line mode and sets the showAB state, then refreshes and returns the dialog view via setViewOnOff.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current config dialog values
+		    typeId (str): device type identifier
+		    targetId (int): the target plot device id
+		Outputs:
+		    indigo.Dict: valuesDict refreshed by setViewOnOff
+		"""
 		if int(valuesDict["selectedLineSourceA"])<0:
 			valuesDict["StraightLine"] = True
 			self.showAB = "SA"
@@ -7415,6 +8853,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def pickExistingOrNewLineCALLBACK(self,  valuesDict=None, typeId="", targetId=0):			# store user input and set other parameters used later
+		"""Config-dialog callback for choosing an existing line or adding a new one; for 'Add New Line' it finds the next free line slot and initializes it to defaults, then loads the chosen line's parameters (function, smoothing, multiplier/offset, color, type/width, key, source columns, etc.) into the dialog, sets the showAB display mode and view flags, and marks a line as selected.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): current config dialog values
+		    typeId (str): device type identifier
+		    targetId (int): the target plot device id
+		Outputs:
+		    indigo.Dict: valuesDict populated with the selected line's settings
+		"""
 		self.CurrentLineNo	= "0"
 		self.addLine		= False
 		nPlot				= str(indigo.devices[targetId].id)
@@ -7510,6 +8957,16 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def filterSelectedLinesA(self,  filter="self", valuesDict=None, typeId="", targetId=0):                            # this will offer the available dev/properties for this plot/line
+		"""Indigo list-callback that supplies the selectable data-source options (A side) for the currently selected line of a plot. Returns the previously chosen source as the default if one exists, a straight-line/None placeholder otherwise, or the full list of available device-property/file columns depending on the current plot type.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (dict or None): current dialog field values (unused)
+		    typeId (str): dialog type id (unused)
+		    targetId (int): plot device id used to look up the plot
+		Outputs:
+		    list: list of (value, label) tuples for the source A menu
+		"""
 		try:
 			if self.decideMyLog("General"): self.indiLOG.log(20," filterSelectedLinesA  nline {}".format(self.CurrentLineNo))
 
@@ -7551,6 +9008,16 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def filterSelectedLinesB(self,  filter="self", valuesDict=None, typeId="", targetId=0):                            # this will offer the available dev/properties for this plot/line
 
+		"""Indigo list-callback that supplies the selectable data-source options (B side) for the currently selected line of a plot, mirroring the A-side filter. Returns the prior choice as default or the full list of available columns based on the current plot type.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (dict or None): current dialog field values (unused)
+		    typeId (str): dialog type id (unused)
+		    targetId (int): plot device id used to look up the plot
+		Outputs:
+		    list: list of (value, label) tuples for the source B menu
+		"""
 		try:
 
 			nPlot = str(targetId)
@@ -7585,12 +9052,30 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def lineFuncCALLBACK(self,  valuesDict=None, typeId="", targetId=0):			# store user input and set other parameters used later
+		"""Dialog field-change callback for the line function selector; forces lineType to 'DOT.' when the function is S, E, or C, then refreshes which fields are shown.
+
+		Inputs:
+		    valuesDict (dict or None): current dialog field values
+		    typeId (str): dialog type id (unused)
+		    targetId (int): target device id (unused)
+		Outputs:
+		    dict: updated valuesDict from setViewOnOff
+		"""
 		if valuesDict["lineFunc"] == "S" or valuesDict["lineFunc"] == "E" or valuesDict["lineFunc"] == "C": valuesDict["lineType"]= "DOT."
 	
 		return self.setViewOnOff(valuesDict)
 
 	########################################
 	def buttonUpdatePlotCALLBACK(self, valuesDict=None, typeId="", targetId=0):														# store user input
+		"""Dialog button callback that regenerates and redraws the plot for the target device. Re-applies parameters, temporarily disables the plotting-wait flag, calls plotNow to create the plot, and queues a CheckIfPlotOK command.
+
+		Inputs:
+		    valuesDict (dict or None): current dialog field values
+		    typeId (str): dialog type id (unused)
+		    targetId (int): plot device id used to look up the plot
+		Outputs:
+		    dict: the (possibly modified) valuesDict
+		"""
 		if not self.indigoInitialized:
 			valuesDict["text3-1"] = "no lines defined "		# restore to the old one
 			return valuesDict
@@ -7607,6 +9092,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def buttonDrawPlotCALLBACK(self, valuesDict=None, typeId="", targetId=0):														# store user input
+		"""Dialog button callback that shows/redraws the existing plot image for the target device without recreating it, by calling plotNow with ShowOnly set while temporarily disabling the plotting-wait flag.
+
+		Inputs:
+		    valuesDict (dict or None): current dialog field values
+		    typeId (str): dialog type id (unused)
+		    targetId (int): plot device id used to look up the plot
+		Outputs:
+		    dict: the (possibly modified) valuesDict
+		"""
 		if not self.indigoInitialized:
 			valuesDict["text3-1"] = "no lines defined "		# restore to the old one
 			return valuesDict
@@ -7621,6 +9115,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def doplotNOWCommand(self):
 
+		"""Executes a pending plot-now request stored in self.plotNOWCommand, dispatching to plotNow for all plots or for a specific plot/show target, then clears the command and restores the plotting-wait flag.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: triggers plot creation/showing and resets self.plotNOWCommand
+		"""
 		if self.decideMyLog("Plotting"): self.indiLOG.log(20,"doplotNOWCommand-- {}".format(self.plotNOWCommand))
 		if self.plotNOWCommand[0] == "": return
 		xxx=self.waitWithPlotting
@@ -7635,6 +9136,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def doplotNOWOnlyCommand(self):
 		
+		"""Executes a pending show-only plot request from self.plotNOWCommand, calling plotNow with ShowOnly set to display the existing plot, then clears the command and restores the plotting-wait flag.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: triggers showing of an existing plot and resets self.plotNOWCommand
+		"""
 		if self.plotNOWCommand[0] == "": return
 		xxx=self.waitWithPlotting
 		self.waitWithPlotting =False
@@ -7646,6 +9154,15 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def buttonConfirmLinePropsCALLBACK(self, valuesDict=None, thetypeId="", thetargetId=0):
 
+		"""Dialog button callback that confirms and saves the edited line properties for the currently selected line. Validates via buttonConfirmLinePropsCALLBACKcheck, reports any error in the dialog text field, clears the plot's dataSource on success, and refreshes parameters.
+
+		Inputs:
+		    valuesDict (dict or None): current dialog field values for the line
+		    thetypeId (str): dialog type id passed through to the checker
+		    thetargetId (int): plot device id passed through to the checker
+		Outputs:
+		    dict: the updated valuesDict including status text
+		"""
 		if self.CurrentLineNo == "0":
 			valuesDict["text3-1"] = "no Line selected, nothing saved "		# restore to the old one
 			return valuesDict
@@ -7653,7 +9170,7 @@ class Plugin(indigo.PluginBase):
 		valuesDict , error = self.buttonConfirmLinePropsCALLBACKcheck(valuesDict, typeId=thetypeId, targetId=thetargetId, script=False)
 		valuesDict["text3-1"] = error
 		if error == "":
-			nPlot	=	str(targetId)
+			nPlot	=	str(thetargetId)
 			self.PLOT[nPlot]["dataSource"] = emptyPlot["dataSource"] # once edited remove the mini(plot) assignment
 
 		self.redoParam()
@@ -7662,6 +9179,16 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def buttonConfirmLinePropsCALLBACKcheck(self, valuesDict=None, typeId="", targetId=0,script=False):
 
+		"""Validates and persists all properties of the currently selected plot line into self.PLOT, handling delete/duplicate actions, smoothing/function/line-type validation, color conversion, multipliers, offsets, source column assignments, and numbers formatting. Returns the updated values and a status or error string; behavior differs when invoked from a script.
+
+		Inputs:
+		    valuesDict (dict or None): dialog/line field values to validate and store
+		    typeId (str): dialog type id (unused)
+		    targetId (int): plot device id used to look up the plot
+		    script (bool): True when called programmatically, skipping UI-only handling
+		Outputs:
+		    tuple: (valuesDict, status/error message string)
+		"""
 		if self.CurrentLineNo == "0":
 			return valuesDict, "error: no Line selected, nothing saved "
 
@@ -7804,6 +9331,16 @@ class Plugin(indigo.PluginBase):
 	
 	########################################
 	def filterZorder(self,  filter="self", valuesDict=None, typeId="", targetId=0):                            # this will offer the available dev/properties for this plot/line
+		"""Indigo list-callback that returns the available z-order positions for a plot, producing one (n, n) entry per existing line number from 1 up to the highest defined line.
+
+		Inputs:
+		    filter (str): Indigo list filter string (unused)
+		    valuesDict (dict or None): current dialog field values (unused)
+		    typeId (str): dialog type id (unused)
+		    targetId (int): plot device id used to look up the plot
+		Outputs:
+		    list: list of (lineNumber, lineNumber) tuples for the z-order menu
+		"""
 		retList =[]
 
 
@@ -7822,6 +9359,15 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def zorderCALLBACK(self, valuesDict=None, typeId="", targetId=0):
 
+		"""Reorders the currently selected line to a new z-order position by shifting the intervening lines up or down in self.PLOT and moving the selected line into its new slot via deep copies. Updates the current line number and refreshes parameters.
+
+		Inputs:
+		    valuesDict (dict or None): dialog values containing the target 'newLine' position
+		    typeId (str): dialog type id (unused)
+		    targetId (int): plot device id used to look up the plot
+		Outputs:
+		    dict: the valuesDict after reordering the plot's lines
+		"""
 		nPlot = str(targetId)
 		if nPlot == "0": return valuesDict
 		PLT=self.PLOT[nPlot]["lines"]
@@ -7880,6 +9426,13 @@ class Plugin(indigo.PluginBase):
 ####
 	def getPrefsConfigUiValues(self):
 
+		"""Builds the values dictionary used to populate the plugin preferences config dialog, starting from pluginPrefs, preselecting devices, and copying in current settings such as expert flags, PNG directory, gnuplot binary, sampling period, SQL mode/string, days, and per-area debug toggles.
+
+		Inputs:
+		    None.
+		Outputs:
+		    dict: the preferences valuesDict for the config UI
+		"""
 		valuesDict = self.pluginPrefs
 
 		self.preSelectDevices()
@@ -7921,6 +9474,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def validatePrefsConfigUi(self,  valuesDict=None):
 #		if len(self.removeThisDevice) > 0: self.removeDevice()
+		"""Validates and applies the plugin preferences config dialog, copying settings (gnuplot binary, SQLite/Postgres mode, debug areas, PNG output dir, sampling period, expert options, dynamic-SQL mode, consumption parameters) from valuesDict into plugin state, recreating directories and resetting SQL bookkeeping as needed, and queuing a redoParameters command. Signals a plugin restart if the number-of-days data structure changed.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): preferences dialog field values
+		Outputs:
+		    tuple: (bool valid, valuesDict) with updated UI fields and plugin state side effects
+		"""
 		SQLupdatesNeeded							= 0
 		
 		self.indigoCommand.append("redoParameters")
@@ -7939,12 +9499,14 @@ class Plugin(indigo.PluginBase):
 		self.debugLevel             = []
 		for d in debugAreas:
 			if valuesDict["debug"+d]: self.debugLevel.append(d)
+		if self.debugLevel != []: self.indiLOG.log(20,"debug areas set:{}".format(self.debugLevel ))
+
 
 		ndays = json.loads(valuesDict["noOfDays"])
 		if ndays != self.noOfDays:
 			self.noOfDays	= copy.deepcopy(ndays)
 			self.quitNOW = "error validatePrefsConfigUi 1"
-			self.indiLOG.log(30," need to restart plugin, data structure has changed to: {} days for the [minute, hour, day] data".format(nDays))
+			self.indiLOG.log(30," need to restart plugin, data structure has changed to: {} days for the [minute, hour, day] data".format(ndays))
 			self.indigoCommand =["quitNow"]
 			return True, valuesDict
 
@@ -8032,6 +9594,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def closedPrefsConfigUi(self, valuesDict, userCancelled):
+		"""Called when the plugin preferences config dialog is closed; clears the new-prefs flag and the wait-with-plotting flag.
+
+		Inputs:
+		    valuesDict (indigo.Dict): preferences dialog field values
+		    userCancelled (bool): whether the user cancelled the dialog
+		Outputs:
+		    None: resets newPREFS and waitWithPlotting flags
+		"""
 		self.newPREFS=False
 		self.waitWithPlotting =False
 
@@ -8039,6 +9609,15 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def validateDeviceConfigUi(self,  valuesDict=None, typeId="", targetId=0):
 		
+		"""Validates a plot device's config dialog, clears any mini-plot dataSource assignment, serializes the plot definition into the device's PLOTindigo prop, queues a redoParam command, and records the device as a newly saved plot.
+
+		Inputs:
+		    valuesDict (indigo.Dict or None): device config dialog field values
+		    typeId (str): device type identifier
+		    targetId (int): target Indigo device id
+		Outputs:
+		    tuple: (True, valuesDict) with the plot JSON stored in valuesDict
+		"""
 		if str(targetId) != "":
 			nPlot	=	str(targetId)
 			self.PLOT[nPlot]["dataSource"] =emptyPlot["dataSource"] # once edited remove the mini(plot) assignment
@@ -8059,6 +9638,16 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def closedDeviceConfigUi(self, valuesDict, userCancelled, typeId="", targetId=0):
+		"""Called when a plot device's config dialog is closed; clears the newPLOTS marker and the wait-with-plotting flag.
+
+		Inputs:
+		    valuesDict (indigo.Dict): device config dialog field values
+		    userCancelled (bool): whether the user cancelled the dialog
+		    typeId (str): device type identifier
+		    targetId (int): target Indigo device id
+		Outputs:
+		    None: resets newPLOTS and waitWithPlotting flags
+		"""
 		self.newPLOTS=""
 		self.waitWithPlotting =False
 
@@ -8069,6 +9658,13 @@ class Plugin(indigo.PluginBase):
 	#########################################
 	def redoParameters(self):
 # plot stuff
+		"""Rebuilds all parameters after a config change by re-running plot parameter setup (redoParam), cleaning the data, and marking the plugin as initialized (sleeping first if it was not yet initialized).
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: rebuilds plot/data parameters and sets indigoInitialized
+		"""
 		self.redoParam()
 # data stuff
 		self.cleanData()  ## this takes 2.5 seconds
@@ -8079,6 +9675,13 @@ class Plugin(indigo.PluginBase):
 	#########################################
 	def redoParam(self):
 # plot stuff
+		"""Recompiles the plot/data-source indices by calling redolineDataSource (retrying up to four times while it returns -1), then writes plot parameters, persists device parameters to file, and regenerates the gnuplot files.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: rewrites plot parameters, device params file, and gnuplot files
+		"""
 		if self.redolineDataSource(calledfrom="redoParam") == -1:
 			if self.redolineDataSource(calledfrom="redoParam") == -1:
 				if self.redolineDataSource(calledfrom="redoParam") == -1:
@@ -8091,6 +9694,13 @@ class Plugin(indigo.PluginBase):
 
 	#########################################
 	def checkForNewDeviceNames(self):
+		"""Scans all tracked devices and variables for name changes in Indigo, updating the stored Name field to the current name; if any changed, persists the device parameters to file and logs the renames.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: updates stored device/variable names and writes params file on change
+		"""
 		anyChange=""
 		for devNo in self.DEVICE:
 			if self.DEVICE[devNo]["devOrVar"] == "Dev-":
@@ -8121,6 +9731,13 @@ class Plugin(indigo.PluginBase):
 	########################################	recompile the indices 	########################################	########################################
 	########################################
 	def redolineDataSource(self,calledfrom=""):
+		"""Recompiles the mapping between data columns and device/state indices: pads bookkeeping lists to the column count, fixes the width of timeDataNumbers, validates each column's device/state (removing invalid or None-named columns/devices), rebuilds the sorted list of selected columns, validates DEVICE state-to-index consistency, fixes valuesFromIndigo length, and prunes invalid plot lines, persisting changes as it goes.
+
+		Inputs:
+		    calledfrom (str): label of the caller, used in log messages
+		Outputs:
+		    int: 0 on success, -1 when it must be called again to finish cleanup
+		"""
 		try:
 			self.listOfSelectedDataColumnsAndDevPropName =[(0,"None")]
 			devName			="x"
@@ -8421,6 +10038,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################	remove data , device propsdata columns, plotline	########################################	########################################
 	def resetDeviceStateNo(self,devNo,stateNo):
+			"""Resets all per-state fields (state, measurement, fillGaps, min/max value, offset, multiplier, resetType) of a given device's state slot back to the empty-device defaults.
+
+			Inputs:
+			    devNo (int): internal device number key
+			    stateNo (int): state slot index within the device
+			Outputs:
+			    None: resets the device state slot to default values
+			"""
 			DEV= self.DEVICE["{}".format(devNo)]
 			DEV["state"][stateNo]		=copy.deepcopy(emptyDEVICE["state"][stateNo])
 			DEV["measurement"][stateNo] =copy.deepcopy(emptyDEVICE["measurement"][stateNo])
@@ -8434,6 +10059,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def DeleteDevice(self, devNo, valuesDict):
+		"""Queues a device for removal by appending its number to removeThisDevice, triggers the actual removal, and marks the UI text field as deleted.
+
+		Inputs:
+		    devNo (int): internal device number to delete
+		    valuesDict (indigo.Dict): dialog field values to update
+		Outputs:
+		    indigo.Dict: valuesDict with text1-1 set to deleted
+		"""
 		self.removeThisDevice.append(int(devNo))
 		self.removeDevice()
 		valuesDict["text1-1"] = " deleted"
@@ -8442,12 +10075,26 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def removeDevice(self):
 
+		"""Removes the queued devices by calling removeDevice0, then rebuilds all parameters and persists the device parameters to file.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: removes queued devices and rebuilds/saves parameters
+		"""
 		self.removeDevice0(reDo=False)
 		self.redoParameters()
 		self.putDeviceParametersToFile()
 
 	########################################
 	def removeDevice0(self, reDo=True):
+		"""Removes each device queued in removeThisDevice by stripping all of its state props and deleting it from the DEVICE dict, bracketing the operation with Pause/Continue data-collection commands, persisting the result, and clearing the removal queue.
+
+		Inputs:
+		    reDo (bool): whether prop removal should trigger index recompilation
+		Outputs:
+		    None: deletes queued devices and writes params file (returns early if queue empty)
+		"""
 		if len(self.removeThisDevice) == 0: return
 
 		self.indigoCommand.append("PauseDataCollection")
@@ -8470,6 +10117,16 @@ class Plugin(indigo.PluginBase):
 
 	######################################## do this last
 	def removePropFromDevice(self,devNo,stateNo,writeD=True,reDo=True):
+		"""Removes a single device state/property from the plugin's tracked data by clearing its DEVICE bookkeeping entries and dropping its associated data column from the data buffers and index maps, then optionally rebuilds line data sources and persists device parameters to file.
+
+		Inputs:
+		    devNo (int or str): device number/ID whose state is being removed
+		    stateNo (int): index of the state/property to remove
+		    writeD (bool): if True, write device parameters to file afterward
+		    reDo (bool): if True, rebuild line data sources after removal
+		Outputs:
+		    None: mutates DEVICE state, removes data columns, optionally rewrites device parameter file
+		"""
 		if int(stateNo) == 0: return
 		if int(devNo) == 0: return
 		if str(devNo) in self.DEVICE:
@@ -8492,6 +10149,13 @@ class Plugin(indigo.PluginBase):
 
 	######################################## do this second to last, fist data, then plotlines then indexes
 	def removeColumnFromIndexes(self,columnToRemove):
+		"""Removes a given data column index from all plot line definitions, device state-to-index maps, and supporting index lists, deleting lines that referenced it and decrementing higher indexes; updates affected plot devices' plugin props on the server and decrements the column count.
+
+		Inputs:
+		    columnToRemove (int): data column index to delete from indexes
+		Outputs:
+		    None: mutates PLOT/DEVICE index structures, updates server plugin props, decrements column count
+		"""
 		if columnToRemove == 0: return
 		if self.decideMyLog("Cleanup"): self.indiLOG.log(30, "removeColumnFromIndexes col {}".format(columnToRemove))
 		if self.decideMyLog("Cleanup"): self.indiLOG.log(30, "removeColumnFromIndexes ncols {}".format(len(self.dataColumnToDevice0Prop1Index)-1) )
@@ -8553,7 +10217,7 @@ class Plugin(indigo.PluginBase):
 				props["PLOTindigo"]= json.dumps(self.PLOT[nPlot])
 				dev.replacePluginPropsOnServer(props)
 			except:
-				if self.decideMyLog("Cleanup"): self.indiLOG.log(40,"nPlot/deviceID already deleted: " + nPLot)
+				if self.decideMyLog("Cleanup"): self.indiLOG.log(40,"nPlot/deviceID already deleted: " + nPlot)
 
 		self.checkIfEventData()
 		
@@ -8561,6 +10225,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def removeThisPlotFile(self, nPlot):
 
+		"""Deletes the generated gnuplot script (.gnu) and rendered image (.png) files on disk for a given plot, across all plot sizes and (for time-series plots) all time types, via shell rm commands.
+
+		Inputs:
+		    nPlot (str): plot key identifying which plot's files to remove
+		Outputs:
+		    None: deletes plot .gnu and .png files from disk; logs errors
+		"""
 		try:
 			for ss in range(0,2):
 				if self.PLOT[nPlot]["PlotType"] == "dataFromTimeSeries":
@@ -8582,6 +10253,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def removeThisPlot(self, nPlot):
 
+		"""Fully removes a plot by deleting its output files, removing its entry from the PLOT dictionary, resetting the current line number, and writing the updated plot parameters to file.
+
+		Inputs:
+		    nPlot (str): plot key identifying the plot to remove
+		Outputs:
+		    None: deletes plot files, removes PLOT entry, persists plot parameters
+		"""
 		self.removeThisPlotFile(nPlot)
 
 		self.CurrentLineNo					= "0"
@@ -8595,6 +10273,13 @@ class Plugin(indigo.PluginBase):
 		
 	#########################################
 	def removeColumnFromData(self,colToRemove):
+		"""Removes a data column from all in-memory data arrays by shifting subsequent columns down and deleting the trailing slot, including the binned time data, per-time-type Indigo value buffers, and various per-column status/timestamp lists.
+
+		Inputs:
+		    colToRemove (int): data column index to remove from the data arrays
+		Outputs:
+		    None: mutates the in-memory data and status structures to drop the column
+		"""
 		self.indiLOG.log(30,"removeColumnFromData colToRemove {}".format(colToRemove) +" from number of columns: {}".format(self.dataColumnCount))
 		try:
 			for TTI in range(0,noOfTimeTypes):
@@ -8629,11 +10314,26 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def setPlotToDefault(self,nPlot):
+		"""Resets a plot's configuration to the default empty plot template by deep-copying emptyPlot into the PLOT dictionary entry.
+
+		Inputs:
+		    nPlot (str): plot key to reset to defaults
+		Outputs:
+		    None: overwrites the PLOT entry with a default plot
+		"""
 		self.PLOT[nPlot]=copy.deepcopy(emptyPlot)
 		return
 
 	#######################################   	# do this 2.
 	def setLineToDefault(self, nPlot,nLine):
+		"""Resets a specific line within a plot to the default empty line template by deep-copying emptyLine into the plot's lines dictionary.
+
+		Inputs:
+		    nPlot (str): plot key containing the line
+		    nLine (str): line key to reset to defaults
+		Outputs:
+		    None: overwrites the specified line entry with a default line
+		"""
 		self.PLOT[nPlot]["lines"][nLine]=copy.deepcopy(emptyLine)
 		return
 
@@ -8642,6 +10342,13 @@ class Plugin(indigo.PluginBase):
 	####-----------------  ---------
 	def getcProfileVariable(self):
 
+		"""Reads the time-tracking control Indigo variable and parses its value into a command and an optional print-option, used to enable, disable, or print cProfile timing; also sets the wait interval before the next check.
+
+		Inputs:
+		    None.
+		Outputs:
+		    tuple: (cmd, pri) strings, defaulting to ('off','') when unset or on error
+		"""
 		try:
 			if self.timeTrVarName in indigo.variables:
 				xx = (indigo.variables[self.timeTrVarName].value).strip().lower().split("-")
@@ -8664,6 +10371,13 @@ class Plugin(indigo.PluginBase):
 
 	####-----------------            ---------
 	def printcProfileStats(self,pri=""):
+		"""Dumps and writes the accumulated cProfile statistics to timeStats.dump and timeStats.txt files, sorted by the given metric (defaulting to cumulative time), temporarily redirecting stdout to the text file.
+
+		Inputs:
+		    pri (str): stats sort key (e.g. cumtime, calls); empty uses cumtime
+		Outputs:
+		    None: writes profiler stats dump and text files; logs the output path
+		"""
 		try:
 			if pri != "": pick = pri
 			else:		 pick = 'cumtime'
@@ -8693,6 +10407,13 @@ class Plugin(indigo.PluginBase):
 
 	####-----------------            ---------
 	def checkcProfile(self):
+		"""Periodically checks the time-tracking control variable and starts, stops, or prints cProfile profiling accordingly, lazily importing the profiler, enabling/disabling it, and flagging a plugin restart when the on/off state changes.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: manages the cProfile profiler state and may set quitNow to trigger restart
+		"""
 		try: 
 			if time.time() - self.lastTimegetcProfileVariable < self.timeTrackWaitTime: 
 				return 
@@ -8728,6 +10449,13 @@ class Plugin(indigo.PluginBase):
 
 	####-----------------            ---------
 	def checkcProfileEND(self):
+		"""Finalizes cProfile profiling at shutdown by printing the accumulated stats if profiling was active in on or print mode.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: writes final profiler stats if profiling was enabled
+		"""
 		if self.do_cProfile in["on","print"] and self.cProfileVariableLoaded >0:
 			self.printcProfileStats(pri="")
 		return
@@ -8740,6 +10468,13 @@ class Plugin(indigo.PluginBase):
 	def runConcurrentThread(self):
 
 
+		"""Indigo's main concurrent thread entry point: runs the plugin's main work loop, finalizes profiling, sleeps one second, and restarts the plugin via the Indigo server if a quit request has been set.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: drives the main loop; may restart the plugin on the server
+		"""
 		self.dorunConcurrentThread()
 		self.checkcProfileEND()
 
@@ -8754,6 +10489,13 @@ class Plugin(indigo.PluginBase):
 ####-----------------   main loop          ---------
 	def dorunConcurrentThread(self):
 # reset variables just to make sure..
+		"""Runs the plugin's main background data-collection and plotting loop: initializes time/index state, removes deleted plot devices, writes plot parameters and sets up gnuplot/matplot files, then loops continuously checking for commands, sampling Indigo/variable/file/SQL data, accumulating values into minute/hour/day bins, saving them to disk, handling midnight day shifts, and triggering plots every 5 minutes until quitNOW is set.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: runs the long-lived main loop with side effects: collects data, writes bin/disk files and triggers plot generation
+		"""
 		self.indigoCommand =[]
 
 		self.checkPlotsEnable=False
@@ -8872,7 +10614,7 @@ class Plugin(indigo.PluginBase):
 				################################ this is the data check loop once a minute ~ 3 secs after full  START
 				if max(self.sqlColListStatus) == 0 and max(self.sqlHistListStatus) == 0:
 					if self.initBy == "SQLstart":
-						self.initBy =""
+						self.initBy = ""
 
 				theDayS 		= time.strftime("%d", time.localtime())  ## "S" for string otherwise integer
 				theHourS 		= time.strftime("%H", time.localtime())
@@ -8937,7 +10679,7 @@ class Plugin(indigo.PluginBase):
 					#self.indiLOG.log(20," main loop  day:{}, hour:{}, minute:{},  theMinute5:{}".format(theDayIndex,theHourIndex, theMinuteIndex, theMinute5 ))
 					#self.indiLOG.log(20," main loop  timeDataIndex:{}".format(self.timeDataIndex[0]))
 					self.acummulateValues("finish", 2, self.timeDataIndex[2][theDayIndex])
-					self.putDiskData(2)								# save it to disk for gnuplot
+					self.putDiskData(2)								# save it to disk for gnuplot, matplot
 				## updates hourly count
 					self.acummulateValues("finish", 1, self.timeDataIndex[1][theHourIndex])
 					self.putDiskData(1)
@@ -8978,6 +10720,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def doAfterMidnight(self):
+		"""Midnight maintenance routine that regenerates the Python export and, if SQL is in batch2Day mode, forces all SQL column/history statuses to a refresh state and re-runs the SQL batch import until the original DB copy is no longer active.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: regenerates Python export and re-imports SQL batch data, logging on error
+		"""
 		try:
 			self.createPy()
 			if self.sqlDynamic.find("batch2Day") == 0:
@@ -8988,7 +10737,7 @@ class Plugin(indigo.PluginBase):
 				while True:
 					self.setupSQLDataBatch(calledfrom="midnight")
 					if self.originalCopySQLActive == "-1": break
-					sleep(60)            
+					self.sleep(60)
 		except  Exception as e:
 			self.indiLOG.log(40,"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 		return
@@ -8996,6 +10745,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def checkPLOTSandConsumption(self):
+		"""Checks for pending new-plot or new-preferences flags and, when set, re-syncs plots with Indigo, recomputes consumption/cost and column data, and triggers a plot run; returns whether the caller's loop should break (e.g. when sync signals a fatal stop).
+
+		Inputs:
+		    None.
+		Outputs:
+		    bool: True if caller should break the loop (sync returned stop), otherwise False
+		"""
 		try:
 
 			if  self.newPLOTS != "":
@@ -9017,6 +10773,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def checkSQLdata(self):
+		"""Drives SQL data import during the main loop: when SQL data is pending and not paused, writes device parameters, runs the SQL batch setup/read, and includes a safety mechanism that detects a stalled import after ~200 wait cycles and forces a re-import with reset statuses.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: imports/re-imports SQL data and updates wait counters, logging on error
+		"""
 		try:
 
 			if not self.waitWithSQL and (sum(self.sqlHistListStatus) > 0 or sum(self.sqlColListStatus) > 0 ) and self.sqlDynamic != "None":
@@ -9027,7 +10790,7 @@ class Plugin(indigo.PluginBase):
 						while True:
 							self.setupSQLDataBatch(calledfrom="runConcurrentThread")
 							if self.originalCopySQLActive == "-1": break
-							sleep(60)            
+							self.sleep(60)
 				if self.sqlDynamic.find("batch") == 0:
 							self.sleep(1)
 							self.readSQLdataBatch(calledfrom="runConcurrentThread")
@@ -9047,7 +10810,7 @@ class Plugin(indigo.PluginBase):
 							self.sqlDynamic = "batch2Days" #set back to default mode
 						self.sqlDynamic="batch-resetTo-"+self.sqlDynamic
 						self.devicesAdded = 2
-						self.indiLOG.log(40,"restarting SQL import,    it seems to hang. If this happens several times reload INDIGOplotD : ")
+						self.indiLOG.log(30,"restarting SQL import,    it seems to hang. If this happens several times reload INDIGOplotD : ")
 						self.histupdatesWaitCount = 0
 				self.histupdatesWaitCount1=sum(self.sqlHistListStatus)
 
@@ -9059,6 +10822,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def doCHECKcommands(self):
+		"""Processes the queued indigoCommand list one entry at a time, dispatching to the matching handler (pause/continue data collection, redo parameters, plot now, init/reset data, reload SQL, print/export commands, quit, etc.); also manages the pause timer and signals the main loop via its return code.
+
+		Inputs:
+		    None.
+		Outputs:
+		    int: 2 to break the loop (quit), 1 to continue while paused, 0 for normal continuation
+		"""
 		try:
 			self.pauseTimer +=1
 			if self.pauseTimer > 100:
@@ -9120,6 +10890,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def syncPlotsWithIndigo(self, Force=False):
+		"""Synchronizes the in-memory PLOT dictionary with the actual Indigo plot devices: detects new, renamed, deleted-name and enabled-state changes, fills in missing default keys/lines, migrates legacy field names, writes updated plugin props back to each device, and re-writes plot parameters and gnuplot files if anything changed or Force is set.
+
+		Inputs:
+		    Force (bool): force a full key fill and parameter/file rewrite even if nothing appears changed
+		Outputs:
+		    int: 0 normally, or -1 if a fatal condition (plot device name contains a slash) sets quitNOW
+		"""
 		changed = False
 		if self.waitWithPLOTsync: self.sleep(0.5)
 		for dev in indigo.devices.iter("self"):
@@ -9250,6 +11027,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def checkForVariables(self,mPlot):  ## just in case, shoulkd never happen...
 
+		"""Scans a plot definition (or all plots if mPlot is empty) for any text/line field containing the variable marker '%%v:', and marks the plot's variableInText flag when one is found.
+
+		Inputs:
+		    mPlot (str): specific plot id to check, or empty string to check all plots
+		Outputs:
+		    bool: True if a variable reference was found in any checked plot, otherwise False
+		"""
 		for nPlot in self.PLOT:
 			if mPlot != "" and mPlot != nPlot: continue
 			self.PLOT[nPlot]["variableinPlot"]=""
@@ -9273,6 +11057,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def fnameToDeviceNamePlot (self,nPlot):  ## just in case, shoulkd never happen...
 
+		"""Migrates a single plot's legacy configuration keys to the current naming scheme: renames Fname to DeviceNamePlot, Type to devOrVar, and per-line keys (Type, Width, Color, Func, Smooth, Multiplier, Offset, leftRight, Key, ToColumnIndex/B) to their line* equivalents while translating old value codes.
+
+		Inputs:
+		    nPlot (str): plot id (key into self.PLOT) to migrate
+		Outputs:
+		    bool: True after migrating, or False if the plot id or Fname key is absent
+		"""
 		if nPlot not in self.PLOT: return False
 
 		if "Fname" not in self.PLOT[nPlot]: return False
@@ -9351,6 +11142,13 @@ class Plugin(indigo.PluginBase):
 	def removeDeletedIndigoPlots(self):  ## just in case, should never happen...
 
 		# make a list of all indigopltD devices
+		"""Removes plot entries from self.PLOT whose corresponding Indigo device no longer exists, deleting the associated gnuplot/png output files for each orphaned plot.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: deletes orphaned plot files and removes their entries from self.PLOT
+		"""
 		plotsToDelete =[]
 		devlist =[]
 		for dev in indigo.devices.iter():
@@ -9383,6 +11181,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def checkMinMaxFiles(self):
+		"""Deletes all generated min/max bin data files from the plugin's data directory by matching filenames containing the bin-type file name markers.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: removes matching min/max .dat files from the data directory, logging on error
+		"""
 		try:
 			files = os.listdir( self.userIndigoPluginDir+"data/" )
 			for ff in files: 
@@ -9400,6 +11205,15 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def plotNow(self, createNow="", showNow="",ShowOnly=""):
+		"""Generates and optionally displays plots for the configured plot devices using either matplotlib or gnuplot: for matplot it writes a command file for the helper process, and for gnuplot it builds and runs the gnuplot command per plot/time-bin/size, then opens the resulting PNG files when display is requested.
+
+		Inputs:
+		    createNow (str): device name to plot, or empty string to plot all
+		    showNow (str): device name whose generated PNG should be opened/displayed
+		    ShowOnly (str): if 'yes', only display existing PNGs without regenerating
+		Outputs:
+		    None: writes gnuplot/matplot command files, generates PNG plot images, and opens them for display
+		"""
 		if self.waitWithPlotting: return
 		self.checkPlot1 = False
 		
@@ -9495,7 +11309,15 @@ class Plugin(indigo.PluginBase):
 		# mult, offset
 		# calc min/ mac per month day/hour
 		# write file
-		if self.decideMyLog("special"): self.indiLOG.log(20, self.PLOT[nPlot]["DeviceNamePlot"]+"  min-max calcs........................")
+		#if self.decideMyLog("special"): self.indiLOG.log(20, self.PLOT[nPlot]["DeviceNamePlot"]+"  min-max calcs........................")
+		"""Computes derived min/max time-series data (per hour/day/month) for plot lines configured with min/max repeat modes: it gathers the time bins in range applying from/to filters, time shifts, multipliers/offsets and column functions, computes the min or max aggregates via calcMinMax, and writes the result to a per-line .dat file for plotting.
+
+		Inputs:
+		    nPlot (str): plot id (key into self.PLOT) to process
+		    TTI (int): time-type index (0=minute,1=hour,2=day) selecting the bin granularity
+		Outputs:
+		    None: writes computed min/max data files for matching plot lines, logging on error
+		"""
 		try:
 			PLT=self.PLOT[nPlot]
 			if PLT["XYvPolar"] != "xy":
@@ -9625,6 +11447,16 @@ class Plugin(indigo.PluginBase):
 			self.indiLOG.log(40,"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 
 	def calcMinMax(self,frDate,toDate, out, minMAX):
+		"""Iterates over a list of (timestamp, value) pairs, groups them by a date substring slice (frDate:toDate of the timestamp), and for each group emits the row holding the minimum or maximum value, building a semicolon-separated text block of per-period extremes.
+
+		Inputs:
+		    frDate (int): start index for slicing the timestamp string to form the grouping key
+		    toDate (int): end index for slicing the timestamp string to form the grouping key
+		    out (list): list of [timestamp, value] pairs to scan
+		    minMAX (int): 1 to compute maxima, -1 to compute minima per group
+		Outputs:
+		    str: newline-separated 'timestamp;value' lines of the min/max per period
+		"""
 		try:
 			out2=""
 			m=""
@@ -9652,6 +11484,16 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def callGnu(self,Fname,PNGname,cmd,compressPNGfile):
+		"""Removes any stale .err/.ok/.done marker files for the given plot, runs the supplied gnuplot command via readPopen, and if compression is requested runs pngquant to compress the PNG in place and deletes the original uncompressed PNG.
+
+		Inputs:
+		    Fname (str): base path used for the .err/.ok/.done marker files
+		    PNGname (str): path to the PNG output file to compress/remove
+		    cmd (str): gnuplot shell command to execute
+		    compressPNGfile (bool): whether to run pngquant compression afterward
+		Outputs:
+		    None: runs gnuplot, optionally compresses PNG and removes files
+		"""
 		if os.path.isfile((Fname+'.err').encode('utf8')): os.remove((Fname+'.err').encode('utf8'))
 		if os.path.isfile((Fname+'.ok').encode('utf8')): os.remove((Fname+'.ok').encode('utf8'))
 		if os.path.isfile((Fname+'.done').encode('utf8')): os.remove((Fname+'.done').encode('utf8'))
@@ -9667,6 +11509,16 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def CheckIfPlotdone(self,Fname,PNGname,wait=False,checkOnlyThisOne=""):
+		"""Checks whether a single plot has finished rendering by inspecting gnuplot's .err/.done marker files (logging any warnings) or, in matplotlib mode, the PNG file's modification time; optionally waits/polls for completion.
+
+		Inputs:
+		    Fname (str): base path of the plot's .err/.ok/.done marker files
+		    PNGname (str): path to the PNG output file (used in matplotlib mode)
+		    wait (bool): if True, poll/sleep waiting for completion
+		    checkOnlyThisOne (str): name of a specific plot to force-check, bypassing the enable flag
+		Outputs:
+		    int: 0 if the plot is done, -1 if not finished
+		"""
 		if not self.checkPlotsEnable and checkOnlyThisOne == "": return 0
 		for i in range(20):
 			if self.gnuORmat == "gnu":
@@ -9705,6 +11557,14 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def CheckIfPlotOK(self,wait=True,checkOnlyThisOne=""):
+		"""Iterates over all configured plots and verifies each expected PNG output file was actually created and is non-empty, logging warnings about missing/empty files; if all plots are present it fires the 'PlotsRefreshed' trigger event.
+
+		Inputs:
+		    wait (bool): whether to wait/sleep for matplotlib plots before checking
+		    checkOnlyThisOne (str): name of a single plot to check instead of all plots
+		Outputs:
+		    None: logs missing/empty PNG warnings and may trigger 'PlotsRefreshed'
+		"""
 		if checkOnlyThisOne != "": 
 			if self.decideMyLog("General"): self.indiLOG.log(20," checking if plot was done successfully: "+ checkOnlyThisOne)
 		if not self.checkPlotsEnable and checkOnlyThisOne == "": return
@@ -9767,6 +11627,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def checkVariableData(self,testNew=False):																							# get measurement data
 
+		"""For each plot of type 'dataFromVariable', reads the Indigo variable's value, and (optionally only when the value changed) writes it to the plot's data file (converting '|' separators to newlines) and triggers a re-plot of that device.
+
+		Inputs:
+		    testNew (bool): if True, only write/replot when the variable value changed since last update
+		Outputs:
+		    None: writes variable data files and may trigger replots
+		"""
 		for nPlot in self.PLOT:
 			if self.PLOT[nPlot]["PlotType"] == "dataFromVariable":
 				try:
@@ -9790,6 +11657,13 @@ class Plugin(indigo.PluginBase):
 		return
 	########################################
 	def checkFileData(self):
+		"""For each plot of type 'dataFromFile', checks the source data file's modification time and, when it has changed since the last recorded update, triggers a re-plot of that device; logs errors and counts when the file is missing.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: triggers replots when source data files change; logs missing-file errors
+		"""
 		for nPlot in self.PLOT:
 			if self.PLOT[nPlot]["PlotType"] == "dataFromFile":
 				try:
@@ -9812,8 +11686,18 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def getIndigoData(self):
 
+		"""Reads the current value of every configured Indigo device state or variable column, applies offset/multiplier scaling, validates against per-column min/max ranges, records the last-changed timestamps, and stores the resulting values in newVFromIndigo for later accumulation; flags missing devices/variables for removal.
 
-		lastdevNo		=	0
+		Inputs:
+		    None.
+		Outputs:
+		    None: populates self.newVFromIndigo and timestamp/state bookkeeping
+		"""
+		if self.decideMyLog("Special"): self.indiLOG.log(10,"getIndigoData, into")
+
+		updated = 0
+		notUpdated = 0
+		lastdevNo =	0
 		for  theCol  in range (1,self.dataColumnCount+1):																# list of dev/props
 			self.newVFromIndigo[theCol]	= ""
 			
@@ -9851,7 +11735,7 @@ class Plugin(indigo.PluginBase):
 					x = GT.getNumber(theVariable.value)
 					timeNow  = time.strftime("%Y%m%d%H%M%s", time.localtime())
 					self.lastTimeStampOfDevice[theCol] =[[timeNow,"0"]for k in range(noOfTimeTypes)]
-	
+
 			if  DEV["devOrVar"] == "Dev-":
 				if theDeviceState != "None" and theDeviceState != "0":																					# only for real ones
 					if devNo	 != lastdevNo:
@@ -9879,20 +11763,36 @@ class Plugin(indigo.PluginBase):
 
 
 			if x != "x":
+				updated += 1
 				if  x < minValue  or (x > maxValue ):
-					if self.decideMyLog("General"): self.indiLOG.log(30,"getIndigoData  "+theDeviceName+"/"+theDeviceState+"  out of min/max range: {}".format(minValue)+ "< {}".format(x)+ "< {}".format(maxValue))
+					if self.decideMyLog("Special") or self.decideMyLog("General"): self.indiLOG.log(30,"getIndigoData  "+theDeviceName+"/"+theDeviceState+"  out of min/max range: {}".format(minValue)+ "< {}".format(x)+ "< {}".format(maxValue))
 				else:
 					self.newVFromIndigo[theCol]= (x+offset)*multiplier
+			else:
+				notUpdated += 1
+			
+		if self.decideMyLog("Special"): self.indiLOG.log(20,"getIndigoData  updated dev states or variables: {}, not updated:{}".format(updated, notUpdated))
 		return
 
 
 	########################################
 	def acummulateValues(self,action,TTI,TBI):	
+		"""Accumulates the latest sampled Indigo values into the current time bins for each data column, either initializing/rolling bins (action 'init') by resetting counters per measurement type (integrate, delta, deltaMax, deltaNormHour, Consumption, average/sum/count/min/max, first/last) and handling day/week/month/year cost resets, or adding new samples into sums, counts and averages for the active bin.
+
+		Inputs:
+		    action (str): 'init' to reset/roll the bin, otherwise add the current sample
+		    TTI (int): time-type index selecting the time-resolution series
+		    TBI (int): time-bin index within that series
+		Outputs:
+		    None: updates self.valuesFromIndigo and self.timeDataNumbers accumulators
+		"""
 		try:														# add up values, make averages or initialize
-			if self.decideMyLog("General"): self.indiLOG.log(10," action:{}".format(action) +";  init:{}".format(self.initBy)+ "; TTI: {}".format(TTI)+"; TBI:  {}".format(TBI) +"  \n sqlColListStatus:{}".format(self.sqlColListStatus))
+			if self.decideMyLog("Special") or self.decideMyLog("General"): self.indiLOG.log(20,"acummulateValues action:{}".format(action) +";  init:{}".format(self.initBy)+ "; TTI: {}".format(TTI)+"; TBI:  {}".format(TBI) +"  \n sqlColListStatus:{}".format(self.sqlColListStatus))
 			if self.initBy == "SQLstart" :return
 			if self.dataColumnCount <1: return
-		
+
+
+			okCounter = 0		
 			if action == "init":
 				self.timeDataNumbers[TTI][TBI][0]=0
 
@@ -10060,9 +11960,10 @@ class Plugin(indigo.PluginBase):
 				for  theCol in range(1,self.dataColumnCount+1):
 					vFI				=	self.newVFromIndigo[theCol]
 					try:
-						vFI+=0.
+						vFI += 0.
 					except:
 						continue  # ignore if junk data
+
 					devNo 			=	self.dataColumnToDevice0Prop1Index[theCol][0]
 					stateNo			=	self.dataColumnToDevice0Prop1Index[theCol][1]
 					DEV				=	self.DEVICE["{}".format(devNo)]
@@ -10079,12 +11980,15 @@ class Plugin(indigo.PluginBase):
 						except  Exception as e:
 							self.indiLOG.log(40,"lastTimeStampOfDevice comparison bad Line '%s' has error='%s'" % (sys.exc_info()[2].tb_lineno, e))
 					VFItc = self.valuesFromIndigo[TTI][theCol]
+
 					if theMeasurement == "average" :
-						if VFItc[0] == "": VFItc[0]=0.
+						if VFItc[0] == "": VFItc[0] = 0.
 						VFItc[0] += vFI			# sum of measured values
 						VFItc[2] +=1.														# number of measurements
 						self.timeDataNumbers[TTI][TBI][theCol+dataOffsetInTimeDataNumbers] = VFItc[0]/max(VFItc[2],1.) # here we calculate the average
 						VFItc[1] = float(vFI)
+						okCounter += 1		
+						if self.decideMyLog("Special"): self.indiLOG.log(20," average: {} {} {}, data:{}".format(TTI, TBI, theCol, VFItc))
 						continue
 
 					if theMeasurement == "sum":
@@ -10233,6 +12137,7 @@ class Plugin(indigo.PluginBase):
 				self.indiLOG.log(40,"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
 		except  Exception as e:
 			self.indiLOG.log(40,"{}line#,Module,Statement:{}".format(e, traceback.extract_tb(sys.exc_info()[2])[-1][1:]))
+		if self.decideMyLog("Special"): self.indiLOG.log(20," okCounter:{}".format(okCounter))
 
 		return
 
@@ -10247,13 +12152,20 @@ class Plugin(indigo.PluginBase):
  
 	########################################
 	def mkCopyOfDB(self):
+		"""For sqlite databases configured to use a working copy, checks whether a copy operation is already running and whether the existing indigo_historycp.sqlite copy is older than two hours, and if needed spawns a background cp of indigo_history.sqlite to indigo_historycp.sqlite; tracks the copy process state in originalCopySQLActive.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: spawns a DB copy subprocess and updates self.originalCopySQLActive
+		"""
 		if self.liteOrPsql	 == "sqlite" and self.originalCopySQL == "copy":
 			if self.decideMyLog("SQL"): self.indiLOG.log(20," in mkCopy DB pid={}".format(self.originalCopySQLActive) +"=   flag= {}".format(self.originalCopySQL))
 			
 			ret, err = self.readPopen("ps -ef | grep indigo_history.sqlite | grep historycp.sqlite | grep -v grep")
 			if self.decideMyLog("SQL"): self.indiLOG.log(20," in mkCopy DB xx pid={}".format(ret))
 			try:
-				if len(x) > 10:
+				if len(ret) > 10:
 					self.originalCopySQLActive =ret.split(" ")[1]
 					return  ## still running
 			except:
@@ -10278,6 +12190,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def setupSQLDataBatch(self,calledfrom=""):
 		##self.sleep(2)
+		"""Builds and dispatches the batch SQL extraction commands for each device/variable data column whose status requests an update: verifies the sql-logger plugin is enabled, optionally makes a DB copy, determines the last imported ID/date by tailing existing export files, deduplicates columns sharing the same device/state, handles retries/timeouts, and assembles the SQL command script.
+
+		Inputs:
+		    calledfrom (str): label identifying the caller, used in log messages
+		Outputs:
+		    int: status code such as -1 (disabled/not batch) or 0 (nothing to do/still running)
+		"""
 		if self.sqlDynamic.find("batch") != 0: return -1
 		if self.dataColumnCount == 0:
 			if self.decideMyLog("SQL"): self.indiLOG.log(10,"Updating device/prop from SQL db: no device or variable defined.. skipping updates   ...")
@@ -10389,8 +12308,13 @@ class Plugin(indigo.PluginBase):
 
 
 
-			if self.sqlColListStatusRedo[theCol]> 3:  
-				continue # if we have tried it several times, do not do it again.
+			if self.sqlColListStatusRedo[theCol]> 3:  # if we have tried it several times, do not do it again.
+				if self.sqlColListStatus[theCol] != 0 or self.sqlHistListStatus[theCol] != 0:
+					self.indiLOG.log(30,"sql import for "+theDeviceName+"["+theState+"] produced no data after {} tries, giving up -- likely no data in SQL db for this device/state".format(self.sqlColListStatusRedo[theCol]))
+					self.sqlColListStatus[theCol]		= 0
+					self.sqlHistListStatus[theCol]		= 0
+					self.sqlColListStatusRedo[theCol]	= 0	# fresh set of retries if it gets requested again eg at midnight or by config
+				continue
 			
 			   
 			anythingToupdates += 1
@@ -10458,7 +12382,7 @@ class Plugin(indigo.PluginBase):
 						theTailS = "no SQL file generated yet"
 						if os.path.isfile(self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState ):
 							cmd =  "tail -n 1 '"+self.userIndigoPluginDir+"sql/"+theDeviceId+"-"+theState+"'"
-							theTailS, err = self.readPopen("ps -p "+self.pidSQL)
+							theTailS, err = self.readPopen(cmd)
 							theTail  = theTailS.strip("\n").split(";")
 							if self.decideMyLog("SQL"): self.indiLOG.log(10," sql import  devID:{}; state:{}; col:{}; cmd:{};   tails:{}; tail:{}; len(sqlLastImportedDate):{}; sqlLastImportedDate: {} ".format(theDeviceId, theState, theCol, cmd,  theTailS, theTail, len(self.sqlLastImportedDate), self.sqlLastImportedDate) )
 							if len(theTail) > 1:												# does it have id and date field?
@@ -10485,6 +12409,7 @@ class Plugin(indigo.PluginBase):
 
 
 			self.sqlColListStatus[theCol] = 5  # == sql statement to be added to .sh file
+			self.sqlColListStatusRedo[theCol] += 1
 			sqlID = str(self.sqlLastID[theCol])
 
 			if sqlID == "0":
@@ -10558,6 +12483,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def fixSQLFiles(self,wait=True):
+		"""Generates a shell script (fixSQL.sh) that runs the fixSQLoutput.py helper on each per-device/state SQL export file to remove duplicate records, launches the script as a subprocess, and optionally waits up to 55 seconds for it to finish; logs progress to sqlFix.log.
+
+		Inputs:
+		    wait (bool): if True, block up to 55 seconds waiting for the fix script to finish
+		Outputs:
+		    None: writes and runs fixSQL.sh, deduplicating SQL export files
+		"""
 		try:
 		#remove doublicates, ie same SQL ID    &     samedate and same value
 			d0 = time.time()
@@ -10619,6 +12551,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def readSQLdataBatch(self,calledfrom=""):
+		"""Reads the finished per-column SQL export files (those with a .done marker), sorts them by size to process smaller ones first, determines the first time bin to fill (limited to the last two days in batch2Days mode), loads and validates the records via getsqldataFromFile/checkSQLData applying offset/multiplier and min/max filtering, and merges the historical values into the plotting time bins.
+
+		Inputs:
+		    calledfrom (str): label identifying the caller, used in log messages
+		Outputs:
+		    None: imports SQL history into the plotting bins and updates SQL status bookkeeping
+		"""
 		if 	(self.sqlDynamic.find("batch") != 0): return
 		
 		try:
@@ -10825,6 +12764,7 @@ class Plugin(indigo.PluginBase):
 					if atLeastOneRecord == 1:
 						self.sqlColListStatus[theCol]  = 0
 						self.sqlHistListStatus[theCol]  = 0
+						self.sqlColListStatusRedo[theCol] = 0
 					continue
 				self.sqlNumbOfRecsImported += nRecsInSqlData
 			
@@ -10832,6 +12772,7 @@ class Plugin(indigo.PluginBase):
 
 				self.sqlColListStatus[theCol]  = 0
 				self.sqlHistListStatus[theCol]  = 0
+				self.sqlColListStatusRedo[theCol] = 0
 			
 				exeTime = time.strftime("%H:%M:%S", time.localtime())
 				if resetType == "0":	xType = ""
@@ -10873,6 +12814,22 @@ class Plugin(indigo.PluginBase):
 	def getsqldataFromFile(self, theDeviceId, theState, theDeviceName, theMeasurement, theCol, foundfirst, d0, atLeastOneRecord, reject2days, ignoreSQL):
 
 
+		"""Reads the SQL export result file for a device/state column (produced by an external sql import), waiting for the .done marker and a stable file size, parses each semicolon-separated record into [timestamp, value] pairs, filters out records older than the first bin date, and returns the collected data plus various counters. Handles error/missing/empty file cases by returning empty data and status flags.
+
+		Inputs:
+		    theDeviceId (str): Indigo device id used to build the sql file name
+		    theState (str): device state/variable name used in the sql file name
+		    theDeviceName (str): human-readable device name for logging
+		    theMeasurement (str): measurement type, used in log messages
+		    theCol (int): data column index into sqlColListStatus/sqlLastID
+		    foundfirst (int): counter tracking first arrival of sql output file
+		    d0 (object): unused timing/reference value passed through
+		    atLeastOneRecord (int): flag for whether any valid record was read (reset internally)
+		    reject2days (int): counter of records rejected as too old
+		    ignoreSQL (bool): if true, read file directly without waiting for done/error markers
+		Outputs:
+		    tuple: tuple of (sqlData list, nrecs, rejectTimeStamp, foundfirst, fSize, atLeastOneRecord[, reject2days, badDataCount]) with varying length depending on branch
+		"""
 		sqlData			= []
 		nrecs 			= 0
 		rejectTimeStamp	= 0
@@ -10999,6 +12956,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def clearSqlData(self,empty):
 
+		"""Cleans up SQL import control state and leftover .done/.error/data files for device/state columns. When all columns are done (or empty is set) it removes done/error files and optionally the data files; it also detects hung imports (done created but error file non-empty) and resets the column status to retry.
+
+		Inputs:
+		    empty (bool): if true, force full cleanup including removing data files
+		Outputs:
+		    None: removes sql temp files and resets sqlColListStatus/sqlImportControl state, logs
+		"""
 		if self.decideMyLog("SQL"): self.indiLOG.log(10," clearSqlData sqlupdates: {}".format(self.sqlColListStatus))
 
 # clean up parameter at end
@@ -11072,6 +13036,23 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def fillHistogramFromSQL(self,sqlDataIn,sqlIndex, theCol, theState,fillGaps,resetTypeIN,theMeasurement,offsetD,multiplierD,timeNow,d0):
+		"""Distributes parsed SQL [timestamp, value] records into the plugin's time-binned histogram arrays for each time-series type (minute/hour/day), applying the requested aggregation (average, sum, min, max, count, first, last, etc.), optional offset/multiplier scaling, reset-type handling, and direction/angle conversions. It records the last timestamps seen per column and fills the temp bin arrays used for plotting.
+
+		Inputs:
+		    sqlDataIn (list): list of [timestamp, value] records from SQL
+		    sqlIndex (int): index of the value field within each record
+		    theCol (int): data column index being filled
+		    theState (str): device state name
+		    fillGaps (bool): whether to fill gaps between bins
+		    resetTypeIN (str): reset/accumulation period spec (day/week/month/year/Period/NoCost)
+		    theMeasurement (str): aggregation/measurement type controlling bin filling
+		    offsetD (float): additive offset applied to values
+		    multiplierD (float): multiplier applied to values after offset
+		    timeNow (list): per-time-type current time strings marking end of import
+		    d0 (object): timing/reference value passed through
+		Outputs:
+		    object: populated bin data for the column (returns filled temp arrays / status; primarily mutates plugin bin state)
+		"""
 		timetest=[0. for k in range(10)]
 		timetest[0] = time.time()
 		timetest[1] = time.time()
@@ -11821,6 +13802,17 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def aveAngle(self,thetaNewMeasurement,thetaCurrentAverage,nMeasurement,offset=0.,flip=False):
+		"""Computes a running circular (angular) average in radians, incorporating a new angle measurement into the current average while correctly handling wrap-around at 2*pi, an optional fixed offset, and optional clockwise flipping of the angle.
+
+		Inputs:
+		    thetaNewMeasurement (float): new angle measurement in radians
+		    thetaCurrentAverage (float): current running average angle (empty string treated as 0)
+		    nMeasurement (int): count of measurements already averaged
+		    offset (float): angular offset added to the new measurement
+		    flip (bool): if true, flip the angle (2*pi - theta) for clockwise data
+		Outputs:
+		    float: updated running average angle in radians, normalized to [0, 2*pi)
+		"""
 		if thetaCurrentAverage == "": thetaCurrentAverage=0.
 		if flip :
 			thetaNewMeasurement= math.pi*2.-thetaNewMeasurement
@@ -11846,6 +13838,17 @@ class Plugin(indigo.PluginBase):
 	def checkSQLData (self, SQLtemp,theMeasurement,theState,minValue,maxValue):
 
 
+		"""Filters/cleans a list of SQL [timestamp, value] records, rejecting values outside the min/max range and detecting bad spikes or consumption resets for energy states (curEnergyLevel/accumEnergyTotal). Out-of-range or glitch values are replaced with the previous value, while legitimate energy resets are kept, and the cleaned data plus reject counts are returned.
+
+		Inputs:
+		    SQLtemp (list): list of [timestamp, value] records to validate
+		    theMeasurement (str): measurement type (informational)
+		    theState (str): device state name controlling energy-specific checks
+		    minValue (float): minimum allowed value
+		    maxValue (float): maximum allowed value
+		Outputs:
+		    tuple: (sqlData cleaned list, rejectNumber, rejectRange)
+		"""
 		sqlData = []
 		sqlData.append(SQLtemp[0])
 		nrecs 		= len(SQLtemp)
@@ -11948,6 +13951,13 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def padzero(self,instring):   #   integer/string 2 --> string  "02" ...   integer/string 10 -->  string "10"
+		"""Left-pads a one-digit number or string to a two-character string by prefixing a zero (e.g. 2 -> '02'), also handling a leading space; values already two characters are returned unchanged.
+
+		Inputs:
+		    instring (object): integer or string to zero-pad to two characters
+		Outputs:
+		    str: two-character zero-padded string
+		"""
 		instring= str(instring)
 		if len(instring)< 2: 	return "0"+instring			# one digit, add 0
 		if instring[0:1] == " ":	return "0"+instring[1:]		# 1 digit return 0 and 2. letter
@@ -11957,6 +13967,13 @@ class Plugin(indigo.PluginBase):
 	def testFonts(self):
 
 		#get gnuPlotVersion
+		"""Checks the installed gnuplot version and tests TrueType font support by writing and running a small test gnuplot script. It stores the detected gnuplot version, logs errors if gnuplot is missing or lacks font support, and cleans up the temporary test file.
+
+		Inputs:
+		    None.
+		Outputs:
+		    None: sets self.gnuVersion, may set self.quitNOW, logs warnings, writes/removes temp test file
+		"""
 		cmd="'"+self.gnuPlotBinary+"' --version"
 		ret, err = self.readPopen(cmd)
 		self.gnuVersion=""
@@ -11994,6 +14011,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 	def procUPtime(self,process):
 
+		"""Returns the accumulated CPU time (in seconds) consumed by a named process, by running ps/grep/awk and parsing the hours:minutes:seconds output into seconds. Returns -1 if the process is not found.
+
+		Inputs:
+		    process (str): process name to search for via ps
+		Outputs:
+		    float: CPU time in seconds, or -1 if process not found
+		"""
 		CPUtime, err = self.readPopen("ps -ef | grep '"+process+"' | grep -v grep | awk '{print $7}'")
 		#501   672   655   0 12:04PM ??         1:27.53 /Library/Application Support/Perceptive Automation/Indigo 6/IndigoPluginHost.app/Contents/MacOS/IndigoPluginHost -p1176 -fSQL Logger.indigoPlugin
 		if len(CPUtime) < 4 or len(CPUtime) > 10: return -1 # not found
@@ -12019,9 +14043,23 @@ class Plugin(indigo.PluginBase):
 ######################################################################################
 
 	def triggerStartProcessing(self, trigger):
+		"""Indigo trigger lifecycle hook that registers a trigger by appending its id to the plugin's active trigger list.
+
+		Inputs:
+		    trigger (indigo.Trigger): Indigo trigger object being started
+		Outputs:
+		    None: appends trigger id to self.triggerList
+		"""
 		self.triggerList.append(trigger.id)
 	
 	def triggerStopProcessing(self, trigger):
+			"""Indigo trigger lifecycle hook that unregisters a trigger by removing its id from the plugin's active trigger list if present.
+
+			Inputs:
+			    trigger (indigo.Trigger): Indigo trigger object being stopped
+			Outputs:
+			    None: removes trigger id from self.triggerList
+			"""
 			if trigger.id in self.triggerList:
 				self.triggerList.remove(trigger.id)
 
@@ -12036,6 +14074,13 @@ class Plugin(indigo.PluginBase):
 ######################################################################################
 
 	def triggerEvent(self, eventId):
+		"""Fires all registered plugin triggers whose pluginTypeId matches the given event id, by iterating the active trigger list and executing each matching Indigo trigger.
+
+		Inputs:
+		    eventId (str): plugin trigger type id to match and execute
+		Outputs:
+		    None: executes matching Indigo triggers
+		"""
 		for trigId in self.triggerList:
 			trigger = indigo.triggers[trigId]
 			if trigger.pluginTypeId == eventId:
@@ -12045,6 +14090,13 @@ class Plugin(indigo.PluginBase):
 
 ####-------------------------------------------------------------------------####
 	def readPopen(self, cmd):
+		"""Runs a shell command via subprocess.Popen and returns its stdout and stderr decoded as UTF-8 strings; logs an error on failure.
+
+		Inputs:
+		    cmd (str): shell command to execute
+		Outputs:
+		    tuple: (stdout, stderr) decoded UTF-8 strings
+		"""
 		try:
 			ret, err = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
 			return ret.decode('utf_8'), err.decode('utf_8')
@@ -12053,6 +14105,14 @@ class Plugin(indigo.PluginBase):
 
 ####-------------------------------------------------------------------------####
 	def openEncoding(self, ff, readOrWrite):
+		"""Opens a file with UTF-8 encoding, using the built-in open() on Python 3 and codecs.open() on Python 2, returning the file object or an empty string on error.
+
+		Inputs:
+		    ff (str): path of the file to open
+		    readOrWrite (str): file mode such as 'r' or 'w'
+		Outputs:
+		    object: open file object, or empty string on failure
+		"""
 		try:
 			if sys.version_info[0]  > 2:
 				return open( ff, readOrWrite, encoding="utf-8")
@@ -12064,6 +14124,13 @@ class Plugin(indigo.PluginBase):
 
 	####-----------------	 ---------
 	def completePath(self,inPath):
+		"""Normalizes a directory path by ensuring it ends with a trailing slash, returning an empty string for empty or blank input.
+
+		Inputs:
+		    inPath (str): directory path to normalize
+		Outputs:
+		    str: path with a trailing slash, or empty string
+		"""
 		if len(inPath) == 0: return ""
 		if inPath == " ":	 return ""
 		if inPath[-1] != "/": inPath +="/"
@@ -12079,6 +14146,13 @@ class Plugin(indigo.PluginBase):
 			
 	####-----------------	 ---------
 	def decideMyLog(self, msgLevel):
+		"""Decides whether a message at a given debug level should be logged by checking the requested level against the configured debugLevel set.
+
+		Inputs:
+		    msgLevel (str): debug level tag of the message to test
+		Outputs:
+		    bool: True if the message should be logged, else False
+		"""
 		try:
 			if msgLevel	 == "all" or "all" in self.debugLevel:	 return True
 			if msgLevel	 == ""	 and "all" not in self.debugLevel:	 return False
@@ -12096,6 +14170,16 @@ class Plugin(indigo.PluginBase):
 # handler.setFormatter(formatter)
 class LevelFormatter(logging.Formatter):
 	def __init__(self, fmt=None, datefmt=None, level_fmts={}, level_date={}):
+		"""Initializes a LevelFormatter logging formatter, building per-level logging.Formatter instances from the given level format and date mappings plus a default format.
+
+		Inputs:
+		    fmt (str or None): default log format string
+		    datefmt (str or None): default date format string
+		    level_fmts (dict): mapping of log level to format string
+		    level_date (dict): mapping of log level to date format string
+		Outputs:
+		    None: constructs the formatter and sets up per-level formatters
+		"""
 		self._level_formatters = {}
 		self._level_date_format = {}
 		for level, format in level_fmts.items():
@@ -12105,6 +14189,13 @@ class LevelFormatter(logging.Formatter):
 		super(LevelFormatter, self).__init__(fmt=fmt, datefmt=datefmt)
 
 	def format(self, record):
+		"""Formats a log record using the formatter registered for the record's level if one exists, otherwise falling back to the default formatter.
+
+		Inputs:
+		    record (logging.LogRecord): log record to format
+		Outputs:
+		    str: formatted log message string
+		"""
 		if record.levelno in self._level_formatters:
 			return self._level_formatters[record.levelno].format(record)
 

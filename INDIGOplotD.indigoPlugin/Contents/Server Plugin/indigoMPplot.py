@@ -6,7 +6,7 @@
 # Developed by Karl Wachs
 # karlwachs@me.com
 # please use as you see fit, no warrenty
-import os, pwd, subprocess, sys
+import os, pwd, subprocess, sys, signal
 import codecs
 import time
 import datetime
@@ -31,17 +31,19 @@ import logging.handlers
 global logging, logger
 
 
-try:
-	str("x")
-except:
-	unicode = str
-
 #
 ########################################
 #	Main loop
 ########################################
 def main():
 # main loop check for comamnds and gather data and create plots
+	"""Runs the plugin's main loop: initializes global time-binning configuration, then repeatedly watches for a matplot command file, reloads plot parameters when changed, loads disk and event data, and triggers plot generation. Exits after 300 plot cycles or 12 minutes without new data so the parent process can restart it.
+
+	Inputs:
+	    None.
+	Outputs:
+	    None: runs the watch/plot loop and logs; returns when the loop ends
+	"""
 	global  parameterFile, indigoPNGdir
 	global quitNOW , fileData, parameterFile
 	global plotSizeNames, plotTimeNames, timeDataNumbers, dataVersion, parameterVersion,debugEnable,numberOfTimeTypes
@@ -88,7 +90,7 @@ def main():
 				f.close()
 				logger.log(20,"matplot input command read >>{}<<".format(xx))
 				fNamesToPlot = json.loads(xx)
-				if isinstance(fNamesToPlot, str) or isinstance(fNamesToPlot, unicode):
+				if isinstance(fNamesToPlot, str):
 					fNamesToPlot = [fNamesToPlot]
 				for fn in fNamesToPlot:
 					logger.log(20,"matplot input command read >>{}<<".format(fn))
@@ -131,6 +133,13 @@ def main():
 
 ########################################
 def readPlotParameters():
+	"""Reads the JSON parameter file written by IndigoPlotD and populates global plot configuration (PLOT, DEVICE, column-to-device mapping, data offset, PNG output directory), retrying up to three times on failure.
+
+	Inputs:
+	    None.
+	Outputs:
+	    bool: True if parameters were loaded successfully, False otherwise
+	"""
 	global PLOT,oldPLOT, DEVICE, dataColumnToDevice0Prop1Index
 	global  parameterFile,parameterFileD, indigoPNGdir, prefsDir
 	global dataOffsetInTimeDataNumbers
@@ -162,12 +171,26 @@ def readPlotParameters():
 
 ########################################
 def resettimeDataNumbers():
+	"""Resets the global timeDataNumbers structure to a fresh list of zero-filled bins, one list per time type sized to that type's number of time bins.
+
+	Inputs:
+	    None.
+	Outputs:
+	    None: reinitializes the global timeDataNumbers list
+	"""
 	global  numberOfPlots,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount, quitNOW
 	global timeDataNumbers
 	timeDataNumbers			=	[[0  for l in range(numberOfTimeBins[j])] for j in range(numberOfTimeTypes)]
 
 ########################################
 def getEventData():
+	"""Builds event-related global data by scanning configured device/state columns for event measurement types (up/down/change/count with optional reset and zero modifiers), then reads each matching device's SQL data file, parses timestamped lines, derives weekday and month/year-boundary flags, and stores the parsed event series.
+
+	Inputs:
+	    None.
+	Outputs:
+	    None: populates global eventData, eventIndex, and eventType dicts and logs
+	"""
 	global eventData, eventIndex, DEVICE, dataColumnToDevice0Prop1Index, eventType
 	eventData  = {}
 	eventIndex = {}
@@ -247,6 +270,13 @@ def getEventData():
 
 ########################################
 def getDiskData(tType):
+	"""Loads the on-disk time-series data file for the given time type, validating the line count against the expected number of bins (adjusting bin/day counts or quitting if mismatched), parses each line into timeDataNumbers, pads short rows to the expected column count, and sets the global newData flag by comparing against the previous load.
+
+	Inputs:
+	    tType (int): time-type index (0=minute, 1=hour, 2=day) selecting which data file to read
+	Outputs:
+	    bool: True if data was read; False on junk/invalid data, None if file missing
+	"""
 	global fileData
 	global parameterFile, indigoPNGdir
 	global plotSizeNames, plotTimeNames, fileData, dataVersion, parameterVersion,debugEnable
@@ -327,6 +357,15 @@ def getDiskData(tType):
 def firstLastDayToPlot(days, shift,tType):
 
 
+	"""Computes the earliest and last day/datetime boundaries to plot for a given time type, number of days, and shift code, handling minute/hour/day windows, continuous hourly shift, and fixed week/month/quarter/year ranges encoded by special negative shift values.
+
+	Inputs:
+	    days (int): number of days spanning the plot window
+	    shift (int): offset/mode code; negatives select fixed week/month/quarter/year windows
+	    tType (int): time-type index (0=minute, 1=hour, 2=day)
+	Outputs:
+	    tuple: (earliestDay, lastDay) as date/datetime objects
+	"""
 	d  =  datetime.date.today()
 	dd =  datetime.datetime(d.year,d.month,d.day,0,0,0)
 	ddn = datetime.datetime.now()
@@ -406,12 +445,26 @@ def firstLastDayToPlot(days, shift,tType):
 
 ########################################
 def secMillis(d0):
+	"""Returns the elapsed time since a starting datetime as a formatted 'seconds.microseconds' string, used for timing log messages.
+
+	Inputs:
+	    d0 (datetime.datetime): start time to measure elapsed duration from
+	Outputs:
+	    str: elapsed time formatted as seconds.microseconds
+	"""
 	d =datetime.datetime.now()-d0
 	return "{:2.0f}.{:3.0f}".format(d.seconds,d.microseconds)
 
 
 ########################################
 def plotNow(filenamesToPlot):
+	"""Generates all requested plots: sets up reference datetimes (now and next midnight), iterates over every plot definition in PLOT calling do_nPlot for each, then cleans up matplotlib figure/axes resources and saves the current PLOT as oldPLOT for change detection.
+
+	Inputs:
+	    filenamesToPlot (list): plot names to render (or empty/'do all plots' for all)
+	Outputs:
+	    None: drives per-plot rendering, cleans up matplotlib state, and logs
+	"""
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
 	global newData, plotDatastore
 	global numberOfPlots,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
@@ -433,10 +486,7 @@ def plotNow(filenamesToPlot):
 		do_nPlot(nPlot, filenamesToPlot)
 
 	try:
-		fig.clf()
-		plt.close(fig)
-		if y1: del ax
-		if y2: del ax2
+		plt.close("all")
 	except:
 		pass
 
@@ -449,9 +499,15 @@ def plotNow(filenamesToPlot):
 
 def comparePLOT(oldPlot, newPlot):
 
+	"""Deeply compares two plot-definition dicts (handling nested one-level dicts) and reports whether they are equal, used to detect whether a plot's definition changed; on Python 2 it falls back to cmp.
+
+	Inputs:
+	    oldPlot (dict): previous plot definition
+	    newPlot (dict): current plot definition
+	Outputs:
+	    bool: True if equal (Py3) / cmp result (Py2); False if differing or on error
+	"""
 	try:
-		if sys.version_info[0] < 3:
-			return cmp(oldPlot, newPlot)
 		for kk in oldPlot:
 			if kk not in newPlot: return False
 			if type(oldPlot[kk]) == type({}):
@@ -466,6 +522,14 @@ def comparePLOT(oldPlot, newPlot):
 	return True
 
 def do_nPlot(nPlot,filenamesToPlot):
+	"""Processes a single plot definition: checks whether it is enabled and requested, decides whether re-plotting is needed (new data, changed definition, or missing PNG files), parses scale ranges, X-axis date format, border colors, and either loads non-time-series data from a file or uses binned time-series data, then calls do_PlottType for each time type to actually render.
+
+	Inputs:
+	    nPlot (str): key identifying the plot definition within the PLOT dict
+	    filenamesToPlot (list): plot names requested for rendering, or empty/'do all plots'
+	Outputs:
+	    None: configures globals and triggers per-time-type rendering; early-returns when skipping, logs errors
+	"""
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
 	global newData, plotDatastore
 	global numberOfPlots,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
@@ -609,7 +673,7 @@ def do_nPlot(nPlot,filenamesToPlot):
 					DeviceNamePlotpng0= indigoPNGdir+plotN["DeviceNamePlot"]
 					# check if new data:
 					if plotN["DeviceNamePlot"] in NOTdataFromTimeSeries:
-						if comp(NOTdataFromTimeSeries[plotN["DeviceNamePlot"]],plotDatastore)!=0:
+						if comparePLOT(NOTdataFromTimeSeries[plotN["DeviceNamePlot"]],plotDatastore)!=0:
 							NOTdataFromTimeSeries[plotN["DeviceNamePlot"]]= copy.deepcopy(plotDatastore)
 							doPLOT=True
 					logger.log(10,"#c:"+str(colsToPlot)+"; grid:"+plotN["Grid"]+"; 0Ln:"+str(plotN["drawZeroLine"])+";  doPlot: "+ str(doPLOT)+";  HW: "+ str(plotN["boxWidth"] )+"; rows: "+str(rows)+ "; Border Color: "+ str(BorderColor)+";  Background Color: "+ plotN["Background"])
@@ -628,6 +692,18 @@ def do_nPlot(nPlot,filenamesToPlot):
 					
 def do_PlottType( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
+	"""Dispatcher for one plot/time-type: calls do_prepData to gather and bin the data, and if any data was returned, calls do_DisplayData to render and save the plot images.
+
+	Inputs:
+	    plotN (dict): configuration dictionary for one plot definition
+	    filenamesToPlot (list): data file names/sources to read for this plot
+	    XisDate (bool): whether the X axis is a date/time axis
+	    tType (int): time-type index (0=hour/raw, 1, 2 selecting the time aggregation)
+	    colOffset (int): column offset into the data columns
+	    BorderColor (list): list of border/axis colors per side
+	Outputs:
+	    None: orchestrates data prep and plotting via side effects; logs errors
+	"""
 	try:
 		anyData = do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor)
 
@@ -640,6 +716,18 @@ def do_PlottType( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor)
 
 
 def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
+	"""Prepares and aggregates the raw data for a plot: builds the X time axis, selects which data columns map to left/right lines, and processes time-series/event data (up, down, change, count with day/week/month/year/bin resets) into per-column value, time, and weight arrays for later plotting.
+
+	Inputs:
+	    plotN (dict): configuration dictionary for one plot definition
+	    filenamesToPlot (list): data file names/sources to read for this plot
+	    XisDate (bool): whether the X axis is a date/time axis
+	    tType (int): time-type index selecting the time aggregation
+	    colOffset (int): column offset into the data columns
+	    BorderColor (list): list of border/axis colors per side
+	Outputs:
+	    int: count of data items prepared (anyData), used to decide whether to plot; sets many module globals
+	"""
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
 	global newData, plotDatastore, weightDataToPlot
 	global numberOfPlots,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
@@ -905,7 +993,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 										countTimeBins+=1
 										if plotN["PlotType"] == "dataFromTimeSeries" and colToPlot[col][0] < 0:
-											yyy=float(countTimeBinsWithData*(mul-off)) ## for straight line 
+											yyy=float(countTimeBinsWithData*mul+off) ## for straight line 
 											theColumnValues.append(yyy) ## for straight line 
 											xtimeForOneCol.append(shiftedTime)
 											countTimeBinsWithData+=1
@@ -992,7 +1080,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 												if not firstData: continue	# skip first sets of data if there is nothing, need at least one !=0 number to start
 											if yIsText:   
 												theValue=yy
-											elif yy is not None:
+											elif yy is not None:   # <<<--- this is the normal line plot 
 												theValue= yy*mul+off
 											countTimeBinsWithData+=1
 											#logger.log(10,"step3")
@@ -1166,7 +1254,6 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 
 
-
 							# line smoothing with cspline
 							#					if nPlot == "944299738":
 							#						logger.log(10,str(theColumnValues))
@@ -1233,7 +1320,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 												xxT.append(tt)
 								try:
 									if scipyInstalled:
-										#splineParams, fp,ier,msg= scipy.interpolate.splrep (xx1, theColumnValues, k=3, s=smooth , full_output=1)  #  smooth factor 50  least smoothing
+										splineParams, fp,ier,msg= scipy.interpolate.splrep (xx1, theColumnValues, k=3, s=smooth , full_output=1)  #  smooth factor 50  least smoothing
 										logger.log(10, " smoothing plot: \""+ plotN["TitleText"]+"\" line# " + str(lCol)+", ierr:"+ str(ier)+", msg: "+str(msg))
 										logger.log(10, " smoothing plot: fp "+ str(fp), 1)
 										yy = scipy.interpolate.splev(xx,splineParams)  # y values
@@ -1249,7 +1336,7 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 									logger.log(10, " error smoothing plot: \"{}\" line# {} not suited for smoothing, either data not consecutive, or too steep, switched parameter to non-smooth".format(plotN["TitleText"], lCol) )
 									plotN["lines"][lCol]["lineSmooth"] ="None"
 									xtimeCol[col]         = xtimeForOneCol
-									columnDataToPlot[col] = heColumnValues
+									columnDataToPlot[col] = theColumnValues
 								else:
 									columnDataToPlot[col] =yy  # y values
 									xtimeCol[col]=xxT  # x values
@@ -1331,6 +1418,17 @@ def do_prepData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
 
 
 def getminMaxPerTimeperiod(minMax,timePeriod,xtimeForOneCol,theColumnValues,weight):
+	"""Computes per-time-period extrema (minimum or maximum) of a column's values: walks the time/value samples grouped by the given strftime time-period format and collects the X, Y (and optional weight) of the min or max within each period.
+
+	Inputs:
+	    minMax (int): sign selector: positive for maximum, negative for minimum
+	    timePeriod (str): strftime format string defining the grouping period; empty for whole range
+	    xtimeForOneCol (list): list of datetime values for the column's samples
+	    theColumnValues (list): the numeric values for each sample
+	    weight (list): optional per-sample weights (empty if unused)
+	Outputs:
+	    tuple: three lists (xvals, yvals, weights) of the extrema per period; empty lists on error
+	"""
 	global eventData, eventIndex, DEVICE, dataColumnToDevice0Prop1Index
 
 	try:
@@ -1381,6 +1479,18 @@ def getminMaxPerTimeperiod(minMax,timePeriod,xtimeForOneCol,theColumnValues,weig
 
 
 def do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColor):
+	"""Sets up matplotlib rcParams (fonts, tick sizes, colors, padding) based on the plot config, then for each of the two output sizes computes resolution and text size and dispatches to do_xyPlot or do_polar to render the plot.
+
+	Inputs:
+	    plotN (dict): configuration dictionary for one plot definition
+	    filenamesToPlot (list): data file names/sources for this plot
+	    XisDate (bool): whether the X axis is a date/time axis
+	    tType (int): time-type index selecting the time aggregation
+	    colOffset (int): column offset into the data columns
+	    BorderColor (list): list of border/axis colors per side
+	Outputs:
+	    None: configures matplotlib and triggers rendering of the plot images; logs errors
+	"""
 	global PLOT,oldPLOT, NOTdataFromTimeSeries
 	global newData, plotDatastore, weightDataToPlot
 	global numberOfPlots,  noOfDays, numberOfMinutesInTimeBins, numberOfTimeTypes, numberOfTimeBins, dataColumnCount
@@ -1464,6 +1574,27 @@ def do_DisplayData( plotN, filenamesToPlot, XisDate, tType,colOffset, BorderColo
 
 
 def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,BorderColor,firstDaytoPlot,lastDaytoPlot,y1,y2,tType,XisDate):
+	"""Renders an XY (Cartesian) matplotlib plot from the prepared data: creates the figure, applies title and extra text, configures left and right Y axes (labels, log scale, ranges, custom ticks, formatting), grids, and draws the lines, eventually saving the image.
+
+	Inputs:
+	    plotN (dict): configuration dictionary for one plot definition
+	    xres (float): figure width in inches
+	    yres (float): figure height in inches
+	    DeviceNamePlotpng (str): output PNG file path for the plot
+	    xMax (float): maximum X-axis value
+	    xMin (float): minimum X-axis value
+	    textSize (float): base font size for the plot text
+	    BordOff (list): per-side flags ('0') toggling border/tick visibility
+	    BorderColor (list): list of border/axis colors per side
+	    firstDaytoPlot (datetime.datetime): first time/date to plot on the X axis
+	    lastDaytoPlot (datetime.datetime): last time/date to plot on the X axis
+	    y1 (bool): whether a left (primary) Y axis is used
+	    y2 (bool): whether a right (secondary) Y axis is used
+	    tType (int): time-type index selecting the time aggregation
+	    XisDate (bool): whether the X axis is a date/time axis
+	Outputs:
+	    None: builds and saves the XY plot image as side effects; logs errors
+	"""
 	global MHD, xtimeCol, colsToPlot, columnDataToPlot,weightDataToPlot, zeroYColumn,xTime, emptyBlanks
 	global eventData, eventIndex, DEVICE, dataColumnToDevice0Prop1Index
 						
@@ -2081,6 +2212,19 @@ def  do_xyPlot(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin, textSize,BordOff,
  
 
 def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
+	"""Renders a polar matplotlib plot from the prepared data: creates a polar figure, draws each configured line (solid/dashed/dot styles), sets radial scale/limits and tick labels, builds directional (compass) angular labels, configures grid, legend and axis labels, then saves the image and frees the figure memory.
+
+	Inputs:
+	    plotN (dict): configuration dictionary for one plot definition
+	    xres (float): figure width in inches
+	    yres (float): figure height in inches
+	    DeviceNamePlotpng (str): output PNG file path for the plot
+	    xMax (float): maximum radial value (set_rmax)
+	    xMin (float): minimum radial value (set_rmin)
+	    tType (int): time-type index, used in the completion log message
+	Outputs:
+	    None: builds, saves, and cleans up the polar plot image as side effects; logs errors
+	"""
 	global eventData, eventIndex, DEVICE, dataColumnToDevice0Prop1Index
 	global MHD, xtimeCol, colsToPlot, columnDataToPlot
 	try:
@@ -2088,8 +2232,8 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 		fig = plt.figure(facecolor=plotN["Background"],figsize=(xres,yres),dpi=100)
 		fig.suptitle(plotN["TitleText"], y=0.98)
 		if len(plotN["ExtraText"]) > 0:
-			if plotN["ExtraTextFrontBack"] == "back": alpaText = 0.5
-			else:alpaText = 1.0
+			if plotN["ExtraTextFrontBack"] == "back": alphaText = 0.5
+			else:alphaText = 1.0
 			try: 	ExtraTextRotate = float(plotN["ExtraTextRotate"])
 			except: ExtraTextRotate = 0.
 			try: 	ExtraTextXPos = float(plotN["ExtraTextXPos"])
@@ -2252,6 +2396,15 @@ def do_polar(plotN, xres,yres, DeviceNamePlotpng, xMax,xMin,tType):
 
 
 def set_border(BordOff, ax, ax2=""):
+	"""Hides selected plot borders and ticks: for each side flagged '0' in BordOff, disables the corresponding ticks and makes that spine invisible on the primary axis, and on the secondary axis when one is provided.
+
+	Inputs:
+	    BordOff (list): four-element list of per-side flags ('0' hides bottom/left/top/right)
+	    ax (matplotlib.axes.Axes): primary axes to modify
+	    ax2 (matplotlib.axes.Axes or str): optional secondary axes; empty string skips it
+	Outputs:
+	    None: modifies axis spines and ticks in place; logs errors
+	"""
 	try:
 		if BordOff[0] == "0":
 			ax.tick_params( axis="x", which="both", bottom="off", top="off")
@@ -2287,6 +2440,17 @@ def set_border(BordOff, ax, ax2=""):
 def save_plot(DeviceNamePlotpng, fig, plt, TransparentBackground, compressPNGfile):
 
 	#### create / save  PLOT 
+	"""Saves the matplotlib figure to a PNG file (transparent or with background color depending on the setting), and optionally runs the bundled pngquant tool to compress the PNG in place.
+
+	Inputs:
+	    DeviceNamePlotpng (str): output PNG file path
+	    fig (matplotlib.figure.Figure): the figure being saved (used for facecolor)
+	    plt (module): the matplotlib.pyplot module used to call savefig
+	    TransparentBackground (str): flag string; '0.0' means save with transparent background
+	    compressPNGfile (bool): whether to run pngquant compression on the saved file
+	Outputs:
+	    None: writes (and optionally compresses) the PNG image file; logs errors
+	"""
 	try:
 		logger.log(10,"Saving.." )
 		if str(TransparentBackground) == "0.0":		plt.savefig(DeviceNamePlotpng,transparent=True,              edgecolor='none')  # creates file with .png
@@ -2309,6 +2473,14 @@ def save_plot(DeviceNamePlotpng, fig, plt, TransparentBackground, compressPNGfil
 ####-------------------------------------------------------------------------####
 def openEncoding( ff, readOrWrite):
 
+		"""Opens a file for reading or writing with UTF-8 encoding, using the built-in open on Python 3 and codecs.open on Python 2.
+
+		Inputs:
+		    ff (str): path of the file to open
+		    readOrWrite (str): file mode string, e.g. 'r' or 'w'
+		Outputs:
+		    io.TextIOBase: an opened UTF-8 file object
+		"""
 		if sys.version_info[0]  > 2:
 			return open( ff, readOrWrite, encoding="utf-8")
 		else:
@@ -2395,6 +2567,7 @@ fileData.append(prefsDir+"data/"+plotTimeNames[1]+".dat")
 fileData.append(prefsDir+"data/"+plotTimeNames[2]+".dat")
 
 
+#python3 indigoMPplot.py '{"indigoDir": "/Library/Application Support/Perceptive Automation/Indigo 2025.1/", "logfile": "/Library/Application Support/Perceptive Automation/Indigo 2025.1/Logs/com.karlwachs.INDIGOplotD/plugin.log", "prefsDir": "/Library/Application Support/Perceptive Automation/Indigo 2025.1/Preferences/Plugins/com.karlwachs.INDIGOplotD/", "loglevel": true}'
 
 
 

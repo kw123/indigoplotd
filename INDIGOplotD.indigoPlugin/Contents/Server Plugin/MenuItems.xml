@@ -1062,7 +1062,7 @@
 
     <MenuItem id="d40"> <Name>-----------------------------------------------</Name><CallbackMethod>inpDummy</CallbackMethod></MenuItem>
     <MenuItem id="menu4">
-        <Name>Re-load Data from SQL Database </Name>
+        <Name>Re-load ALL Data from SQL Database </Name>
         <CallbackMethod>inpReloadSQL</CallbackMethod></MenuItem>
 
     <MenuItem id="menu41">
